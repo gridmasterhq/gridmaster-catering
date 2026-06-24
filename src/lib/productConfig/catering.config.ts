@@ -34,12 +34,15 @@ const cateringConfig: ProductConfig = {
   },
   labels: {
     command_center: 'Command Center',
+    calendar: 'Calendar',
     coordinator: 'Coordinator',
     check_in: 'check in',
     check_out: 'check out',
     times_logged: 'times logged',
     interest_list: 'Interest List',
     estimated_hours: 'Estimated Hours',
+    footer_ask_ai: 'Ask GridMaster AI',
+    footer_community: 'GridMaster Community',
   },
   colors: {
     brand_navy: '#1B3A5C',

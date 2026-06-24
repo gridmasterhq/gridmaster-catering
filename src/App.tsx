@@ -1,3 +1,4 @@
+import AppShell from './components/shared/AppShell'
 import cateringConfig from './lib/productConfig'
 import {
   ProductConfigProvider,
@@ -7,7 +8,11 @@ import {
 function AppContent() {
   const { brand_name } = useProductConfig()
 
-  return <div>{brand_name}</div>
+  return (
+    <AppShell>
+      <div>{brand_name}</div>
+    </AppShell>
+  )
 }
 
 function App() {

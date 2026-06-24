@@ -12,12 +12,15 @@ export interface ProductNavigation {
 
 export interface ProductLabels {
   command_center: string
+  calendar: string
   coordinator: string
   check_in: string
   check_out: string
   times_logged: string
   interest_list: string
   estimated_hours: string
+  footer_ask_ai: string
+  footer_community: string
 }
 
 export interface ProductColors {
