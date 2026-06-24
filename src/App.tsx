@@ -1,24 +1,14 @@
 import AppShell from './components/shared/AppShell'
 import cateringConfig from './lib/productConfig'
-import {
-  ProductConfigProvider,
-  useProductConfig,
-} from './lib/hooks/useProductConfig'
-
-function AppContent() {
-  const { brand_name } = useProductConfig()
-
-  return (
-    <AppShell>
-      <div>{brand_name}</div>
-    </AppShell>
-  )
-}
+import { ProductConfigProvider } from './lib/hooks/useProductConfig'
+import LoginPage from './pages/auth/LoginPage'
 
 function App() {
   return (
     <ProductConfigProvider value={cateringConfig}>
-      <AppContent />
+      <AppShell>
+        <LoginPage />
+      </AppShell>
     </ProductConfigProvider>
   )
 }

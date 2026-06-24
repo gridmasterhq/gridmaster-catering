@@ -43,6 +43,16 @@ const cateringConfig: ProductConfig = {
     estimated_hours: 'Estimated Hours',
     footer_ask_ai: 'Ask GridMaster AI',
     footer_community: 'GridMaster Community',
+    sign_in_heading: 'Sign in to your account',
+    sign_in: 'Sign In',
+    signing_in: 'Signing in...',
+    email: 'Email',
+    password: 'Password',
+    password_reset_note:
+      'Contact your GridMaster administrator to reset your password.',
+    signed_in_success: 'Signed in successfully',
+    error_invalid_credentials: 'Invalid email or password.',
+    error_network: 'Network error. Please try again.',
   },
   colors: {
     brand_navy: '#1B3A5C',

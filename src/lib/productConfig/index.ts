@@ -21,6 +21,15 @@ export interface ProductLabels {
   estimated_hours: string
   footer_ask_ai: string
   footer_community: string
+  sign_in_heading: string
+  sign_in: string
+  signing_in: string
+  email: string
+  password: string
+  password_reset_note: string
+  signed_in_success: string
+  error_invalid_credentials: string
+  error_network: string
 }
 
 export interface ProductColors {
