@@ -1,0 +1,449 @@
+# ============================================================
+# GRIDMASTER HQ — .cursorrules
+# Authoritative build rules for gridmasterhq/gridmaster-catering
+# Must be in project root before ANY component is generated.
+# Last updated: Jun 24 2026
+# ============================================================
+
+## IDENTITY
+
+This is GridMaster HQ Catering — a multi-tenant, AI-powered staffing and operations
+platform for the hospitality and events industry. It is built with React + Vite +
+TypeScript, Tailwind CSS, and Supabase (PostgreSQL + Auth + RLS).
+
+Brand name: GridMaster HQ
+Domain: gridmasterhq.com
+Current product: Catering
+GitHub repo: gridmasterhq/gridmaster-catering
+Supabase project: gridmaster-catering (East US Ohio)
+Vercel team: GridMaster HQ
+
+---
+
+## THE FIVE UNBREAKABLE BUILD RULES
+
+RULE 1 — CONFIG FIRST.
+Every component reads from productConfig before it renders anything.
+Zero hardcoded product names, labels, colors, or feature flags anywhere in component code.
+If you are about to hardcode the word "Catering", "GridMaster", a hex color, or a nav label
+inside a component — STOP. Read it from productConfig instead.
+
+RULE 2 — SCHEMA BEFORE SCREENS.
+The full Supabase schema (v1.0 + Patch v2.0) must be applied before writing any screen.
+Do not invent table or column names. Use only what is defined in the schema documents.
+
+RULE 3 — SHARED COMPONENTS ARE BUILT ONCE.
+If a component is marked SHARED, it lives in src/components/shared/ and is never rebuilt.
+Do not create a duplicate version of a shared component inside a page or feature folder.
+If you need a shared component and it doesn't exist yet, build it in shared/ first.
+
+RULE 4 — TEST EACH PHASE BEFORE MOVING TO THE NEXT.
+Do not scaffold the next screen until the current one passes its defined test criteria.
+
+RULE 5 — .cursorrules IS ACTIVE.
+You are reading these rules. They govern every file you create, every component you write,
+every Supabase query you generate. When in doubt, refer back here.
+
+---
+
+## BRAND & VISUAL IDENTITY
+
+Logo wordmark: "GridMaster" in navy #1B3A5C + "HQ" in red #C0392B as one unit.
+Module subtitle: plain text below wordmark — "Catering" (no quotes, no punctuation).
+Dark background variant: GridMaster in white, HQ in red #E74C3C.
+
+### Color Tokens — Use These Everywhere
+
+| Token              | Hex       | Usage                                           |
+|--------------------|-----------|--------------------------------------------------|
+| brand-navy         | #1B3A5C   | Headers, primary buttons, nav bars, GridMaster wordmark |
+| brand-mid-blue     | #2E75B6   | Subheadings, secondary buttons, right nav bar, borders |
+| brand-light-blue   | #D5E8F0   | Screen backgrounds, card backgrounds            |
+| brand-red          | #C0392B   | HQ wordmark, Command Center left bar, Emergency buttons |
+| brand-red-dark     | #E74C3C   | HQ wordmark on dark backgrounds                 |
+| status-green       | #22C55E   | Fully staffed, confirmed, success states        |
+| status-amber       | #F59E0B   | In progress, pending, warning states            |
+| status-red         | #EF4444   | Needs attention, SOS, critical alerts           |
+| status-blue        | #3B82F6   | Soft hold                                       |
+| text-body          | #444444   | All body text                                   |
+| white              | #FFFFFF   | Card backgrounds, text on dark                  |
+| orange-vending     | #C85000   | Vending-specific elements and warning callouts  |
+| green-success      | #1A6B3C   | Confirmed status, locked decisions              |
+
+NEVER hardcode any color value directly in a component.
+Always reference Tailwind CSS classes mapped to these tokens, or CSS variables.
+
+---
+
+## INTERFACE ARCHITECTURE — THREE TIERS
+
+Tier 1 — Desktop web app (React + Vite, same codebase):
+  Coordinators, Owners, Managers. Full portal. Event building, grid management,
+  BEO upload, staff roster, reporting, settings.
+
+Tier 2 — PWA (Progressive Web App, same React codebase, responsive + PWA wrapper):
+  Coordinators and Owners only. Mobile Command Center for event-day reactive actions.
+  8 actions only — no event building, no BEO upload, no roster management on PWA.
+  Works under poor connectivity (cached). Push notifications for swap requests and SOS.
+
+Tier 3 — SMS deep links (mobile web pages sent via SMS):
+  Captains and Staff only. No app. No install. No login.
+  Staff authenticate via phone number + SMS OTP.
+  Coordinators/Owners authenticate via email + password (Supabase Auth).
+
+---
+
+## AUTHENTICATION
+
+Coordinators, Owners, Managers: email + password via Supabase Auth.
+Staff and Captains: phone number as primary key + SMS OTP.
+Do NOT mix these authentication paths.
+
+Phone number is the universal primary key for all staff, captains, supervisors.
+Every staff record is identified by mobile phone number — not email, not username.
+
+---
+
+## LANGUAGE RULES — NON-NEGOTIABLE
+
+These terms are BANNED. If you write them, delete them immediately:
+  - "clock in" → always "check in"
+  - "clock out" → always "check out"
+  - "hours logged" → always "times logged"
+  - "dashboard" → always "Command Center"
+  - "Save the Date" (for staff responses) → always "Interest List"
+  - "clock-out code" → always "check-out code"
+
+These terms are REQUIRED:
+  - "Command Center" — not dashboard, not home screen, not overview
+  - "check in" / "check out" — always two words when used as a verb
+  - "Estimated Hours" — staff portal only, labeled as estimate, never as payroll hours
+  - "Interest List" — official platform language for staff pre-commitment responses
+
+NEVER reference payroll, pay rates, or payment processing in any staff-facing screen.
+
+---
+
+## NAVIGATION ARCHITECTURE
+
+Top bar is a THREE-PART STRIP — all the same height:
+  Left: Red bar (#C0392B). Label: COMMAND CENTER. Hamburger (☰) on far left.
+  Center: White box. GridMaster HQ wordmark. Only as wide as the wordmark needs.
+  Right: Blue bar (#1B3A5C). Label: CALENDAR. Hamburger (☰) on far right.
+
+Each hamburger opens a COLORED OVERLAY sidebar from its side:
+  Red (left) menu items: AI Mode, Settings, User Management, Notifications, Agency,
+    Competing Events, Pay Rates, Transport, Integrations, Expert Mode, Help.
+  Blue (right) menu items: New Event, Event Settings, Staff, Clients, Roles,
+    Templates, Reports, Incentives, Expert Mode, Help.
+
+Navigation items MUST come from productConfig.navigation — never hardcoded.
+
+Footer: hidden during active operations. Appears only when user scrolls to bottom.
+  Two links: "Ask GridMaster AI" and "GridMaster Community". Open in device browser.
+
+---
+
+## EXPERT MODE
+
+Per-page toggle. State saved per page independently.
+Active state: ⚡ icon replaces toggle.
+First-time users: default to Normal mode.
+Suggestion to enable fires at 20 events completed — once only.
+
+Expert Mode REMOVES: helper text, field descriptions, section explanations,
+  tooltips, onboarding hints, empty state explanations.
+Expert Mode KEEPS: action buttons, status indicators, SOS button, star rating
+  selectors, essential data fields, navigation, error messages, red alerts.
+Expert Mode MAKES LARGER: input fields, text, buttons, tap targets.
+Mobile Expert Mode: more aggressive label removal, full-width buttons,
+  minimum 16px text, increased vertical spacing, bottom navigation bar.
+
+Coordinator profile: global Expert Mode toggle that sets all coordinator pages.
+Owner/Admin controls all permissions. Individual pages can override the global setting.
+
+---
+
+## PRODUCTCONFIG STRUCTURE
+
+productConfig is the single source of truth for all product-level customization.
+Every component that renders a label, color, feature flag, or nav item reads from it.
+
+Required top-level keys:
+  product_type       — "catering" | "vending" | "gigs" | "venues" | "services"
+  product_name       — display name, e.g. "Catering"
+  brand_name         — always "GridMaster HQ"
+  trial_days         — 45 for Catering and Vending; 30 for Gigs
+  navigation         — array of nav items per sidebar (red/blue)
+  features           — feature flags object
+  labels             — overridable label map (e.g. "Command Center", "Coordinator")
+  colors             — Tailwind class overrides if product-specific
+  roles              — ordered list of roles available in this product
+  sms_keywords       — full keyword list
+  pricing            — tier definitions
+
+Catering-specific config keys:
+  event_types        — array with label, color bar hex, and calendar display properties
+  grid_departments   — FOH | BOH | Setup/Breakdown | Other
+  standard_roles     — server, bartender, bar_back, food_runner, captain, setup_crew,
+                       line_cook, prep_cook, dishwasher, kitchen_runner
+  rating_floors      — 1–4 star tap UI configuration
+  buffer_options     — [0, 5, 10, 15, 20] — coordinator actively chooses, no default
+  certifications     — TIPS, ServSafe, food handler, custom
+
+---
+
+## SUPABASE RULES
+
+organization_id appears on EVERY table without exception.
+Every query filters by organization_id — no exceptions.
+Phone number is the primary key for all staff records.
+All tables include created_at and updated_at (auto-managed by Supabase).
+Soft deletes only — archived records are never hard-deleted.
+Row Level Security is enabled on every table.
+Use Supabase RLS policies — never bypass with service_role key in frontend code.
+The service_role key never goes in frontend code or the .env VITE_ namespace.
+
+Table names to use (do not invent new ones):
+  organizations, users, staff, staff_roles, staff_certifications, staff_availability,
+  clients, client_locations, events, event_sections, event_grid_rows,
+  event_staff_assignments, outreach_messages, staff_responses, ratings, check_ins,
+  check_outs, temp_agencies, temp_agency_requests, temp_agency_rosters,
+  invoice_reconciliations, sos_incidents, competing_events, sms_keywords,
+  training_tips, (plus all Patch v2.0 additions)
+
+---
+
+## RATING SYSTEM
+
+Staff ratings: 1–4 stars. Never 5 stars. Never a slider. Never a text input.
+The RatingStarSelector component is a 4-tap UI. Tap = set, hold = submit.
+Minimum 1 star. No zero rating option. Confirm tap required before submitting.
+Ratings are INTERNAL. Staff never see their own rating.
+Star count on staff cards: coordinator/captain view only.
+
+Rating floor on grid rows: set via same 4-star tap UI.
+Event-level floor set at top of Build Grid — all slots inherit.
+Position-level override available but must not lower below event floor silently.
+Safety check: if more than 30% of slots on a Wedding or Gala are set to 1-star,
+  system flags this before saving.
+
+---
+
+## SCHEDULING RULES
+
+One staff member = one slot per event day. Hard block at database level.
+Exception: 3-hour gap between shifts allows two assignments same day.
+All 3-hour gap overrides are logged with: approver, timestamp, amber ⚠ badge.
+Never silently override a scheduling conflict. Always surface it to the coordinator.
+
+---
+
+## AUTOMATED ACTIONS — REQUIRE COORDINATOR APPROVAL
+
+These actions NEVER publish automatically without coordinator review:
+  - AI grid suggestions
+  - Schedule disruptions affecting confirmed staff
+  - Channel resets (GridMaster Connect)
+  - Follow-up SMS at 48-hour postponement window
+
+Option B (flag and prompt) is the standard pattern for automated changes.
+The coordinator sees the proposed change and must approve before it fires.
+
+---
+
+## CANCELLATION & POSTPONEMENT
+
+Cancelled event pill: black background, white text, event name only, no time.
+Cancelled events: hidden by default behind "Show Cancelled" toggle (off by default).
+Cancellation flow: coordinator taps event → Cancel Event → confirmation prompt →
+  fires on confirm. Confirmation text: "This will release all confirmed staff and
+  cannot be undone. Continue?"
+Cancellation priority flag: 14 days for all cancellation types including force majeure.
+Priority flag badge: "Recently cancelled" — visible to coordinator only.
+Flag expires at 14 days OR when staff works their next event, whichever comes first.
+
+Postponed event pill: black background, white text, reads "postponed · hold".
+Shown at original date until new date confirmed.
+Postponement staff SMS: "[Company]: [Event Name] has been moved to [New Date].
+  Can you still make it? Reply YES or NO."
+Response window: 48 hours. Follow-up SMS requires coordinator approval before sending.
+
+Emergency Cancel: red button inside event — separate from standard Cancel Event.
+One tap, fires immediately, no confirmation delay.
+Emergency Postpone option available on same Emergency Cancel screen.
+
+---
+
+## SOS CENTER
+
+SOS Urgent: medical, fire, major venue failure, safety threat.
+  → All management immediately. Escalates at 5 and 10 minutes if no response.
+Alert — Needs Attention: missing supplies, staffing gap, venue access.
+  → Coordinator + backup. Escalates at 15 minutes.
+Update — FYI: minor issue. Coordinator only. No escalation.
+
+Person who triggers SOS is the ONLY person who can mark it resolved.
+SOS is always internal — client never knows.
+Staff do not have an SOS button. Pre-event personal emergencies via SMS keyword SOS only.
+
+---
+
+## MOBILE COMMAND CENTER (PWA — CATERING)
+
+8 actions and nothing else. This is not an event-building screen.
+
+1. All-events status strip (green/amber/red dot + captain check-in + health check dot)
+2. Call-out → instant backfill (one tap triggers rated replacement search)
+3. Staff transfer (moves staff between events; both grids update; captain notified via SMS)
+4. Emergency fill — single position (filter by role and rating floor)
+5. Unexpected temp approval (approve or flag; captain notified instantly)
+6. Shift swap approval (both events side by side; approve or deny; both captains notified)
+7. Late arrival logging (expected time; captain auto-notified; grid updated)
+8. Quick staff contact (tap to call or SMS any staff member across active events)
+
+Rating floor on transfer: when coordinator transfers a higher-rated staff member,
+  system shows the minimum rating tier needed to fill the vacated slot.
+
+---
+
+## CAPTAIN HEALTH CHECK SMS
+
+Fires 2 hours before event start time.
+Reply options: 1 = All good | 2 = Waiting | 3 = Need help.
+Health check dot is separate from and smaller than the main event status dot.
+  Green = replied 1 | Amber = no reply in 20 min OR replied 2 | Red = replied 3.
+No-reply at 20 minutes: amber dot, no push notification to coordinator.
+1-hour check: skipped if captain replied 1 at 2-hour mark.
+  Fires if captain replied 2, 3, or did not respond.
+
+---
+
+## STAFF CARD COMPONENT (SHARED)
+
+Fields: photo, preferred name, role, rating stars (★ ☆), status dot, availability %.
+Photo loads from Supabase Storage. Missing photo: show initials avatar.
+Rating displayed as filled/empty stars out of 4.
+Status dot color matches check-in status.
+Used in: Fill Positions, Command Center, Captain Portal, PWA.
+Coordinator and captain views differ — rating stars visible to coordinator only.
+
+---
+
+## SMS & MULTI-LANGUAGE
+
+Phase 1: English and Spanish.
+Architecture supports additional languages from day one (Portuguese, Haitian Creole, French in Phase 2+).
+Standard templates: pre-translated by human translator.
+Custom coordinator messages: Claude API translation per tap (~$0.001/message).
+  Coordinator reviews translation before sending.
+Three send options per outreach: Send as typed | Translate to Spanish |
+  Send both (English to English-preference, Spanish to Spanish-preference simultaneously).
+Staff language preference: set during onboarding, changeable in My Profile. Default: English.
+System checks staff.language_preference before every Twilio send.
+
+---
+
+## FILE STRUCTURE CONVENTIONS
+
+src/
+  components/
+    shared/         ← ALL shared components live here. Built once, never rebuilt.
+    catering/       ← Catering-specific components only
+  pages/
+    catering/       ← Full-screen pages for Catering coordinator portal
+    captain/        ← Captain portal pages (SMS deep link targets)
+    staff/          ← Staff portal pages (SMS deep link targets)
+    pwa/            ← PWA-specific Mobile Command Center pages
+  lib/
+    supabase.ts     ← Supabase client initialization (uses VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY)
+    productConfig/  ← productConfig definitions per product
+    hooks/          ← Custom React hooks (useProductConfig, useAuth, useRole, etc.)
+    utils/          ← Helper functions
+  App.tsx           ← Root routing
+  main.tsx          ← Entry point
+
+---
+
+## CURSOR PROMPT DISCIPLINE
+
+One screen or component per prompt. Never ask for two things at once.
+Always reference the spec: "According to the GridMaster Catering UX Spec Section X.X..."
+Always reference productConfig: "This component reads from productConfig — never hardcode labels or colors."
+Always specify: "Use existing shared components from src/components/shared/ — do not rebuild them."
+Always end with: "Follow all rules in the .cursorrules file."
+
+Commit format: [phase]-[screen number]: [screen name]
+  Example: "1C-02: Quick Event 7 field form"
+Push after every commit. Vercel auto-deploys.
+
+---
+
+## COMMON VIOLATIONS TO AVOID
+
+These are the most common Cursor mistakes on this project. Watch for them.
+
+VIOLATION: Hardcoding "Catering" or "GridMaster" inside a component.
+  FIX: productConfig.product_name and productConfig.brand_name.
+
+VIOLATION: Hardcoding a hex color inside a component.
+  FIX: Use Tailwind classes mapped to the brand token system.
+
+VIOLATION: Using "dashboard" anywhere in UI text.
+  FIX: "Command Center".
+
+VIOLATION: Using "clock in" or "clock out" anywhere.
+  FIX: "check in" / "check out".
+
+VIOLATION: Using "hours logged".
+  FIX: "times logged".
+
+VIOLATION: Building a shared component inside a page or feature folder.
+  FIX: Move it to src/components/shared/ immediately.
+
+VIOLATION: Rebuilding a shared component when one already exists.
+  FIX: Import from src/components/shared/. Never duplicate.
+
+VIOLATION: Writing a Supabase query without filtering by organization_id.
+  FIX: Every query includes .eq('organization_id', orgId).
+
+VIOLATION: Using the Supabase service_role key in any frontend code.
+  FIX: Use only the anon key (VITE_SUPABASE_ANON_KEY). RLS handles access control.
+
+VIOLATION: Auto-publishing an AI suggestion or automated change without coordinator approval.
+  FIX: Flag and prompt. Option B is always the default.
+
+VIOLATION: Displaying star ratings to staff.
+  FIX: Ratings are internal. Never shown in staff-facing screens.
+
+VIOLATION: Allowing a zero-star rating submission.
+  FIX: Minimum 1 star. RatingStarSelector must enforce this.
+
+VIOLATION: Referencing payroll, pay rates, or payment in any staff-facing screen.
+  FIX: Remove entirely. Label hours as "Estimated Hours" and add "Estimated" qualifier.
+
+VIOLATION: Allowing hard delete on any record.
+  FIX: Soft delete only. Set is_archived = true or equivalent. Never DELETE from Supabase.
+
+VIOLATION: Building a nav item that is hardcoded.
+  FIX: All nav items come from productConfig.navigation.
+
+---
+
+## PHASE REFERENCE
+
+PRE-BUILD: Environment + schema (completed before this file was created)
+1A: Shared Component Library — src/components/shared/
+1B: Config Layer — productConfig wired to every component
+1C: Catering-Specific Screens — all Catering coordinator portal screens
+1D: Catering Testing — real user operational feedback
+2A: Vending Extensions (future)
+3A: Gigs Extensions (future)
+4: Stripe + Billing (future)
+
+Current phase: PRE-BUILD → Phase 1A
+
+---
+
+# END OF .cursorrules
+# GridMaster HQ | gridmaster-catering | Jun 24 2026
