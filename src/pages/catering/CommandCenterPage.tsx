@@ -48,7 +48,7 @@ function getPillStyle(status: string, isInactivePill: boolean): PillStyle {
   if (status === 'staffed' || status === 'confirmed') {
     return {
       backgroundColor: 'rgba(220, 245, 231, 0.6)',
-      border: '1px solid rgba(134, 239, 172, 0.8)',
+      border: 'none',
       color: '#166534',
     }
   }
@@ -62,7 +62,7 @@ function getPillStyle(status: string, isInactivePill: boolean): PillStyle {
   ) {
     return {
       backgroundColor: 'rgba(254, 249, 195, 0.6)',
-      border: '1px solid rgba(253, 224, 71, 0.8)',
+      border: 'none',
       color: '#854d0e',
     }
   }
@@ -70,14 +70,14 @@ function getPillStyle(status: string, isInactivePill: boolean): PillStyle {
   if (status === 'needs_attention') {
     return {
       backgroundColor: 'rgba(254, 226, 226, 0.6)',
-      border: '1px solid rgba(252, 165, 165, 0.8)',
+      border: 'none',
       color: '#991b1b',
     }
   }
 
   return {
     backgroundColor: 'rgba(243, 244, 246, 0.6)',
-    border: '1px solid rgba(209, 213, 219, 0.8)',
+    border: 'none',
     color: '#374151',
   }
 }
@@ -625,6 +625,11 @@ function CommandCenterPage() {
             </span>
             Soft hold
           </span>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: '#6b7280' }}>
+            <span style={{ color: '#C0392B', fontSize: '11px' }}>⚠</span>
+            <span>Competing event</span>
+          </div>
         </div>
       </section>
     </div>
