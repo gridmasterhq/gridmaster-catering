@@ -30,57 +30,56 @@ const EVENT_TYPE_BAR_COLORS: Record<string, string> = {
   custom: '#C85000',
 }
 
-function getPillBackgroundColor(
-  status: string,
-  isInactivePill: boolean,
-): string {
-  if (isInactivePill) {
-    return '#000000'
-  }
-
-  if (status === 'staffed' || status === 'confirmed') {
-    return '#dcf5e7'
-  }
-
-  if (
-    status === 'in_progress' ||
-    status === 'outreach_sent' ||
-    status === 'round1_complete' ||
-    status === 'round2_complete'
-  ) {
-    return '#fef9c3'
-  }
-
-  if (status === 'needs_attention' || status === 'draft_with_issues') {
-    return '#fee2e2'
-  }
-
-  return '#f9fafb'
+interface PillStyle {
+  backgroundColor: string
+  border: string
+  color: string
 }
 
-function getPillTextColor(status: string, isInactivePill: boolean): string {
+function getPillStyle(status: string, isInactivePill: boolean): PillStyle {
   if (isInactivePill) {
-    return '#ffffff'
+    return {
+      backgroundColor: '#000000',
+      border: 'none',
+      color: '#ffffff',
+    }
   }
 
   if (status === 'staffed' || status === 'confirmed') {
-    return '#166534'
+    return {
+      backgroundColor: '#dcf5e7',
+      border: '1px solid #86efac',
+      color: '#166534',
+    }
   }
 
   if (
-    status === 'in_progress' ||
     status === 'outreach_sent' ||
     status === 'round1_complete' ||
-    status === 'round2_complete'
+    status === 'round2_complete' ||
+    status === 'in_progress' ||
+    status === 'grid_built'
   ) {
-    return '#854d0e'
+    return {
+      backgroundColor: '#fef9c3',
+      border: '1px solid #fde047',
+      color: '#854d0e',
+    }
   }
 
-  if (status === 'needs_attention' || status === 'draft_with_issues') {
-    return '#991b1b'
+  if (status === 'needs_attention') {
+    return {
+      backgroundColor: '#fee2e2',
+      border: '1px solid #fca5a5',
+      color: '#991b1b',
+    }
   }
 
-  return '#374151'
+  return {
+    backgroundColor: '#f3f4f6',
+    border: '1px solid #d1d5db',
+    color: '#374151',
+  }
 }
 
 interface CateringEvent {
@@ -442,14 +441,7 @@ function CommandCenterPage() {
                     const isInactivePill = isCancelled || isPostponed
                     const barColor =
                       EVENT_TYPE_BAR_COLORS[event.event_type] ?? '#9CA3AF'
-                    const pillBackgroundColor = getPillBackgroundColor(
-                      event.status,
-                      isInactivePill,
-                    )
-                    const pillTextColor = getPillTextColor(
-                      event.status,
-                      isInactivePill,
-                    )
+                    const pillStyle = getPillStyle(event.status, isInactivePill)
                     const formattedStartTime = formatEventTime(
                       event.event_start_time,
                     )
@@ -467,7 +459,11 @@ function CommandCenterPage() {
                         key={event.id}
                         type="button"
                         className="mb-0.5 flex min-h-[26px] w-full cursor-pointer flex-row overflow-hidden rounded-sm"
-                        style={{ backgroundColor: pillBackgroundColor }}
+                        style={{
+                          backgroundColor: pillStyle.backgroundColor,
+                          border: pillStyle.border,
+                          borderRadius: '3px',
+                        }}
                         onClick={() => handleEventClick(event.id)}
                       >
                         {!isInactivePill ? (
@@ -484,7 +480,7 @@ function CommandCenterPage() {
                           <span
                             className="truncate text-left"
                             style={{
-                              color: pillTextColor,
+                              color: pillStyle.color,
                               fontSize: '10px',
                               fontWeight: 500,
                               lineHeight: 1.2,
@@ -496,7 +492,7 @@ function CommandCenterPage() {
                             <span
                               className="truncate text-left"
                               style={{
-                                color: pillTextColor,
+                                color: pillStyle.color,
                                 fontSize: '9px',
                                 lineHeight: 1.2,
                                 opacity: 0.75,
