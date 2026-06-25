@@ -43,6 +43,31 @@ export interface ProductLabels {
   previous_period: string
   next_period: string
   this_week_and_next: string
+  cc_action_items: string
+  cc_staff_ai_inbox: string
+  cc_labor_overview: string
+  cc_vendor_alerts: string
+  cc_highlights: string
+  cc_tools: string
+  cc_no_open_action_items: string
+  cc_all_clear_subtext: string
+  cc_needs_decision: string
+  cc_human_required: string
+  cc_resolved: string
+  cc_no_events_this_week: string
+  cc_no_vendor_alerts: string
+  cc_no_highlights_yet: string
+  cc_no_competing_events_detected: string
+  cc_this_week: string
+  cc_open: string
+  cc_new: string
+  cc_alerts: string
+  cc_tool_competing_event_search: string
+  cc_tool_weather_query: string
+  cc_tool_traffic_query: string
+  cc_tool_broadcast_all: string
+  cc_tool_roster_health: string
+  cc_tool_availability_pulse: string
 }
 
 export interface ProductColors {
