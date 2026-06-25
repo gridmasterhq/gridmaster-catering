@@ -260,7 +260,10 @@ function AppShell({ children }: AppShellProps) {
                 </span>
               ) : null}
             </div>
-            <span className="text-xs italic font-['Playfair_Display',serif] text-[var(--shell-text-body)]">
+            <span
+              className="italic font-['Playfair_Display',serif] text-[var(--shell-text-body)]"
+              style={{ fontSize: '10px' }}
+            >
               {product_name}
             </span>
           </div>
