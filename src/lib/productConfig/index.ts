@@ -30,6 +30,7 @@ export interface ProductLabels {
   signed_in_success: string
   error_invalid_credentials: string
   error_network: string
+  confirm: string
 }
 
 export interface ProductColors {

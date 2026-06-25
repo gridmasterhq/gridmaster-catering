@@ -53,6 +53,7 @@ const cateringConfig: ProductConfig = {
     signed_in_success: 'Signed in successfully',
     error_invalid_credentials: 'Invalid email or password.',
     error_network: 'Network error. Please try again.',
+    confirm: 'Confirm',
   },
   colors: {
     brand_navy: '#1B3A5C',
