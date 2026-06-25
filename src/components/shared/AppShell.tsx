@@ -1,5 +1,24 @@
-import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, createContext, useContext, type CSSProperties, type ReactNode } from 'react'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
+
+type ActiveScreen = 'cc' | 'calendar'
+
+interface ActiveScreenContextValue {
+  activeScreen: ActiveScreen
+  setActiveScreen: (screen: ActiveScreen) => void
+}
+
+const ActiveScreenContext = createContext<ActiveScreenContextValue | null>(null)
+
+export function useActiveScreen(): ActiveScreenContextValue {
+  const context = useContext(ActiveScreenContext)
+
+  if (!context) {
+    throw new Error('useActiveScreen must be used within AppShell')
+  }
+
+  return context
+}
 
 interface AppShellProps {
   children: ReactNode
@@ -12,6 +31,7 @@ function AppShell({ children }: AppShellProps) {
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(false)
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false)
   const [showFooter, setShowFooter] = useState(false)
+  const [activeScreen, setActiveScreen] = useState<ActiveScreen>('calendar')
 
   const hqIndex = brand_name.lastIndexOf(' ')
   const gridMasterWordmark =
@@ -60,6 +80,7 @@ function AppShell({ children }: AppShellProps) {
   const sidebarOpen = leftSidebarOpen || rightSidebarOpen
 
   return (
+    <ActiveScreenContext.Provider value={{ activeScreen, setActiveScreen }}>
     <div className="min-h-screen flex flex-col" style={themeVars}>
       <header className="fixed top-0 left-0 right-0 z-30 flex h-12 w-full">
         <section className="flex flex-1 items-center gap-10 bg-[var(--shell-brand-red)] px-16">
@@ -71,9 +92,17 @@ function AppShell({ children }: AppShellProps) {
           >
             ☰
           </button>
-          <span className="text-sm font-semibold tracking-wide text-white uppercase">
+          <button
+            type="button"
+            className="cursor-pointer text-sm tracking-wide text-white uppercase"
+            style={{
+              fontWeight: activeScreen === 'cc' ? 700 : 600,
+              opacity: activeScreen === 'cc' ? 1 : 0.7,
+            }}
+            onClick={() => setActiveScreen('cc')}
+          >
             {labels.command_center}
-          </span>
+          </button>
         </section>
 
         <section className="relative flex shrink-0 flex-col items-center justify-center border-l-2 border-r-2 border-l-brand-navy border-r-brand-red bg-white px-4 py-1">
@@ -107,9 +136,17 @@ function AppShell({ children }: AppShellProps) {
         </section>
 
         <section className="flex flex-1 items-center justify-end gap-10 bg-[var(--shell-brand-navy)] px-16">
-          <span className="text-sm font-semibold tracking-wide text-white uppercase">
+          <button
+            type="button"
+            className="cursor-pointer text-sm tracking-wide text-white uppercase"
+            style={{
+              fontWeight: activeScreen === 'calendar' ? 700 : 600,
+              opacity: activeScreen === 'calendar' ? 1 : 0.7,
+            }}
+            onClick={() => setActiveScreen('calendar')}
+          >
             {labels.calendar}
-          </span>
+          </button>
           <button
             type="button"
             className="text-lg text-white cursor-pointer"
@@ -194,6 +231,7 @@ function AppShell({ children }: AppShellProps) {
         </footer>
       </div>
     </div>
+    </ActiveScreenContext.Provider>
   )
 }
 

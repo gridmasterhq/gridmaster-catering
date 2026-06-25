@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { BrowserRouter } from 'react-router-dom'
-import AppShell from './components/shared/AppShell'
+import AppShell, { useActiveScreen } from './components/shared/AppShell'
 import SMSDeepLinkHandler from './components/shared/SMSDeepLinkHandler'
 import cateringConfig from './lib/productConfig'
 import {
@@ -8,12 +8,14 @@ import {
 } from './lib/hooks/useProductConfig'
 import { supabase } from './lib/supabase'
 import LoginPage from './pages/auth/LoginPage'
+import CalendarPage from './pages/catering/CalendarPage'
 import CommandCenterPage from './pages/catering/CommandCenterPage'
 
 type AuthState = 'loading' | 'authenticated' | 'unauthenticated'
 
 function AppContent() {
   const [authState, setAuthState] = useState<AuthState>('loading')
+  const { activeScreen } = useActiveScreen()
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -47,7 +49,7 @@ function AppContent() {
     return <LoginPage />
   }
 
-  return <CommandCenterPage />
+  return activeScreen === 'cc' ? <CommandCenterPage /> : <CalendarPage />
 }
 
 function App() {
