@@ -250,6 +250,14 @@ function CalendarPage() {
     return map
   }, [activeEvents])
 
+  const hasEventsInView = useMemo(
+    () =>
+      calendarDays.some(
+        (day) => (eventsByDay.get(formatDateKey(day))?.length ?? 0) > 0,
+      ),
+    [calendarDays, eventsByDay],
+  )
+
   const handlePrevious = () => {
     setActiveDate((current) => {
       const next = new Date(current)
@@ -403,7 +411,8 @@ function CalendarPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-7 gap-px border border-gray-200 bg-gray-200">
+        <div className="relative border border-gray-200 bg-gray-200">
+          <div className="grid grid-cols-7 gap-px bg-gray-200">
           {WEEKDAY_LABELS.map((day) => (
             <div
               key={day}
@@ -513,6 +522,44 @@ function CalendarPage() {
               </div>
             )
           })}
+          </div>
+
+          {!loading && !hasEventsInView ? (
+            <div
+              className="absolute inset-x-0 bottom-0 flex flex-col items-center justify-center px-4 text-center"
+              style={{ top: '36px', pointerEvents: 'none' }}
+            >
+              <p
+                style={{
+                  fontSize: '15px',
+                  fontWeight: 500,
+                  color: '#111827',
+                  pointerEvents: 'auto',
+                }}
+              >
+                {labels.es_calendar_no_events_headline}
+              </p>
+              <p
+                style={{
+                  fontSize: '12px',
+                  color: '#9ca3af',
+                  marginTop: '8px',
+                  maxWidth: '420px',
+                  pointerEvents: 'auto',
+                }}
+              >
+                {labels.es_calendar_no_events_secondary}
+              </p>
+              <button
+                type="button"
+                className="rounded bg-brand-navy px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+                style={{ marginTop: '16px', pointerEvents: 'auto' }}
+                onClick={handleNewEvent}
+              >
+                {labels.es_calendar_new_event_cta}
+              </button>
+            </div>
+          ) : null}
         </div>
 
         <div
