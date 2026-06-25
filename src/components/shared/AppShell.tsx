@@ -76,7 +76,7 @@ function AppShell({ children }: AppShellProps) {
           </span>
         </section>
 
-        <section className="flex shrink-0 flex-col items-center justify-center border-l border-r border-status-neutral bg-white px-4 py-1">
+        <section className="flex shrink-0 flex-col items-center justify-center border-2 border-brand-navy bg-white px-4 py-1">
           <div className="leading-tight whitespace-nowrap">
             <span className="text-base font-bold text-[var(--shell-brand-navy)]">
               {gridMasterWordmark}
