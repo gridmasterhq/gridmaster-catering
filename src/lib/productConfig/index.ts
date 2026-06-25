@@ -42,6 +42,7 @@ export interface ProductLabels {
   postponed_hold: string
   previous_period: string
   next_period: string
+  this_week_and_next: string
 }
 
 export interface ProductColors {

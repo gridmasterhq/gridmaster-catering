@@ -63,38 +63,19 @@ function startOfWeek(date: Date): Date {
   return start
 }
 
-function endOfWeek(date: Date): Date {
-  return addDays(startOfWeek(date), 6)
-}
-
 function getMonthGridDays(activeDate: Date): Date[] {
   const firstOfMonth = new Date(activeDate.getFullYear(), activeDate.getMonth(), 1)
   const gridStart = startOfWeek(firstOfMonth)
   return Array.from({ length: 42 }, (_, index) => addDays(gridStart, index))
 }
 
-function getWeekDays(activeDate: Date): Date[] {
+function getTwoWeekDays(activeDate: Date): Date[] {
   const weekStart = startOfWeek(activeDate)
-  return Array.from({ length: 7 }, (_, index) => addDays(weekStart, index))
+  return Array.from({ length: 14 }, (_, index) => addDays(weekStart, index))
 }
 
 function formatMonthLabel(date: Date): string {
   return date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
-}
-
-function formatWeekLabel(date: Date): string {
-  const weekStart = startOfWeek(date)
-  const weekEnd = endOfWeek(date)
-  const startLabel = weekStart.toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-  })
-  const endLabel = weekEnd.toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
-  return `${startLabel} – ${endLabel}`
 }
 
 function formatEventTime(startTime: string | null): string {
@@ -190,7 +171,8 @@ function CommandCenterPage() {
     }
   }, [events, today])
 
-  const calendarDays = view === 'month' ? getMonthGridDays(activeDate) : getWeekDays(activeDate)
+  const calendarDays =
+    view === 'month' ? getMonthGridDays(activeDate) : getTwoWeekDays(activeDate)
 
   const eventsByDay = useMemo(() => {
     const map = new Map<string, CateringEvent[]>()
@@ -313,7 +295,7 @@ function CommandCenterPage() {
           <h2 className="text-2xl font-bold text-brand-navy">
             {view === 'month'
               ? formatMonthLabel(activeDate)
-              : formatWeekLabel(activeDate)}
+              : labels.this_week_and_next}
           </h2>
 
           <div className="flex flex-wrap items-center gap-3">

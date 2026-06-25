@@ -65,6 +65,7 @@ const cateringConfig: ProductConfig = {
     postponed_hold: 'postponed · hold',
     previous_period: 'Previous',
     next_period: 'Next',
+    this_week_and_next: 'This Week & Next',
   },
   colors: {
     brand_navy: '#1B3A5C',

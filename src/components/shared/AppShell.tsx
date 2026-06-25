@@ -76,7 +76,21 @@ function AppShell({ children }: AppShellProps) {
           </span>
         </section>
 
-        <section className="flex shrink-0 flex-col items-center justify-center border-2 border-brand-navy bg-white px-4 py-1">
+        <section className="relative flex shrink-0 flex-col items-center justify-center border-l-2 border-r-2 border-l-brand-navy border-r-brand-red bg-white px-4 py-1">
+          <div
+            className="pointer-events-none absolute inset-x-0 top-0 flex h-0.5"
+            aria-hidden="true"
+          >
+            <div className="h-full w-1/2 bg-brand-navy" />
+            <div className="h-full w-1/2 bg-brand-red" />
+          </div>
+          <div
+            className="pointer-events-none absolute inset-x-0 bottom-0 flex h-0.5"
+            aria-hidden="true"
+          >
+            <div className="h-full w-1/2 bg-brand-navy" />
+            <div className="h-full w-1/2 bg-brand-red" />
+          </div>
           <div className="leading-tight whitespace-nowrap">
             <span className="text-base font-bold text-[var(--shell-brand-navy)]">
               {gridMasterWordmark}
