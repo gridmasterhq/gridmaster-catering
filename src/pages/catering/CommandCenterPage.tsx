@@ -261,19 +261,19 @@ function CommandCenterPage() {
     <div className="flex min-h-[calc(100vh-3rem)] flex-1 flex-col">
       <section className="max-h-[10vh] bg-brand-light-blue px-4 py-2">
         <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
-          <div className="flex items-center gap-2 rounded-lg border border-status-neutral bg-white px-4 py-2">
+          <div className="flex items-center justify-center gap-2 rounded-lg border border-status-neutral bg-white px-4 py-2">
             <span className="text-2xl font-bold text-brand-navy">
               {stats.upcoming}
             </span>
             <span className="text-sm text-gray-500">{labels.upcoming_events}</span>
           </div>
-          <div className="flex items-center gap-2 rounded-lg border border-status-neutral bg-white px-4 py-2">
+          <div className="flex items-center justify-center gap-2 rounded-lg border border-status-neutral bg-white px-4 py-2">
             <span className="text-2xl font-bold text-brand-navy">
               {stats.needsAttention}
             </span>
             <span className="text-sm text-gray-500">{labels.needs_attention}</span>
           </div>
-          <div className="flex items-center gap-2 rounded-lg border border-status-neutral bg-white px-4 py-2">
+          <div className="flex items-center justify-center gap-2 rounded-lg border border-status-neutral bg-white px-4 py-2">
             <span className="text-2xl font-bold text-brand-navy">
               {stats.fullyStaffed}
             </span>
@@ -310,7 +310,7 @@ function CommandCenterPage() {
             </button>
           </div>
 
-          <h2 className="text-lg font-semibold text-text-body">
+          <h2 className="text-2xl font-bold text-brand-navy">
             {view === 'month'
               ? formatMonthLabel(activeDate)
               : formatWeekLabel(activeDate)}
@@ -386,12 +386,8 @@ function CommandCenterPage() {
                 } ${isSameDay(day, today) ? 'ring-2 ring-brand-red ring-inset' : ''}`}
               >
                 <p
-                  className={`mb-1 inline-flex size-6 items-center justify-center rounded text-xs font-medium ${
-                    isSameDay(day, today)
-                      ? 'bg-brand-navy text-white'
-                      : inCurrentMonth
-                        ? 'text-brand-mid-blue'
-                        : 'text-gray-400'
+                  className={`mb-1 text-xs font-medium ${
+                    inCurrentMonth ? 'text-brand-mid-blue' : 'text-gray-400'
                   }`}
                 >
                   {day.getDate()}
