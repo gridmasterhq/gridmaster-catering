@@ -468,8 +468,12 @@ function CommandCenterPage() {
                       >
                         {!isInactivePill ? (
                           <div
-                            className="w-[3px] shrink-0 self-stretch"
-                            style={{ backgroundColor: barColor }}
+                            className="self-stretch"
+                            style={{
+                              width: '8px',
+                              flexShrink: 0,
+                              backgroundColor: barColor,
+                            }}
                             aria-hidden="true"
                           />
                         ) : null}
@@ -518,6 +522,18 @@ function CommandCenterPage() {
             borderTop: '0.5px solid #e5e7eb',
           }}
         >
+          <span
+            style={{
+              fontSize: '9px',
+              fontWeight: 600,
+              color: '#6b7280',
+              letterSpacing: '0.05em',
+              marginRight: '6px',
+              alignSelf: 'center',
+            }}
+          >
+            EVENT TYPE
+          </span>
           {[
             { label: 'Wedding', color: '#C9A84C' },
             { label: 'Corporate', color: '#1B3A5C' },
@@ -532,11 +548,12 @@ function CommandCenterPage() {
               style={{ gap: '4px', fontSize: '10px', color: '#6b7280' }}
             >
               <span
-                className="inline-block shrink-0"
                 style={{
-                  width: '5px',
-                  height: '12px',
-                  borderRadius: '1px',
+                  width: '10px',
+                  height: '14px',
+                  borderRadius: '2px',
+                  display: 'inline-block',
+                  flexShrink: 0,
                   backgroundColor: item.color,
                 }}
                 aria-hidden="true"
@@ -555,6 +572,18 @@ function CommandCenterPage() {
             aria-hidden="true"
           />
 
+          <span
+            style={{
+              fontSize: '9px',
+              fontWeight: 600,
+              color: '#6b7280',
+              letterSpacing: '0.05em',
+              marginRight: '6px',
+              alignSelf: 'center',
+            }}
+          >
+            STATUS
+          </span>
           {[
             { label: 'Staffed', color: '#dcf5e7' },
             { label: 'In progress', color: '#fef9c3' },
