@@ -68,6 +68,18 @@ export interface ProductLabels {
   cc_tool_broadcast_all: string
   cc_tool_roster_health: string
   cc_tool_availability_pulse: string
+  cc_gift_cards: string
+  cc_view_history: string
+  cc_monthly_budget: string
+  cc_budget_used: string
+  cc_budget_remaining: string
+  cc_no_gift_cards_sent: string
+  cc_tool_competing_event_search_subtitle: string
+  cc_tool_traffic_query_subtitle: string
+  cc_tool_roster_health_subtitle: string
+  cc_tool_weather_query_subtitle: string
+  cc_tool_broadcast_all_subtitle: string
+  cc_tool_availability_pulse_subtitle: string
   account_user: string
   my_profile: string
   event_mode: string

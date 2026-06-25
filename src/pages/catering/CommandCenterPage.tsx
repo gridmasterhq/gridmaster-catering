@@ -1,4 +1,13 @@
 import type { CSSProperties, ReactNode } from 'react'
+import {
+  IconActivity,
+  IconCloud,
+  IconHeartRateMonitor,
+  IconMapPin,
+  IconSearch,
+  IconSpeakerphone,
+} from '@tabler/icons-react'
+import type { Icon } from '@tabler/icons-react'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
 
 const boxStyle: CSSProperties = {
@@ -103,6 +112,58 @@ function BoxItemRow({ children, onClick }: BoxItemRowProps) {
   )
 }
 
+interface ToolGridItemProps {
+  icon: Icon
+  title: string
+  subtitle: string
+}
+
+function ToolGridItem({ icon: ItemIcon, title, subtitle }: ToolGridItemProps) {
+  return (
+    <button
+      type="button"
+      className="hover:bg-[#f3f4f6]"
+      style={{
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: '8px',
+        width: '100%',
+        padding: '8px 12px',
+        cursor: 'pointer',
+        border: 'none',
+        borderBottom: '0.5px solid #f3f4f6',
+        backgroundColor: 'transparent',
+        textAlign: 'left',
+      }}
+    >
+      <ItemIcon size={16} color="#1B3A5C" style={{ flexShrink: 0, marginTop: '1px' }} />
+      <span>
+        <span
+          style={{
+            display: 'block',
+            fontSize: '11px',
+            fontWeight: 500,
+            color: '#111827',
+            lineHeight: 1.3,
+          }}
+        >
+          {title}
+        </span>
+        <span
+          style={{
+            display: 'block',
+            fontSize: '10px',
+            color: '#9ca3af',
+            lineHeight: 1.3,
+          }}
+        >
+          {subtitle}
+        </span>
+      </span>
+    </button>
+  )
+}
+
 function CommandCenterPage() {
   const { labels, navigation } = useProductConfig()
 
@@ -117,13 +178,45 @@ function CommandCenterPage() {
   const inboxHumanRequired = 0
   const inboxResolved = 0
 
-  const tools = [
-    labels.cc_tool_competing_event_search,
-    labels.cc_tool_weather_query,
-    labels.cc_tool_traffic_query,
-    labels.cc_tool_broadcast_all,
-    labels.cc_tool_roster_health,
-    labels.cc_tool_availability_pulse,
+  const currentMonthYear = new Date().toLocaleDateString(undefined, {
+    month: 'long',
+    year: 'numeric',
+  })
+
+  const leftColumnTools = [
+    {
+      icon: IconSearch,
+      title: labels.cc_tool_competing_event_search,
+      subtitle: labels.cc_tool_competing_event_search_subtitle,
+    },
+    {
+      icon: IconMapPin,
+      title: labels.cc_tool_traffic_query,
+      subtitle: labels.cc_tool_traffic_query_subtitle,
+    },
+    {
+      icon: IconActivity,
+      title: labels.cc_tool_roster_health,
+      subtitle: labels.cc_tool_roster_health_subtitle,
+    },
+  ]
+
+  const rightColumnTools = [
+    {
+      icon: IconCloud,
+      title: labels.cc_tool_weather_query,
+      subtitle: labels.cc_tool_weather_query_subtitle,
+    },
+    {
+      icon: IconSpeakerphone,
+      title: labels.cc_tool_broadcast_all,
+      subtitle: labels.cc_tool_broadcast_all_subtitle,
+    },
+    {
+      icon: IconHeartRateMonitor,
+      title: labels.cc_tool_availability_pulse,
+      subtitle: labels.cc_tool_availability_pulse_subtitle,
+    },
   ]
 
   return (
@@ -280,24 +373,114 @@ function CommandCenterPage() {
 
         <CommandCenterBox fullWidth>
           <BoxHeader
+            label={labels.cc_gift_cards}
+            backgroundColor="#fef3c7"
+            color="#92400e"
+            right={
+              <button
+                type="button"
+                className="cursor-pointer underline"
+                style={{
+                  fontSize: '10px',
+                  color: '#92400e',
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                }}
+              >
+                {labels.cc_view_history}
+              </button>
+            }
+          />
+          <div style={{ padding: '10px 12px' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: '6px',
+                fontSize: '11px',
+                color: '#9ca3af',
+              }}
+            >
+              <span>{labels.cc_monthly_budget}</span>
+              <span>{currentMonthYear}</span>
+            </div>
+            <div
+              style={{
+                width: '100%',
+                height: '4px',
+                borderRadius: '2px',
+                backgroundColor: '#e5e7eb',
+                overflow: 'hidden',
+              }}
+            >
+              <div
+                style={{
+                  width: '0%',
+                  height: '100%',
+                  backgroundColor: '#C9A84C',
+                }}
+                aria-hidden="true"
+              />
+            </div>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginTop: '6px',
+                fontSize: '11px',
+              }}
+            >
+              <span style={{ color: '#111827' }}>{labels.cc_budget_used}</span>
+              <span style={{ color: '#9ca3af' }}>{labels.cc_budget_remaining}</span>
+            </div>
+            <p
+              className="text-center"
+              style={{
+                marginTop: '12px',
+                fontSize: '11px',
+                color: '#9ca3af',
+              }}
+            >
+              {labels.cc_no_gift_cards_sent}
+            </p>
+          </div>
+        </CommandCenterBox>
+
+        <CommandCenterBox fullWidth>
+          <BoxHeader
             label={labels.cc_tools}
-            backgroundColor="#F3F4F6"
+            backgroundColor="#f9fafb"
             color="#374151"
           />
           <div
-            className="flex flex-wrap"
-            style={{ gap: '8px', padding: '10px 12px' }}
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+            }}
           >
-            {tools.map((toolLabel) => (
-              <button
-                key={toolLabel}
-                type="button"
-                className="cursor-pointer rounded-md border border-gray-200 bg-white px-3 py-2 text-gray-700 hover:bg-gray-50"
-                style={{ fontSize: '11px' }}
-              >
-                {toolLabel}
-              </button>
-            ))}
+            <div>
+              {leftColumnTools.map((tool) => (
+                <ToolGridItem
+                  key={tool.title}
+                  icon={tool.icon}
+                  title={tool.title}
+                  subtitle={tool.subtitle}
+                />
+              ))}
+            </div>
+            <div>
+              {rightColumnTools.map((tool) => (
+                <ToolGridItem
+                  key={tool.title}
+                  icon={tool.icon}
+                  title={tool.title}
+                  subtitle={tool.subtitle}
+                />
+              ))}
+            </div>
           </div>
         </CommandCenterBox>
       </div>
