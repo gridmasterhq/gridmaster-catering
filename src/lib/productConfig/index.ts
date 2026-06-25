@@ -73,6 +73,14 @@ export interface ProductLabels {
   event_mode: string
   sleep_mode: string
   log_out: string
+  nav_section_operations: string
+  nav_section_account: string
+  nav_section_preferences: string
+  nav_section_events: string
+  nav_section_people: string
+  nav_section_development: string
+  nav_section_more: string
+  training: string
 }
 
 export interface ProductColors {
