@@ -268,8 +268,8 @@ function AppShell({ children }: AppShellProps) {
               type="button"
               onClick={() => setAccountMenuOpen((open) => !open)}
               style={{
-                backgroundColor: 'rgba(27, 58, 92, 0.08)',
-                border: '0.5px solid rgba(27, 58, 92, 0.2)',
+                backgroundColor: '#ffffff',
+                border: '1.5px solid #1B3A5C',
                 borderRadius: '6px',
                 padding: '4px 10px',
                 minWidth: '110px',
@@ -280,9 +280,9 @@ function AppShell({ children }: AppShellProps) {
             >
               <div
                 style={{
-                  color: '#1B3A5C',
-                  fontSize: '12px',
-                  fontWeight: 500,
+                  color: '#C0392B',
+                  fontSize: '13px',
+                  fontWeight: 600,
                   lineHeight: 1.2,
                 }}
               >
@@ -290,8 +290,9 @@ function AppShell({ children }: AppShellProps) {
               </div>
               <div
                 style={{
-                  color: 'rgba(27, 58, 92, 0.7)',
+                  color: '#1B3A5C',
                   fontSize: '10px',
+                  fontWeight: 400,
                   lineHeight: 1.2,
                 }}
               >
