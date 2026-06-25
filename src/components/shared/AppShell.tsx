@@ -231,6 +231,7 @@ interface AppSidebarProps {
   open: boolean
   title: string
   headerBackground: string
+  headerBorderBottom: string
   onClose: () => void
   children: ReactNode
 }
@@ -239,6 +240,7 @@ function AppSidebar({
   open,
   title,
   headerBackground,
+  headerBorderBottom,
   onClose,
   children,
 }: AppSidebarProps) {
@@ -256,7 +258,7 @@ function AppSidebar({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          borderBottom: '0.5px solid #e5e7eb',
+          borderBottom: headerBorderBottom,
           position: 'sticky',
           top: 0,
           zIndex: 1,
@@ -651,7 +653,8 @@ function AppShell({ children }: AppShellProps) {
       <AppSidebar
         open={leftSidebarOpen}
         title={labels.command_center}
-        headerBackground="#C0392B"
+        headerBackground="rgba(192, 57, 43, 0.08)"
+        headerBorderBottom="0.5px solid rgba(192, 57, 43, 0.2)"
         onClose={closeSidebars}
       >
         {ccSidebarSections.map((section, sectionIndex) => (
@@ -682,7 +685,8 @@ function AppShell({ children }: AppShellProps) {
       <AppSidebar
         open={rightSidebarOpen}
         title={labels.calendar}
-        headerBackground="#1B3A5C"
+        headerBackground="rgba(27, 58, 92, 0.08)"
+        headerBorderBottom="0.5px solid rgba(27, 58, 92, 0.2)"
         onClose={closeSidebars}
       >
         {calendarSidebarSections.map((section, sectionIndex) => (
