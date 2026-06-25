@@ -180,6 +180,9 @@ function CalendarPage() {
 
   const [events, setEvents] = useState<CateringEvent[]>([])
   const [loading, setLoading] = useState(true)
+  const [organizationEventCount, setOrganizationEventCount] = useState<
+    number | null
+  >(null)
   const [view, setView] = useState<CalendarView>('month')
   const [activeDate, setActiveDate] = useState(() => startOfDay(new Date()))
   const [showCancelled, setShowCancelled] = useState(false)
@@ -208,6 +211,35 @@ function CalendarPage() {
     }
 
     fetchEvents()
+  }, [])
+
+  useEffect(() => {
+    async function fetchOrganizationEventCount() {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser()
+
+      if (userError) {
+        setOrganizationEventCount(0)
+        return
+      }
+
+      const organizationId = user?.user_metadata?.organization_id
+      if (typeof organizationId !== 'string' || !organizationId.trim()) {
+        setOrganizationEventCount(0)
+        return
+      }
+
+      const { count, error } = await supabase
+        .from('events')
+        .select('*', { count: 'exact', head: true })
+        .eq('organization_id', organizationId.trim())
+
+      setOrganizationEventCount(!error && count != null ? count : 0)
+    }
+
+    fetchOrganizationEventCount()
   }, [])
 
   const today = useMemo(() => startOfDay(new Date()), [])
@@ -249,14 +281,6 @@ function CalendarPage() {
 
     return map
   }, [activeEvents])
-
-  const hasEventsInView = useMemo(
-    () =>
-      calendarDays.some(
-        (day) => (eventsByDay.get(formatDateKey(day))?.length ?? 0) > 0,
-      ),
-    [calendarDays, eventsByDay],
-  )
 
   const handlePrevious = () => {
     setActiveDate((current) => {
@@ -524,7 +548,7 @@ function CalendarPage() {
           })}
           </div>
 
-          {!loading && !hasEventsInView ? (
+          {!loading && organizationEventCount === 0 ? (
             <div
               className="absolute inset-x-0 bottom-0 flex flex-col items-center justify-center px-4 text-center"
               style={{ top: '36px', pointerEvents: 'none' }}
