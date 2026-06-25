@@ -653,8 +653,8 @@ function AppShell({ children }: AppShellProps) {
       <AppSidebar
         open={leftSidebarOpen}
         title={labels.command_center}
-        headerBackground="rgba(192, 57, 43, 0.08)"
-        headerBorderBottom="0.5px solid rgba(192, 57, 43, 0.2)"
+        headerBackground="#ffffff"
+        headerBorderBottom="0.5px solid #e5e7eb"
         onClose={closeSidebars}
       >
         {ccSidebarSections.map((section, sectionIndex) => (
@@ -685,8 +685,8 @@ function AppShell({ children }: AppShellProps) {
       <AppSidebar
         open={rightSidebarOpen}
         title={labels.calendar}
-        headerBackground="rgba(27, 58, 92, 0.08)"
-        headerBorderBottom="0.5px solid rgba(27, 58, 92, 0.2)"
+        headerBackground="#ffffff"
+        headerBorderBottom="0.5px solid #e5e7eb"
         onClose={closeSidebars}
       >
         {calendarSidebarSections.map((section, sectionIndex) => (
