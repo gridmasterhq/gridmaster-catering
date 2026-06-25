@@ -13,8 +13,6 @@ import { useActiveScreen } from '../../components/shared/AppShell'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
 import { supabase } from '../../lib/supabase'
 
-const ORGANIZATION_ID = '00000000-0000-0000-0000-000000000001'
-
 const boxStyle: CSSProperties = {
   backgroundColor: '#ffffff',
   border: '0.5px solid #e5e7eb',
@@ -176,14 +174,45 @@ function CommandCenterPage() {
 
   useEffect(() => {
     async function fetchEventCount() {
-      const { count, error } = await supabase
-        .from('events')
-        .select('id', { count: 'exact', head: true })
-        .eq('organization_id', ORGANIZATION_ID)
+      try {
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser()
 
-      if (!error && count != null) {
-        setEventCount(count)
-      } else {
+        if (userError) {
+          console.error(
+            '[CommandCenter] event count: getUser failed',
+            userError,
+          )
+          setEventCount(0)
+          return
+        }
+
+        const organizationId = user?.user_metadata?.organization_id
+        if (typeof organizationId !== 'string' || !organizationId.trim()) {
+          console.error(
+            '[CommandCenter] event count: missing organization_id in user_metadata',
+            user?.user_metadata,
+          )
+          setEventCount(0)
+          return
+        }
+
+        const { count, error } = await supabase
+          .from('events')
+          .select('*', { count: 'exact', head: true })
+          .eq('organization_id', organizationId.trim())
+
+        if (error) {
+          console.error('[CommandCenter] event count query failed', error)
+          setEventCount(0)
+          return
+        }
+
+        setEventCount(count ?? 0)
+      } catch (error) {
+        console.error('[CommandCenter] event count unexpected error', error)
         setEventCount(0)
       }
     }
