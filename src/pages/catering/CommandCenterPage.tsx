@@ -2,12 +2,86 @@ import {
   useEffect,
   useMemo,
   useState,
-  type CSSProperties,
 } from 'react'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
 import { supabase } from '../../lib/supabase'
 
 const ORGANIZATION_ID = '00000000-0000-0000-0000-000000000001'
+
+const EVENT_TYPE_BAR_COLORS: Record<string, string> = {
+  wedding: '#C9A84C',
+  rehearsal_dinner: '#C9A84C',
+  bridal_shower: '#C9A84C',
+  bar_bat_mitzvah: '#C9A84C',
+  birthday: '#C9A84C',
+  anniversary: '#C9A84C',
+  baby_shower: '#C9A84C',
+  graduation: '#C9A84C',
+  retirement: '#C9A84C',
+  corporate_lunch: '#1B3A5C',
+  corporate_dinner: '#1B3A5C',
+  corporate_reception: '#1B3A5C',
+  cocktail_party: '#7C5CBF',
+  holiday_party: '#7C5CBF',
+  private_dinner: '#7C5CBF',
+  brunch: '#7C5CBF',
+  gala_fundraiser: '#1A6B3C',
+  drop_off_delivery: '#0D9E8A',
+  custom: '#C85000',
+}
+
+function getPillBackgroundColor(
+  status: string,
+  isInactivePill: boolean,
+): string {
+  if (isInactivePill) {
+    return '#000000'
+  }
+
+  if (status === 'staffed' || status === 'confirmed') {
+    return '#dcf5e7'
+  }
+
+  if (
+    status === 'in_progress' ||
+    status === 'outreach_sent' ||
+    status === 'round1_complete' ||
+    status === 'round2_complete'
+  ) {
+    return '#fef9c3'
+  }
+
+  if (status === 'needs_attention' || status === 'draft_with_issues') {
+    return '#fee2e2'
+  }
+
+  return '#f9fafb'
+}
+
+function getPillTextColor(status: string, isInactivePill: boolean): string {
+  if (isInactivePill) {
+    return '#ffffff'
+  }
+
+  if (status === 'staffed' || status === 'confirmed') {
+    return '#166534'
+  }
+
+  if (
+    status === 'in_progress' ||
+    status === 'outreach_sent' ||
+    status === 'round1_complete' ||
+    status === 'round2_complete'
+  ) {
+    return '#854d0e'
+  }
+
+  if (status === 'needs_attention' || status === 'draft_with_issues') {
+    return '#991b1b'
+  }
+
+  return '#374151'
+}
 
 interface CateringEvent {
   id: string
@@ -15,7 +89,8 @@ interface CateringEvent {
   event_name: string
   event_type: string
   event_date: string
-  call_time: string | null
+  event_start_time: string | null
+  guest_count: number | null
   status: string
   is_cancelled: boolean
   is_postponed: boolean
@@ -102,7 +177,7 @@ function isWithinNext30Days(eventDate: Date, today: Date): boolean {
 }
 
 function CommandCenterPage() {
-  const { labels, colors, event_types, navigation } = useProductConfig()
+  const { labels, navigation } = useProductConfig()
 
   const [events, setEvents] = useState<CateringEvent[]>([])
   const [loading, setLoading] = useState(true)
@@ -120,7 +195,7 @@ function CommandCenterPage() {
       const { data, error } = await supabase
         .from('events')
         .select(
-          'id, organization_id, event_name, event_type, event_date, call_time, status, is_cancelled, is_postponed',
+          'id, organization_id, event_name, event_type, event_date, status, is_cancelled, is_postponed, event_start_time, guest_count',
         )
         .eq('organization_id', ORGANIZATION_ID)
 
@@ -365,67 +440,72 @@ function CommandCenterPage() {
                     const isCancelled = event.is_cancelled
                     const isPostponed = event.is_postponed && !isCancelled
                     const isInactivePill = isCancelled || isPostponed
-                    const eventTypeBarColors: Record<string, string> = {
-                      wedding: '#C9A84C',
-                      wedding_life: '#C9A84C',
-                      corporate: '#1B3A5C',
-                      social: '#6B4C9A',
-                      gala: '#1A6B3C',
-                      gala_fundraiser: '#1A6B3C',
-                      simple: '#2A9D8F',
-                      simple_delivery: '#2A9D8F',
-                      custom: '#C85000',
-                    }
                     const barColor =
-                      eventTypeBarColors[event.event_type] ?? '#9CA3AF'
-                    const statusBgClass = isInactivePill
-                      ? 'bg-black'
-                      : event.status === 'confirmed'
-                        ? 'bg-green-50'
-                        : event.status === 'in_progress'
-                          ? 'bg-amber-50'
-                          : event.status === 'needs_attention'
-                            ? 'bg-red-50'
-                            : 'bg-white'
-                    const formattedCallTime = formatEventTime(event.call_time)
+                      EVENT_TYPE_BAR_COLORS[event.event_type] ?? '#9CA3AF'
+                    const pillBackgroundColor = getPillBackgroundColor(
+                      event.status,
+                      isInactivePill,
+                    )
+                    const pillTextColor = getPillTextColor(
+                      event.status,
+                      isInactivePill,
+                    )
+                    const formattedStartTime = formatEventTime(
+                      event.event_start_time,
+                    )
+                    const guestLabel =
+                      event.guest_count != null
+                        ? `${event.guest_count} guests`
+                        : ''
+                    const row2Parts = [formattedStartTime, guestLabel].filter(
+                      Boolean,
+                    )
+                    const row2Text = row2Parts.join(' · ')
 
                     return (
                       <button
                         key={event.id}
                         type="button"
-                        className={`relative mb-1 flex min-h-9 w-full cursor-pointer flex-row overflow-hidden rounded-md border border-gray-200 ${statusBgClass}`}
+                        className="mb-0.5 flex min-h-[26px] w-full cursor-pointer flex-row overflow-hidden rounded-sm"
+                        style={{ backgroundColor: pillBackgroundColor }}
                         onClick={() => handleEventClick(event.id)}
                       >
                         {!isInactivePill ? (
                           <div
-                            className="w-1.5 shrink-0 rounded-l-md bg-[var(--event-bar-color)]"
-                            style={
-                              {
-                                '--event-bar-color': barColor,
-                              } as CSSProperties
-                            }
+                            className="w-[3px] shrink-0 self-stretch"
+                            style={{ backgroundColor: barColor }}
                             aria-hidden="true"
                           />
                         ) : null}
-                        <div className="flex min-w-0 flex-1 flex-col px-1.5 py-0.5">
+                        <div
+                          className="flex flex-1 flex-col justify-center"
+                          style={{ padding: '2px 4px', gap: '1px' }}
+                        >
                           <span
-                            className={`truncate text-xs font-semibold ${
-                              isInactivePill ? 'text-white' : 'text-gray-800'
-                            }`}
+                            className="truncate text-left"
+                            style={{
+                              color: pillTextColor,
+                              fontSize: '10px',
+                              fontWeight: 500,
+                              lineHeight: 1.2,
+                            }}
                           >
                             {event.event_name}
                           </span>
-                          {!isInactivePill && formattedCallTime ? (
-                            <span className="truncate text-xs text-gray-500">
-                              {formattedCallTime}
+                          {!isInactivePill && row2Text ? (
+                            <span
+                              className="truncate text-left"
+                              style={{
+                                color: pillTextColor,
+                                fontSize: '9px',
+                                lineHeight: 1.2,
+                                opacity: 0.75,
+                              }}
+                            >
+                              {row2Text}
                             </span>
                           ) : null}
                         </div>
-                        {event.status === 'hold' && !isInactivePill ? (
-                          <span className="absolute top-0.5 right-0.5 rounded-sm bg-brand-navy px-1 text-[9px] text-white">
-                            HOLD
-                          </span>
-                        ) : null}
                       </button>
                     )
                   })}
@@ -435,63 +515,91 @@ function CommandCenterPage() {
           })}
         </div>
 
-        <div className="mt-4 flex flex-col flex-wrap gap-y-2 px-2 text-xs text-gray-500">
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-            <span className="font-medium uppercase">Event Type</span>
-            {event_types
-              .filter((type) => type.value !== 'past_cancelled')
-              .map((type) => {
-                const eventTypeBarColors: Record<string, string> = {
-                  wedding: '#C9A84C',
-                  wedding_life: '#C9A84C',
-                  corporate: '#1B3A5C',
-                  social: '#6B4C9A',
-                  gala: '#1A6B3C',
-                  gala_fundraiser: '#1A6B3C',
-                  simple: '#2A9D8F',
-                  simple_delivery: '#2A9D8F',
-                  custom: '#C85000',
-                }
-                const dotColor =
-                  eventTypeBarColors[type.value] ?? colors.brand_navy
+        <div
+          className="mt-1 flex flex-wrap items-center gap-2"
+          style={{
+            padding: '7px 12px',
+            borderTop: '0.5px solid #e5e7eb',
+          }}
+        >
+          {[
+            { label: 'Wedding', color: '#C9A84C' },
+            { label: 'Corporate', color: '#1B3A5C' },
+            { label: 'Social', color: '#7C5CBF' },
+            { label: 'Gala', color: '#1A6B3C' },
+            { label: 'Simple', color: '#0D9E8A' },
+            { label: 'Custom', color: '#C85000' },
+          ].map((item) => (
+            <span
+              key={item.label}
+              className="inline-flex items-center"
+              style={{ gap: '4px', fontSize: '10px', color: '#6b7280' }}
+            >
+              <span
+                className="inline-block shrink-0"
+                style={{
+                  width: '5px',
+                  height: '12px',
+                  borderRadius: '1px',
+                  backgroundColor: item.color,
+                }}
+                aria-hidden="true"
+              />
+              {item.label}
+            </span>
+          ))}
 
-                return (
-                  <span key={type.value} className="inline-flex items-center">
-                    <span
-                      className="mr-1 inline-block size-2.5 rounded-full bg-[var(--key-dot-color)]"
-                      style={
-                        { '--key-dot-color': dotColor } as CSSProperties
-                      }
-                      aria-hidden="true"
-                    />
-                    {type.label}
-                  </span>
-                )
-              })}
-          </div>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-            <span className="font-medium uppercase">Status</span>
-            <span className="inline-flex items-center">
-              <span className="mr-1 inline-block size-2.5 rounded-sm border border-green-500 bg-green-50" />
-              Fully Staffed
+          <span
+            className="self-stretch"
+            style={{
+              width: '0.5px',
+              backgroundColor: '#e5e7eb',
+              margin: '0 4px',
+            }}
+            aria-hidden="true"
+          />
+
+          {[
+            { label: 'Staffed', color: '#dcf5e7' },
+            { label: 'In progress', color: '#fef9c3' },
+            { label: 'Action needed', color: '#fee2e2' },
+          ].map((item) => (
+            <span
+              key={item.label}
+              className="inline-flex items-center"
+              style={{ gap: '4px', fontSize: '10px', color: '#6b7280' }}
+            >
+              <span
+                className="inline-block shrink-0"
+                style={{
+                  width: '12px',
+                  height: '9px',
+                  borderRadius: '2px',
+                  backgroundColor: item.color,
+                }}
+                aria-hidden="true"
+              />
+              {item.label}
             </span>
-            <span className="inline-flex items-center">
-              <span className="mr-1 inline-block size-2.5 rounded-sm border border-amber-500 bg-amber-50" />
-              In Progress
+          ))}
+
+          <span
+            className="inline-flex items-center"
+            style={{ gap: '4px', fontSize: '10px', color: '#6b7280' }}
+          >
+            <span
+              className="inline-flex shrink-0 items-center justify-center text-white"
+              style={{
+                backgroundColor: '#1B3A5C',
+                fontSize: '7px',
+                padding: '1px 3px',
+                borderRadius: '2px',
+              }}
+            >
+              HOLD
             </span>
-            <span className="inline-flex items-center">
-              <span className="mr-1 inline-block size-2.5 rounded-sm border border-red-500 bg-red-50" />
-              Needs Attention
-            </span>
-            <span className="inline-flex items-center">
-              <span className="mr-1 inline-block size-2.5 rounded-sm border border-gray-300 bg-white" />
-              Draft
-            </span>
-            <span className="inline-flex items-center">
-              <span className="mr-1 inline-block size-2.5 rounded-sm bg-black" />
-              Cancelled/Postponed
-            </span>
-          </div>
+            Soft hold
+          </span>
         </div>
       </section>
     </div>
