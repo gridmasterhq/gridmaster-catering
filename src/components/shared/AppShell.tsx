@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState, createContext, useContext, type CSSProperties, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, createContext, useContext, type CSSProperties, type ReactNode } from 'react'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
+import { supabase } from '../../lib/supabase'
 
 type ActiveScreen = 'cc' | 'calendar'
 
@@ -20,6 +21,27 @@ export function useActiveScreen(): ActiveScreenContextValue {
   return context
 }
 
+function resolveUserDisplayName(user: {
+  email?: string
+  user_metadata?: Record<string, unknown>
+}): string {
+  const metadata = user.user_metadata ?? {}
+  const fullName = metadata.full_name
+  const name = metadata.name
+  const displayName = metadata.display_name
+
+  if (typeof fullName === 'string' && fullName.trim()) {
+    return fullName.trim()
+  }
+  if (typeof name === 'string' && name.trim()) {
+    return name.trim()
+  }
+  if (typeof displayName === 'string' && displayName.trim()) {
+    return displayName.trim()
+  }
+  return user.email ?? ''
+}
+
 interface AppShellProps {
   children: ReactNode
 }
@@ -32,6 +54,9 @@ function AppShell({ children }: AppShellProps) {
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false)
   const [showFooter, setShowFooter] = useState(false)
   const [activeScreen, setActiveScreen] = useState<ActiveScreen>('calendar')
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false)
+  const [userDisplayName, setUserDisplayName] = useState('')
+  const accountMenuRef = useRef<HTMLDivElement>(null)
 
   const hqIndex = brand_name.lastIndexOf(' ')
   const gridMasterWordmark =
@@ -58,6 +83,65 @@ function AppShell({ children }: AppShellProps) {
     setLeftSidebarOpen(false)
     setRightSidebarOpen(false)
   }, [])
+
+  useEffect(() => {
+    async function loadUser() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        setUserDisplayName(resolveUserDisplayName(user))
+      }
+    }
+
+    loadUser()
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setUserDisplayName(resolveUserDisplayName(session.user))
+      } else {
+        setUserDisplayName('')
+      }
+    })
+
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!accountMenuOpen) {
+      return
+    }
+
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        accountMenuRef.current &&
+        !accountMenuRef.current.contains(event.target as Node)
+      ) {
+        setAccountMenuOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [accountMenuOpen])
+
+  const handleLogOut = useCallback(async () => {
+    await supabase.auth.signOut()
+    window.location.reload()
+  }, [])
+
+  const screenLabelStyle = useCallback(
+    (screen: ActiveScreen): CSSProperties => ({
+      cursor: 'pointer',
+      fontWeight: activeScreen === screen ? 600 : 400,
+      opacity: activeScreen === screen ? 1 : 0.65,
+    }),
+    [activeScreen],
+  )
 
   useEffect(() => {
     const handleScroll = () => {
@@ -94,11 +178,8 @@ function AppShell({ children }: AppShellProps) {
           </button>
           <button
             type="button"
-            className="cursor-pointer text-sm tracking-wide text-white uppercase"
-            style={{
-              fontWeight: activeScreen === 'cc' ? 700 : 600,
-              opacity: activeScreen === 'cc' ? 1 : 0.7,
-            }}
+            className="text-sm tracking-wide text-white uppercase"
+            style={screenLabelStyle('cc')}
             onClick={() => setActiveScreen('cc')}
           >
             {labels.command_center}
@@ -138,15 +219,103 @@ function AppShell({ children }: AppShellProps) {
         <section className="flex flex-1 items-center justify-end gap-10 bg-[var(--shell-brand-navy)] px-16">
           <button
             type="button"
-            className="cursor-pointer text-sm tracking-wide text-white uppercase"
-            style={{
-              fontWeight: activeScreen === 'calendar' ? 700 : 600,
-              opacity: activeScreen === 'calendar' ? 1 : 0.7,
-            }}
+            className="text-sm tracking-wide text-white uppercase"
+            style={screenLabelStyle('calendar')}
             onClick={() => setActiveScreen('calendar')}
           >
             {labels.calendar}
           </button>
+
+          <div
+            ref={accountMenuRef}
+            className="relative shrink-0"
+            style={{ marginRight: '12px', minWidth: '110px' }}
+          >
+            <button
+              type="button"
+              onClick={() => setAccountMenuOpen((open) => !open)}
+              style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                border: '0.5px solid rgba(255, 255, 255, 0.3)',
+                borderRadius: '6px',
+                padding: '4px 10px',
+                minWidth: '110px',
+                flexShrink: 0,
+                cursor: 'pointer',
+                textAlign: 'right',
+                width: '100%',
+              }}
+            >
+              <div
+                style={{
+                  color: '#ffffff',
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  lineHeight: 1.2,
+                }}
+              >
+                {userDisplayName}
+              </div>
+              <div
+                style={{
+                  color: 'rgba(255, 255, 255, 0.7)',
+                  fontSize: '10px',
+                  lineHeight: 1.2,
+                }}
+              >
+                {labels.account_user}
+              </div>
+            </button>
+
+            {accountMenuOpen ? (
+              <div
+                style={{
+                  position: 'absolute',
+                  right: 0,
+                  top: '100%',
+                  zIndex: 200,
+                  minWidth: '140px',
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '6px',
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                }}
+              >
+                {[labels.my_profile, labels.event_mode, labels.sleep_mode].map(
+                  (itemLabel) => (
+                    <button
+                      key={itemLabel}
+                      type="button"
+                      className="block w-full text-left hover:bg-gray-50"
+                      style={{
+                        padding: '8px 12px',
+                        fontSize: '12px',
+                        color: '#374151',
+                        cursor: 'pointer',
+                      }}
+                      onClick={() => setAccountMenuOpen(false)}
+                    >
+                      {itemLabel}
+                    </button>
+                  ),
+                )}
+                <button
+                  type="button"
+                  className="block w-full text-left hover:bg-gray-50"
+                  style={{
+                    padding: '8px 12px',
+                    fontSize: '12px',
+                    color: '#374151',
+                    cursor: 'pointer',
+                  }}
+                  onClick={handleLogOut}
+                >
+                  {labels.log_out}
+                </button>
+              </div>
+            ) : null}
+          </div>
+
           <button
             type="button"
             className="text-lg text-white cursor-pointer"
