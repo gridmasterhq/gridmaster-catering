@@ -32,6 +32,16 @@ export interface ProductLabels {
   error_network: string
   confirm: string
   coming_soon: string
+  upcoming_events: string
+  needs_attention: string
+  fully_staffed: string
+  month_view: string
+  week_view: string
+  today: string
+  show_cancelled: string
+  postponed_hold: string
+  previous_period: string
+  next_period: string
 }
 
 export interface ProductColors {

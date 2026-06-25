@@ -5,15 +5,14 @@ import SMSDeepLinkHandler from './components/shared/SMSDeepLinkHandler'
 import cateringConfig from './lib/productConfig'
 import {
   ProductConfigProvider,
-  useProductConfig,
 } from './lib/hooks/useProductConfig'
 import { supabase } from './lib/supabase'
 import LoginPage from './pages/auth/LoginPage'
+import CommandCenterPage from './pages/catering/CommandCenterPage'
 
 type AuthState = 'loading' | 'authenticated' | 'unauthenticated'
 
 function AppContent() {
-  const { labels } = useProductConfig()
   const [authState, setAuthState] = useState<AuthState>('loading')
 
   useEffect(() => {
@@ -48,13 +47,7 @@ function AppContent() {
     return <LoginPage />
   }
 
-  return (
-    <div className="flex min-h-[calc(100vh-3rem)] flex-1 items-center justify-center">
-      <p className="text-text-body">
-        {labels.command_center} — {labels.coming_soon}
-      </p>
-    </div>
-  )
+  return <CommandCenterPage />
 }
 
 function App() {
