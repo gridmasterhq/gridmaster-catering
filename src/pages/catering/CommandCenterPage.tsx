@@ -54,9 +54,12 @@ function parseEventDate(eventDate: string): Date {
   return startOfDay(new Date(`${eventDate}T00:00:00`))
 }
 
+const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const
+
 function startOfWeek(date: Date): Date {
   const start = startOfDay(date)
-  start.setDate(start.getDate() - start.getDay())
+  const daysSinceMonday = (start.getDay() + 6) % 7
+  start.setDate(start.getDate() - daysSinceMonday)
   return start
 }
 
@@ -358,10 +361,10 @@ function CommandCenterPage() {
         </div>
 
         <div className="grid grid-cols-7 gap-px border border-gray-200 bg-gray-200">
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+          {WEEKDAY_LABELS.map((day) => (
             <div
               key={day}
-              className="bg-gray-50 px-2 py-2 text-center text-xs font-medium text-gray-500"
+              className="bg-gray-50 px-2 py-2 text-center text-xs font-medium text-brand-red"
             >
               {day}
             </div>
@@ -378,11 +381,15 @@ function CommandCenterPage() {
                 key={dayKey}
                 className={`min-h-28 bg-white p-1 ${
                   view === 'month' && !inCurrentMonth ? 'bg-gray-50' : ''
-                } ${isSameDay(day, today) ? 'ring-2 ring-brand-mid-blue ring-inset' : ''}`}
+                }`}
               >
                 <p
-                  className={`mb-1 text-xs font-medium ${
-                    inCurrentMonth ? 'text-text-body' : 'text-gray-400'
+                  className={`mb-1 inline-flex size-6 items-center justify-center rounded text-xs font-medium ${
+                    isSameDay(day, today)
+                      ? 'bg-brand-navy text-white'
+                      : inCurrentMonth
+                        ? 'text-brand-mid-blue'
+                        : 'text-gray-400'
                   }`}
                 >
                   {day.getDate()}
