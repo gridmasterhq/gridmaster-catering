@@ -1,6 +1,29 @@
 import { useCallback, useEffect, useRef, useState, createContext, useContext, type CSSProperties, type ReactNode } from 'react'
+import {
+  IconBell,
+  IconBolt,
+  IconBriefcase,
+  IconBuilding,
+  IconBuildingStore,
+  IconCash,
+  IconChartBar,
+  IconCopy,
+  IconCpu,
+  IconGift,
+  IconHelpCircle,
+  IconMapPin,
+  IconPlug,
+  IconPlus,
+  IconSchool,
+  IconSettings,
+  IconTruck,
+  IconUsers,
+  IconX,
+} from '@tabler/icons-react'
+import type { Icon } from '@tabler/icons-react'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
 import { supabase } from '../../lib/supabase'
+import type { NavItem } from '../../lib/productConfig'
 
 type ActiveScreen = 'cc' | 'calendar'
 
@@ -75,6 +98,236 @@ async function resolveUserDisplayName(user: {
   }
 
   return ''
+}
+
+const sidebarStyle: CSSProperties = {
+  position: 'fixed',
+  top: 0,
+  left: 0,
+  width: '220px',
+  height: '100%',
+  backgroundColor: '#ffffff',
+  borderRight: '0.5px solid #e5e7eb',
+  overflowY: 'auto',
+  zIndex: 201,
+  transition: 'transform 0.2s ease',
+}
+
+const sectionLabelStyle: CSSProperties = {
+  fontSize: '10px',
+  fontWeight: 500,
+  color: '#9ca3af',
+  textTransform: 'uppercase',
+  letterSpacing: '0.8px',
+  marginBottom: '4px',
+  padding: '10px 12px 0',
+}
+
+const ccIconMap: Record<string, Icon> = {
+  ai_mode: IconCpu,
+  agency: IconBuildingStore,
+  competing_events: IconMapPin,
+  transport: IconTruck,
+  pay_rates: IconCash,
+  user_management: IconUsers,
+  notifications: IconBell,
+  integrations: IconPlug,
+  settings: IconSettings,
+  expert_mode: IconBolt,
+  help: IconHelpCircle,
+}
+
+const calendarIconMap: Record<string, Icon> = {
+  new_event: IconPlus,
+  event_settings: IconSettings,
+  templates: IconCopy,
+  staff: IconUsers,
+  clients: IconBuilding,
+  roles: IconBriefcase,
+  training: IconSchool,
+  reports: IconChartBar,
+  incentives: IconGift,
+  expert_mode: IconBolt,
+  help: IconHelpCircle,
+}
+
+const ccSidebarSections = [
+  {
+    labelKey: 'nav_section_operations' as const,
+    itemIds: [
+      'ai_mode',
+      'agency',
+      'competing_events',
+      'transport',
+      'pay_rates',
+    ],
+  },
+  {
+    labelKey: 'nav_section_account' as const,
+    itemIds: [
+      'user_management',
+      'notifications',
+      'integrations',
+      'settings',
+    ],
+  },
+  {
+    labelKey: 'nav_section_preferences' as const,
+    itemIds: ['expert_mode', 'help'],
+  },
+] as const
+
+const calendarSidebarSections = [
+  {
+    labelKey: 'nav_section_events' as const,
+    itemIds: ['new_event', 'event_settings', 'templates'],
+  },
+  {
+    labelKey: 'nav_section_people' as const,
+    itemIds: ['staff', 'clients', 'roles'],
+  },
+  {
+    labelKey: 'nav_section_development' as const,
+    itemIds: ['training'],
+  },
+  {
+    labelKey: 'nav_section_more' as const,
+    itemIds: ['reports', 'incentives', 'expert_mode', 'help'],
+  },
+] as const
+
+interface SidebarItemProps {
+  icon: Icon
+  label: string
+  onClick: () => void
+}
+
+function SidebarItem({ icon: ItemIcon, label, onClick }: SidebarItemProps) {
+  return (
+    <button
+      type="button"
+      className="flex w-full items-center hover:bg-[#f3f4f6]"
+      style={{
+        gap: '8px',
+        padding: '7px 8px',
+        borderRadius: '6px',
+        fontSize: '12px',
+        color: '#111827',
+        cursor: 'pointer',
+        marginBottom: '1px',
+        marginLeft: '12px',
+        marginRight: '12px',
+        width: 'calc(100% - 24px)',
+      }}
+      onClick={onClick}
+    >
+      <ItemIcon size={16} color="#1B3A5C" style={{ flexShrink: 0 }} />
+      <span>{label}</span>
+    </button>
+  )
+}
+
+interface AppSidebarProps {
+  open: boolean
+  title: string
+  headerBackground: string
+  onClose: () => void
+  children: ReactNode
+}
+
+function AppSidebar({
+  open,
+  title,
+  headerBackground,
+  onClose,
+  children,
+}: AppSidebarProps) {
+  return (
+    <aside
+      style={{
+        ...sidebarStyle,
+        transform: open ? 'translateX(0)' : 'translateX(-100%)',
+      }}
+      aria-hidden={!open}
+    >
+      <div
+        style={{
+          padding: '12px 14px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          borderBottom: '0.5px solid #e5e7eb',
+          position: 'sticky',
+          top: 0,
+          zIndex: 1,
+          backgroundColor: headerBackground,
+        }}
+      >
+        <span style={{ fontSize: '13px', fontWeight: 500, color: '#ffffff' }}>
+          {title}
+        </span>
+        <button
+          type="button"
+          onClick={onClose}
+          style={{
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            color: '#ffffff',
+            fontSize: '18px',
+            display: 'flex',
+            alignItems: 'center',
+            padding: 0,
+          }}
+          aria-label="Close menu"
+        >
+          <IconX size={18} />
+        </button>
+      </div>
+      {children}
+    </aside>
+  )
+}
+
+interface SidebarSectionProps {
+  label: string
+  showDivider?: boolean
+  children: ReactNode
+}
+
+function SidebarSection({
+  label,
+  showDivider = false,
+  children,
+}: SidebarSectionProps) {
+  return (
+    <>
+      {showDivider ? (
+        <div
+          style={{
+            height: '0.5px',
+            backgroundColor: '#e5e7eb',
+            margin: '8px 12px',
+          }}
+          aria-hidden="true"
+        />
+      ) : null}
+      <div style={sectionLabelStyle}>{label}</div>
+      {children}
+    </>
+  )
+}
+
+function resolveNavLabel(
+  itemId: string,
+  items: NavItem[],
+  trainingLabel: string,
+): string {
+  if (itemId === 'training') {
+    return trainingLabel
+  }
+
+  return items.find((item) => item.id === itemId)?.label ?? ''
 }
 
 interface AppShellProps {
@@ -382,47 +635,80 @@ function AppShell({ children }: AppShellProps) {
       {sidebarOpen ? (
         <button
           type="button"
-          className="fixed inset-0 z-40 cursor-default bg-black/40"
           aria-label="Close menu"
           onClick={closeSidebars}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.3)',
+            zIndex: 200,
+            border: 'none',
+            cursor: 'default',
+          }}
         />
       ) : null}
 
-      <aside
-        className={`fixed top-0 left-0 z-50 flex h-full w-72 flex-col gap-1 bg-[var(--shell-brand-red)] p-4 pt-16 transition-transform duration-300 ${
-          leftSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
-        aria-hidden={!leftSidebarOpen}
+      <AppSidebar
+        open={leftSidebarOpen}
+        title={labels.command_center}
+        headerBackground="#C0392B"
+        onClose={closeSidebars}
       >
-        {navigation.red.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            className="rounded px-2 py-2 text-left text-sm text-white cursor-pointer hover:bg-white/10"
-            onClick={closeSidebars}
+        {ccSidebarSections.map((section, sectionIndex) => (
+          <SidebarSection
+            key={section.labelKey}
+            label={labels[section.labelKey]}
+            showDivider={sectionIndex > 0}
           >
-            {item.label}
-          </button>
+            {section.itemIds.map((itemId) => {
+              const ItemIcon = ccIconMap[itemId]
+              return (
+                <SidebarItem
+                  key={itemId}
+                  icon={ItemIcon}
+                  label={resolveNavLabel(
+                    itemId,
+                    navigation.red,
+                    labels.training,
+                  )}
+                  onClick={closeSidebars}
+                />
+              )
+            })}
+          </SidebarSection>
         ))}
-      </aside>
+      </AppSidebar>
 
-      <aside
-        className={`fixed top-0 right-0 z-50 flex h-full w-72 flex-col gap-1 bg-[var(--shell-brand-navy)] p-4 pt-16 transition-transform duration-300 ${
-          rightSidebarOpen ? 'translate-x-0' : 'translate-x-full'
-        }`}
-        aria-hidden={!rightSidebarOpen}
+      <AppSidebar
+        open={rightSidebarOpen}
+        title={labels.calendar}
+        headerBackground="#1B3A5C"
+        onClose={closeSidebars}
       >
-        {navigation.blue.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            className="rounded px-2 py-2 text-left text-sm text-white cursor-pointer hover:bg-white/10"
-            onClick={closeSidebars}
+        {calendarSidebarSections.map((section, sectionIndex) => (
+          <SidebarSection
+            key={section.labelKey}
+            label={labels[section.labelKey]}
+            showDivider={sectionIndex > 0}
           >
-            {item.label}
-          </button>
+            {section.itemIds.map((itemId) => {
+              const ItemIcon = calendarIconMap[itemId]
+              return (
+                <SidebarItem
+                  key={itemId}
+                  icon={ItemIcon}
+                  label={resolveNavLabel(
+                    itemId,
+                    navigation.blue,
+                    labels.training,
+                  )}
+                  onClick={closeSidebars}
+                />
+              )
+            })}
+          </SidebarSection>
         ))}
-      </aside>
+      </AppSidebar>
 
       <div className="flex min-h-screen flex-col pt-12">
         <main className="flex-1">{children}</main>
