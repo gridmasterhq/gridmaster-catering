@@ -68,6 +68,11 @@ export interface ProductLabels {
   cc_tool_broadcast_all: string
   cc_tool_roster_health: string
   cc_tool_availability_pulse: string
+  account_user: string
+  my_profile: string
+  event_mode: string
+  sleep_mode: string
+  log_out: string
 }
 
 export interface ProductColors {

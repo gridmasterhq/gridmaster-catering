@@ -91,6 +91,11 @@ const cateringConfig: ProductConfig = {
     cc_tool_broadcast_all: 'Broadcast All',
     cc_tool_roster_health: 'Roster Health',
     cc_tool_availability_pulse: 'Availability Pulse',
+    account_user: 'Account / User',
+    my_profile: 'My Profile',
+    event_mode: 'Event Mode',
+    sleep_mode: 'Sleep Mode',
+    log_out: 'Log Out',
   },
   colors: {
     brand_navy: '#1B3A5C',
