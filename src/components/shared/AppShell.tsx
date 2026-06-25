@@ -62,7 +62,7 @@ function AppShell({ children }: AppShellProps) {
   return (
     <div className="min-h-screen flex flex-col" style={themeVars}>
       <header className="fixed top-0 left-0 right-0 z-30 flex h-12 w-full">
-        <section className="flex flex-1 items-center gap-3 bg-[var(--shell-brand-red)] px-4">
+        <section className="flex flex-1 items-center gap-3 bg-[var(--shell-brand-red)] px-5">
           <button
             type="button"
             className="text-lg text-white cursor-pointer"
@@ -80,19 +80,19 @@ function AppShell({ children }: AppShellProps) {
           <div className="leading-tight whitespace-nowrap">
             <span className="text-base font-bold text-[var(--shell-brand-navy)]">
               {gridMasterWordmark}
-            </span>
+            </span>{' '}
             {hqWordmark ? (
               <span className="text-base font-bold text-[var(--shell-brand-red)]">
                 {hqWordmark}
               </span>
             ) : null}
           </div>
-          <span className="text-xs text-[var(--shell-text-body)]">
+          <span className="text-xs italic font-['Playfair_Display',serif] text-[var(--shell-text-body)]">
             {product_name}
           </span>
         </section>
 
-        <section className="flex flex-1 items-center justify-end gap-3 bg-[var(--shell-brand-navy)] px-4">
+        <section className="flex flex-1 items-center justify-end gap-3 bg-[var(--shell-brand-navy)] px-5">
           <span className="text-sm font-semibold tracking-wide text-white uppercase">
             {labels.calendar}
           </span>
