@@ -1,3 +1,29 @@
+.expert-mode .helper-text {
+  display: none !important;
+}
+.expert-mode .field-description {
+  display: none !important;
+}
+.expert-mode .section-description {
+  display: none !important;
+}
+.expert-mode .onboarding-hint {
+  display: none !important;
+}
+.expert-mode .guidance-banner {
+  display: none !important;
+}
+.expert-mode input,
+.expert-mode textarea,
+.expert-mode select {
+  font-size: 16px !important;
+  min-height: 44px !important;
+}
+.expert-mode button:not(.expert-mode-toggle) {
+  min-height: 44px !important;
+  font-size: 14px !important;
+}
+
 .counter {
   font-size: 16px;
   padding: 5px 10px;
