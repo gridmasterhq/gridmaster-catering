@@ -47,8 +47,8 @@ function getPillStyle(status: string, isInactivePill: boolean): PillStyle {
 
   if (status === 'staffed' || status === 'confirmed') {
     return {
-      backgroundColor: '#dcf5e7',
-      border: '1px solid #86efac',
+      backgroundColor: 'rgba(220, 245, 231, 0.6)',
+      border: '1px solid rgba(134, 239, 172, 0.8)',
       color: '#166534',
     }
   }
@@ -61,23 +61,23 @@ function getPillStyle(status: string, isInactivePill: boolean): PillStyle {
     status === 'grid_built'
   ) {
     return {
-      backgroundColor: '#fef9c3',
-      border: '1px solid #fde047',
+      backgroundColor: 'rgba(254, 249, 195, 0.6)',
+      border: '1px solid rgba(253, 224, 71, 0.8)',
       color: '#854d0e',
     }
   }
 
   if (status === 'needs_attention') {
     return {
-      backgroundColor: '#fee2e2',
-      border: '1px solid #fca5a5',
+      backgroundColor: 'rgba(254, 226, 226, 0.6)',
+      border: '1px solid rgba(252, 165, 165, 0.8)',
       color: '#991b1b',
     }
   }
 
   return {
-    backgroundColor: '#f3f4f6',
-    border: '1px solid #d1d5db',
+    backgroundColor: 'rgba(243, 244, 246, 0.6)',
+    border: '1px solid rgba(209, 213, 219, 0.8)',
     color: '#374151',
   }
 }
@@ -458,11 +458,11 @@ function CommandCenterPage() {
                       <button
                         key={event.id}
                         type="button"
-                        className="mb-0.5 flex min-h-[26px] w-full cursor-pointer flex-row overflow-hidden rounded-sm"
+                        className="mb-0.5 flex min-h-[26px] w-full cursor-pointer flex-row overflow-hidden"
                         style={{
                           backgroundColor: pillStyle.backgroundColor,
                           border: pillStyle.border,
-                          borderRadius: '3px',
+                          borderRadius: '6px',
                         }}
                         onClick={() => handleEventClick(event.id)}
                       >
