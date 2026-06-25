@@ -246,15 +246,15 @@ function AppShell({ children }: AppShellProps) {
           <div className="flex flex-col items-center leading-tight whitespace-nowrap">
             <div>
               <span
-                className="font-bold text-[var(--shell-brand-navy)]"
-                style={{ fontSize: '17px' }}
+                className="text-[var(--shell-brand-navy)]"
+                style={{ fontSize: '15px', fontWeight: 500 }}
               >
                 {gridMasterWordmark}
               </span>{' '}
               {hqWordmark ? (
                 <span
-                  className="font-bold text-[var(--shell-brand-red)]"
-                  style={{ fontSize: '17px' }}
+                  className="text-[var(--shell-brand-red)]"
+                  style={{ fontSize: '15px', fontWeight: 500 }}
                 >
                   {hqWordmark}
                 </span>
@@ -290,7 +290,7 @@ function AppShell({ children }: AppShellProps) {
               <div
                 style={{
                   color: '#C0392B',
-                  fontSize: '13px',
+                  fontSize: '14px',
                   fontWeight: 600,
                   lineHeight: 1.2,
                 }}
