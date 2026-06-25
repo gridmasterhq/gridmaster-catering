@@ -8,4 +8,7 @@
   --color-text-body: #444444;
   --color-status-red: #ef4444;
   --color-status-green: #22c55e;
+  --color-status-blue: #3b82f6;
+  --color-status-amber: #f59e0b;
+  --color-status-neutral: #9e9e9e;
 }
