@@ -366,7 +366,7 @@ function CommandCenterPage() {
           {WEEKDAY_LABELS.map((day) => (
             <div
               key={day}
-              className="bg-gray-50 px-2 py-2 text-center text-sm font-bold tracking-wide text-brand-red"
+              className="bg-gray-50 px-2 py-2 text-center text-base font-bold tracking-wide text-brand-red"
             >
               {day}
             </div>
@@ -386,7 +386,7 @@ function CommandCenterPage() {
                 } ${isSameDay(day, today) ? 'ring-2 ring-brand-red ring-inset' : ''}`}
               >
                 <p
-                  className={`mb-1 text-xs font-medium ${
+                  className={`mb-1 text-sm font-medium ${
                     inCurrentMonth ? 'text-brand-mid-blue' : 'text-gray-400'
                   }`}
                 >
