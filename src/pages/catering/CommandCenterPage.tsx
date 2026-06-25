@@ -12,11 +12,11 @@ const ORGANIZATION_ID = '00000000-0000-0000-0000-000000000001'
 interface CateringEvent {
   id: string
   organization_id: string
-  name: string
+  event_name: string
   event_type: string
   event_date: string
-  start_time: string | null
-  staffing_status: 'green' | 'amber' | 'red'
+  call_time: string | null
+  status: string
   is_cancelled: boolean
   is_postponed: boolean
 }
@@ -120,7 +120,7 @@ function CommandCenterPage() {
       const { data, error } = await supabase
         .from('events')
         .select(
-          'id, organization_id, name, event_type, event_date, start_time, staffing_status, is_cancelled, is_postponed',
+          'id, organization_id, event_name, event_type, event_date, call_time, status, is_cancelled, is_postponed',
         )
         .eq('organization_id', ORGANIZATION_ID)
 
@@ -161,13 +161,10 @@ function CommandCenterPage() {
 
     return {
       upcoming: upcoming.length,
-      needsAttention: upcoming.filter(
-        (event) =>
-          event.staffing_status === 'amber' || event.staffing_status === 'red',
-      ).length,
-      fullyStaffed: upcoming.filter(
-        (event) => event.staffing_status === 'green',
-      ).length,
+      needsAttention: upcoming.filter((event) => event.status === 'draft')
+        .length,
+      fullyStaffed: upcoming.filter((event) => event.status === 'confirmed')
+        .length,
     }
   }, [events, today])
 
@@ -386,12 +383,14 @@ function CommandCenterPage() {
                           '--event-pill-color': pillColor,
                         } as CSSProperties)
 
-                    let pillText = event.name
+                    let pillText = event.event_name
                     if (isPostponed) {
-                      pillText = `${event.name} · ${labels.postponed_hold}`
+                      pillText = `${event.event_name} · ${labels.postponed_hold}`
                     } else if (!isCancelled) {
-                      const time = formatEventTime(event.start_time)
-                      pillText = time ? `${event.name} · ${time}` : event.name
+                      const time = formatEventTime(event.call_time)
+                      pillText = time
+                        ? `${event.event_name} · ${time}`
+                        : event.event_name
                     }
 
                     return (
