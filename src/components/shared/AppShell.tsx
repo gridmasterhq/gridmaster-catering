@@ -62,7 +62,7 @@ function AppShell({ children }: AppShellProps) {
   return (
     <div className="min-h-screen flex flex-col" style={themeVars}>
       <header className="fixed top-0 left-0 right-0 z-30 flex h-12 w-full">
-        <section className="flex flex-1 items-center gap-10 bg-[var(--shell-brand-red)] px-10">
+        <section className="flex flex-1 items-center gap-10 bg-[var(--shell-brand-red)] px-16">
           <button
             type="button"
             className="text-lg text-white cursor-pointer"
@@ -92,7 +92,7 @@ function AppShell({ children }: AppShellProps) {
           </span>
         </section>
 
-        <section className="flex flex-1 items-center justify-end gap-10 bg-[var(--shell-brand-navy)] px-10">
+        <section className="flex flex-1 items-center justify-end gap-10 bg-[var(--shell-brand-navy)] px-16">
           <span className="text-sm font-semibold tracking-wide text-white uppercase">
             {labels.calendar}
           </span>

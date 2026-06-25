@@ -259,23 +259,25 @@ function CommandCenterPage() {
 
   return (
     <div className="flex min-h-[calc(100vh-3rem)] flex-1 flex-col">
-      <section className="bg-brand-light-blue px-4 py-4">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <div className="rounded-lg bg-white p-4 text-center shadow-sm">
-            <p className="text-3xl font-bold text-brand-navy">{stats.upcoming}</p>
-            <p className="mt-1 text-sm text-gray-500">{labels.upcoming_events}</p>
+      <section className="max-h-[10vh] bg-brand-light-blue px-4 py-2">
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+          <div className="flex items-center gap-2 rounded-lg border border-status-neutral bg-white px-4 py-2">
+            <span className="text-2xl font-bold text-brand-navy">
+              {stats.upcoming}
+            </span>
+            <span className="text-sm text-gray-500">{labels.upcoming_events}</span>
           </div>
-          <div className="rounded-lg bg-white p-4 text-center shadow-sm">
-            <p className="text-3xl font-bold text-brand-navy">
+          <div className="flex items-center gap-2 rounded-lg border border-status-neutral bg-white px-4 py-2">
+            <span className="text-2xl font-bold text-brand-navy">
               {stats.needsAttention}
-            </p>
-            <p className="mt-1 text-sm text-gray-500">{labels.needs_attention}</p>
+            </span>
+            <span className="text-sm text-gray-500">{labels.needs_attention}</span>
           </div>
-          <div className="rounded-lg bg-white p-4 text-center shadow-sm">
-            <p className="text-3xl font-bold text-brand-navy">
+          <div className="flex items-center gap-2 rounded-lg border border-status-neutral bg-white px-4 py-2">
+            <span className="text-2xl font-bold text-brand-navy">
               {stats.fullyStaffed}
-            </p>
-            <p className="mt-1 text-sm text-gray-500">{labels.fully_staffed}</p>
+            </span>
+            <span className="text-sm text-gray-500">{labels.fully_staffed}</span>
           </div>
         </div>
       </section>
