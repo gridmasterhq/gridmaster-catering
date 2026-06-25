@@ -3,6 +3,7 @@ import {
   useMemo,
   useState,
 } from 'react'
+import ExpertModeToggle from '../../components/ExpertModeToggle'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
 import { supabase } from '../../lib/supabase'
 
@@ -176,6 +177,7 @@ function isWithinNext30Days(eventDate: Date, today: Date): boolean {
 }
 
 function CalendarPage() {
+  const [isExpert, setIsExpert] = useState(false)
   const { labels, navigation } = useProductConfig()
 
   const [events, setEvents] = useState<CateringEvent[]>([])
@@ -331,7 +333,10 @@ function CalendarPage() {
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-3rem)] flex-1 flex-col">
+    <div
+      className={`relative flex min-h-[calc(100vh-3rem)] flex-1 flex-col${isExpert ? ' expert-mode' : ''}`}
+    >
+      <ExpertModeToggle pageName="calendar" onModeChange={setIsExpert} />
       <section className="max-h-[10vh] bg-brand-light-blue px-4 py-2">
         <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
           <div className="flex items-center justify-center gap-2 rounded-lg border border-status-neutral bg-white px-4 py-2">
