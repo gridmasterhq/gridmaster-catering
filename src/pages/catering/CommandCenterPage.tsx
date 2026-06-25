@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react'
+import { useEffect, useState } from 'react'
 import {
   IconActivity,
   IconCloud,
@@ -8,7 +9,11 @@ import {
   IconSpeakerphone,
 } from '@tabler/icons-react'
 import type { Icon } from '@tabler/icons-react'
+import { useActiveScreen } from '../../components/shared/AppShell'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
+import { supabase } from '../../lib/supabase'
+
+const ORGANIZATION_ID = '00000000-0000-0000-0000-000000000001'
 
 const boxStyle: CSSProperties = {
   backgroundColor: '#ffffff',
@@ -166,6 +171,25 @@ function ToolGridItem({ icon: ItemIcon, title, subtitle }: ToolGridItemProps) {
 
 function CommandCenterPage() {
   const { labels, navigation } = useProductConfig()
+  const { setActiveScreen } = useActiveScreen()
+  const [eventCount, setEventCount] = useState<number | null>(null)
+
+  useEffect(() => {
+    async function fetchEventCount() {
+      const { count, error } = await supabase
+        .from('events')
+        .select('id', { count: 'exact', head: true })
+        .eq('organization_id', ORGANIZATION_ID)
+
+      if (!error && count != null) {
+        setEventCount(count)
+      } else {
+        setEventCount(0)
+      }
+    }
+
+    fetchEventCount()
+  }, [])
 
   const competingEventsLabel =
     navigation.red.find((item) => item.id === 'competing_events')?.label ?? ''
@@ -224,6 +248,55 @@ function CommandCenterPage() {
       className="min-h-full"
       style={{ backgroundColor: '#F3F4F6', padding: '12px 14px' }}
     >
+      {eventCount === 0 ? (
+        <div
+          style={{
+            backgroundColor: 'rgba(27, 58, 92, 0.08)',
+            padding: '16px',
+            borderRadius: '8px',
+            marginBottom: '10px',
+          }}
+        >
+          <p
+            style={{
+              fontSize: '15px',
+              fontWeight: 600,
+              color: '#1B3A5C',
+            }}
+          >
+            {labels.es_cc_no_events_headline}
+          </p>
+          <p
+            style={{
+              fontSize: '12px',
+              color: '#6b7280',
+              marginTop: '6px',
+              maxWidth: '560px',
+            }}
+          >
+            {labels.es_cc_no_events_body}
+          </p>
+          <button
+            type="button"
+            className="rounded bg-brand-navy px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+            style={{ marginTop: '12px' }}
+            onClick={() => setActiveScreen('calendar')}
+          >
+            {labels.es_cc_no_events_cta}
+          </button>
+          <p
+            style={{
+              fontSize: '11px',
+              color: '#9ca3af',
+              marginTop: '10px',
+              maxWidth: '560px',
+            }}
+          >
+            {labels.es_cc_no_events_secondary}
+          </p>
+        </div>
+      ) : null}
+
       <div
         className="grid grid-cols-2"
         style={{ gap: '10px' }}

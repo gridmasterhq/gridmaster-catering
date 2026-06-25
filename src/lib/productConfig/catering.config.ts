@@ -117,6 +117,23 @@ const cateringConfig: ProductConfig = {
     nav_section_development: 'Development',
     nav_section_more: 'More',
     training: 'Training',
+    es_calendar_no_events_headline:
+      'No events yet. Tap + New Event to get started.',
+    es_calendar_no_events_secondary:
+      'Your first event takes about 2 minutes with Quick Event — or upload your BEO and our AI builds it for you instantly.',
+    es_calendar_new_event_cta: '+ New Event',
+    es_staff_empty_headline:
+      'Your staff are being set up. Check back as your team completes their profiles.',
+    es_staff_empty_secondary:
+      'Need to add someone manually? Tap Staff in the left menu under People.',
+    es_fill_positions_staffed_headline:
+      "You're fully staffed for this event. Nice work.",
+    es_cc_no_events_headline: "You're all set up. Let's put GridMaster to work.",
+    es_cc_no_events_body:
+      'GridMaster handles your staffing outreach, confirmations, check-ins, and real-time event management — all from here. When your first event is active, this screen becomes your operational nerve center.',
+    es_cc_no_events_cta: 'Go to Calendar → Create Your First Event',
+    es_cc_no_events_secondary:
+      'Every action you take teaches GridMaster your preferences — the more you use it, the smarter it gets.',
   },
   colors: {
     brand_navy: '#1B3A5C',

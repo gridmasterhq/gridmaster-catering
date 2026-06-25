@@ -93,6 +93,16 @@ export interface ProductLabels {
   nav_section_development: string
   nav_section_more: string
   training: string
+  es_calendar_no_events_headline: string
+  es_calendar_no_events_secondary: string
+  es_calendar_new_event_cta: string
+  es_staff_empty_headline: string
+  es_staff_empty_secondary: string
+  es_fill_positions_staffed_headline: string
+  es_cc_no_events_headline: string
+  es_cc_no_events_body: string
+  es_cc_no_events_cta: string
+  es_cc_no_events_secondary: string
 }
 
 export interface ProductColors {
