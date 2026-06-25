@@ -21,10 +21,14 @@ export function useActiveScreen(): ActiveScreenContextValue {
   return context
 }
 
-function resolveUserDisplayName(user: {
-  email?: string
+function emailPrefix(email: string): string {
+  const atIndex = email.indexOf('@')
+  return atIndex > 0 ? email.slice(0, atIndex) : email
+}
+
+function metadataDisplayName(user: {
   user_metadata?: Record<string, unknown>
-}): string {
+}): string | null {
   const metadata = user.user_metadata ?? {}
   const fullName = metadata.full_name
   const name = metadata.name
@@ -39,7 +43,38 @@ function resolveUserDisplayName(user: {
   if (typeof displayName === 'string' && displayName.trim()) {
     return displayName.trim()
   }
-  return user.email ?? ''
+  return null
+}
+
+async function resolveUserDisplayName(user: {
+  email?: string
+  user_metadata?: Record<string, unknown>
+}): Promise<string> {
+  if (user.email) {
+    const { data } = await supabase
+      .from('users')
+      .select('full_name, display_name')
+      .eq('email', user.email)
+      .single()
+
+    if (typeof data?.display_name === 'string' && data.display_name.trim()) {
+      return data.display_name.trim()
+    }
+    if (typeof data?.full_name === 'string' && data.full_name.trim()) {
+      return data.full_name.trim()
+    }
+  }
+
+  const fromMetadata = metadataDisplayName(user)
+  if (fromMetadata) {
+    return fromMetadata
+  }
+
+  if (user.email) {
+    return emailPrefix(user.email)
+  }
+
+  return ''
 }
 
 interface AppShellProps {
@@ -88,7 +123,7 @@ function AppShell({ children }: AppShellProps) {
     async function loadUser() {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
-        setUserDisplayName(resolveUserDisplayName(user))
+        setUserDisplayName(await resolveUserDisplayName(user))
       }
     }
 
@@ -96,9 +131,9 @@ function AppShell({ children }: AppShellProps) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
-        setUserDisplayName(resolveUserDisplayName(session.user))
+        setUserDisplayName(await resolveUserDisplayName(session.user))
       } else {
         setUserDisplayName('')
       }
@@ -135,11 +170,18 @@ function AppShell({ children }: AppShellProps) {
   }, [])
 
   const screenLabelStyle = useCallback(
-    (screen: ActiveScreen): CSSProperties => ({
-      cursor: 'pointer',
-      fontWeight: activeScreen === screen ? 600 : 400,
-      opacity: activeScreen === screen ? 1 : 0.65,
-    }),
+    (screen: ActiveScreen): CSSProperties => {
+      const isActive = activeScreen === screen
+
+      return {
+        cursor: 'pointer',
+        fontWeight: isActive ? 600 : 400,
+        opacity: isActive ? 1 : 0.65,
+        ...(isActive
+          ? { borderBottom: '2px solid white', paddingBottom: '2px' }
+          : {}),
+      }
+    },
     [activeScreen],
   )
 
@@ -186,7 +228,7 @@ function AppShell({ children }: AppShellProps) {
           </button>
         </section>
 
-        <section className="relative flex shrink-0 flex-col items-center justify-center border-l-2 border-r-2 border-l-brand-navy border-r-brand-red bg-white px-4 py-1">
+        <section className="relative flex shrink-0 flex-row items-center gap-3 border-l-2 border-r-2 border-l-brand-navy border-r-brand-red bg-white px-4 py-1">
           <div
             className="pointer-events-none absolute inset-x-0 top-0 flex h-0.5"
             aria-hidden="true"
@@ -201,54 +243,44 @@ function AppShell({ children }: AppShellProps) {
             <div className="h-full w-1/2 bg-brand-navy" />
             <div className="h-full w-1/2 bg-brand-red" />
           </div>
-          <div className="leading-tight whitespace-nowrap">
-            <span className="text-base font-bold text-[var(--shell-brand-navy)]">
-              {gridMasterWordmark}
-            </span>{' '}
-            {hqWordmark ? (
-              <span className="text-base font-bold text-[var(--shell-brand-red)]">
-                {hqWordmark}
-              </span>
-            ) : null}
+          <div className="flex flex-col items-center leading-tight whitespace-nowrap">
+            <div>
+              <span className="text-base font-bold text-[var(--shell-brand-navy)]">
+                {gridMasterWordmark}
+              </span>{' '}
+              {hqWordmark ? (
+                <span className="text-base font-bold text-[var(--shell-brand-red)]">
+                  {hqWordmark}
+                </span>
+              ) : null}
+            </div>
+            <span className="text-xs italic font-['Playfair_Display',serif] text-[var(--shell-text-body)]">
+              {product_name}
+            </span>
           </div>
-          <span className="text-xs italic font-['Playfair_Display',serif] text-[var(--shell-text-body)]">
-            {product_name}
-          </span>
-        </section>
-
-        <section className="flex flex-1 items-center justify-end gap-10 bg-[var(--shell-brand-navy)] px-16">
-          <button
-            type="button"
-            className="text-sm tracking-wide text-white uppercase"
-            style={screenLabelStyle('calendar')}
-            onClick={() => setActiveScreen('calendar')}
-          >
-            {labels.calendar}
-          </button>
 
           <div
             ref={accountMenuRef}
             className="relative shrink-0"
-            style={{ marginRight: '12px', minWidth: '110px' }}
+            style={{ minWidth: '110px' }}
           >
             <button
               type="button"
               onClick={() => setAccountMenuOpen((open) => !open)}
               style={{
-                backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                border: '0.5px solid rgba(255, 255, 255, 0.3)',
+                backgroundColor: 'rgba(27, 58, 92, 0.08)',
+                border: '0.5px solid rgba(27, 58, 92, 0.2)',
                 borderRadius: '6px',
                 padding: '4px 10px',
                 minWidth: '110px',
                 flexShrink: 0,
                 cursor: 'pointer',
                 textAlign: 'right',
-                width: '100%',
               }}
             >
               <div
                 style={{
-                  color: '#ffffff',
+                  color: '#1B3A5C',
                   fontSize: '12px',
                   fontWeight: 500,
                   lineHeight: 1.2,
@@ -258,7 +290,7 @@ function AppShell({ children }: AppShellProps) {
               </div>
               <div
                 style={{
-                  color: 'rgba(255, 255, 255, 0.7)',
+                  color: 'rgba(27, 58, 92, 0.7)',
                   fontSize: '10px',
                   lineHeight: 1.2,
                 }}
@@ -315,7 +347,17 @@ function AppShell({ children }: AppShellProps) {
               </div>
             ) : null}
           </div>
+        </section>
 
+        <section className="flex flex-1 items-center justify-end gap-10 bg-[var(--shell-brand-navy)] px-16">
+          <button
+            type="button"
+            className="text-sm tracking-wide text-white uppercase"
+            style={screenLabelStyle('calendar')}
+            onClick={() => setActiveScreen('calendar')}
+          >
+            {labels.calendar}
+          </button>
           <button
             type="button"
             className="text-lg text-white cursor-pointer"
