@@ -231,6 +231,15 @@ const cateringConfig: ProductConfig = {
     es_cc_no_events_cta: 'Go to Calendar → Create Your First Event',
     es_cc_no_events_secondary:
       'Every action you take teaches GridMaster your preferences — the more you use it, the smarter it gets.',
+    ne_mode_prompt: 'How would you like to start?',
+    ne_quick_event: 'Quick Event',
+    ne_quick_event_subtext: '6 fields. Done in 60 seconds.',
+    ne_beo_upload: 'BEO Upload',
+    ne_beo_upload_subtext: 'Drop your BEO and AI builds the event for you.',
+    ne_manual_entry: 'Manual Entry',
+    ne_manual_entry_subtext: 'Fill in every detail yourself.',
+    ne_cancel: 'Cancel',
+    ne_mode_selected: 'selected',
   },
   colors: {
     brand_navy: '#1B3A5C',
@@ -242,6 +251,9 @@ const cateringConfig: ProductConfig = {
     brand_light_blue: '#D5E8F0',
     brand_mid_blue: '#2E75B6',
     text_body: '#444444',
+    text_muted: '#6b7280',
+    surface_hover: '#EEF2F7',
+    white: '#FFFFFF',
   },
   features: {
     ai_grid_generation: true,

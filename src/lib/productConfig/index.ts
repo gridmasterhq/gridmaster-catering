@@ -105,6 +105,15 @@ export interface ProductLabels {
   es_cc_no_events_body: string
   es_cc_no_events_cta: string
   es_cc_no_events_secondary: string
+  ne_mode_prompt: string
+  ne_quick_event: string
+  ne_quick_event_subtext: string
+  ne_beo_upload: string
+  ne_beo_upload_subtext: string
+  ne_manual_entry: string
+  ne_manual_entry_subtext: string
+  ne_cancel: string
+  ne_mode_selected: string
 }
 
 export interface ProductColors {
@@ -117,6 +126,9 @@ export interface ProductColors {
   brand_light_blue: string
   brand_mid_blue: string
   text_body: string
+  text_muted: string
+  surface_hover: string
+  white: string
 }
 
 export interface ProductFeatures {
