@@ -8,6 +8,7 @@ import { supabase } from './lib/supabase'
 import LoginPage from './pages/auth/LoginPage'
 import CalendarPage from './pages/catering/CalendarPage'
 import CommandCenterPage from './pages/catering/CommandCenterPage'
+import NewEvent from './pages/NewEvent'
 import CaptainRatePage from './pages/captain/CaptainRatePage'
 import MobileCommandCenterPage from './pages/coordinator/MobileCommandCenterPage'
 import SOSPage from './pages/coordinator/SOSPage'
@@ -52,7 +53,17 @@ function CoordinatorApp() {
     return <LoginPage />
   }
 
-  return activeScreen === 'cc' ? <CommandCenterPage /> : <CalendarPage />
+  return (
+    <Routes>
+      <Route path="/new-event" element={<NewEvent />} />
+      <Route
+        path="*"
+        element={
+          activeScreen === 'cc' ? <CommandCenterPage /> : <CalendarPage />
+        }
+      />
+    </Routes>
+  )
 }
 
 function App() {
