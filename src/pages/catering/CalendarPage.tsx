@@ -4,10 +4,92 @@ import {
   useState,
 } from 'react'
 import { useNavigate } from 'react-router-dom'
+import type { EventType } from '../../lib/productConfig'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
 import { supabase } from '../../lib/supabase'
 
 const ORGANIZATION_ID = '00000000-0000-0000-0000-000000000001'
+
+interface EventTypeLegendSwatchProps {
+  eventType: EventType
+}
+
+function EventTypeLegendSwatch({ eventType }: EventTypeLegendSwatchProps) {
+  if (eventType.value === 'holiday_party') {
+    return (
+      <span
+        className="inline-flex"
+        style={{
+          width: '10px',
+          height: '14px',
+          borderRadius: '2px',
+          overflow: 'hidden',
+          flexShrink: 0,
+        }}
+        aria-hidden="true"
+      >
+        <span style={{ width: '50%', backgroundColor: eventType.color }} />
+        <span
+          style={{
+            width: '50%',
+            backgroundColor: eventType.second_color ?? '#2E8B57',
+          }}
+        />
+      </span>
+    )
+  }
+
+  if (eventType.value === 'delivery') {
+    return (
+      <span
+        className="inline-flex items-center"
+        style={{ gap: '2px', flexShrink: 0 }}
+        aria-hidden="true"
+      >
+        <span
+          style={{
+            width: '10px',
+            height: '14px',
+            borderRadius: '2px',
+            backgroundColor: eventType.color,
+            display: 'inline-block',
+          }}
+        />
+        <span
+          style={{
+            width: '12px',
+            height: '10px',
+            borderRadius: '9999px',
+            backgroundColor: eventType.color,
+            color: '#FFFFFF',
+            fontSize: '7px',
+            fontWeight: 700,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            lineHeight: 1,
+          }}
+        >
+          D
+        </span>
+      </span>
+    )
+  }
+
+  return (
+    <span
+      style={{
+        width: '10px',
+        height: '14px',
+        borderRadius: '2px',
+        display: 'inline-block',
+        flexShrink: 0,
+        backgroundColor: eventType.color,
+      }}
+      aria-hidden="true"
+    />
+  )
+}
 
 interface PillStyle {
   backgroundColor: string
@@ -617,30 +699,13 @@ function CalendarPage() {
           >
             EVENT TYPE
           </span>
-          {[
-            { label: 'Wedding', color: '#C9A84C' },
-            { label: 'Corporate', color: '#1B3A5C' },
-            { label: 'Social', color: '#7C5CBF' },
-            { label: 'Gala', color: '#1A6B3C' },
-            { label: 'Simple', color: '#0D9E8A' },
-            { label: 'Custom', color: '#C85000' },
-          ].map((item) => (
+          {event_types.map((item) => (
             <span
-              key={item.label}
+              key={item.value}
               className="inline-flex items-center"
               style={{ gap: '4px', fontSize: '10px', color: '#6b7280' }}
             >
-              <span
-                style={{
-                  width: '10px',
-                  height: '14px',
-                  borderRadius: '2px',
-                  display: 'inline-block',
-                  flexShrink: 0,
-                  backgroundColor: item.color,
-                }}
-                aria-hidden="true"
-              />
+              <EventTypeLegendSwatch eventType={item} />
               {item.label}
             </span>
           ))}
