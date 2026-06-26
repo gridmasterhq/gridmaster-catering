@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from 'react'
+import { type FormEvent, useEffect, useState } from 'react'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
 import { supabase } from '../../lib/supabase'
 
@@ -16,6 +16,16 @@ type FieldKey =
   | 'guestCount'
   | 'eventType'
   | 'totalStaffNeeded'
+
+interface ClientSearchResult {
+  id: string
+  name: string
+}
+
+interface VenueSearchResult {
+  id: string
+  location_name: string
+}
 
 const inputClassName =
   'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-navy focus:ring-2 focus:ring-brand-navy focus:outline-none'
@@ -37,92 +47,6 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return fallback
 }
 
-async function findOrCreateClientId(
-  organizationId: string,
-  name: string,
-): Promise<string> {
-  const trimmedName = name.trim()
-
-  const { data: existing, error: lookupError } = await supabase
-    .from('clients')
-    .select('id')
-    .eq('organization_id', organizationId)
-    .eq('name', trimmedName)
-    .maybeSingle()
-
-  if (lookupError) {
-    throw lookupError
-  }
-
-  if (existing?.id) {
-    return existing.id
-  }
-
-  const { data: created, error: createError } = await supabase
-    .from('clients')
-    .insert({
-      organization_id: organizationId,
-      name: trimmedName,
-    })
-    .select('id')
-    .single()
-
-  if (createError) {
-    throw createError
-  }
-
-  if (!created?.id) {
-    throw new Error('Client created but no ID returned')
-  }
-
-  return created.id
-}
-
-async function findOrCreateLocationId(
-  organizationId: string,
-  clientId: string,
-  locationName: string,
-): Promise<string> {
-  const trimmedName = locationName.trim()
-
-  const { data: existing, error: lookupError } = await supabase
-    .from('client_locations')
-    .select('id')
-    .eq('organization_id', organizationId)
-    .eq('client_id', clientId)
-    .eq('location_name', trimmedName)
-    .maybeSingle()
-
-  if (lookupError) {
-    throw lookupError
-  }
-
-  if (existing?.id) {
-    return existing.id
-  }
-
-  const { data: created, error: createError } = await supabase
-    .from('client_locations')
-    .insert({
-      organization_id: organizationId,
-      client_id: clientId,
-      location_name: trimmedName,
-      address: trimmedName,
-    })
-    .select('id')
-    .single()
-
-  if (createError) {
-    throw createError
-  }
-
-  if (!created?.id) {
-    throw new Error('Venue location created but no ID returned')
-  }
-
-  return created.id
-}
-
 export default function QuickEventForm({
   onSuccess,
   onCancel: _onCancel,
@@ -133,13 +57,35 @@ export default function QuickEventForm({
 
   const [eventName, setEventName] = useState('')
   const [clientName, setClientName] = useState('')
+  const [linkClient, setLinkClient] = useState(false)
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null)
+  const [selectedClientName, setSelectedClientName] = useState('')
+  const [clientSearchQuery, setClientSearchQuery] = useState('')
+  const [clientSearchResults, setClientSearchResults] = useState<
+    ClientSearchResult[]
+  >([])
+  const [clientSearchLoading, setClientSearchLoading] = useState(false)
+
   const [eventDate, setEventDate] = useState('')
   const [eventStartTime, setEventStartTime] = useState('')
   const [startTimeTbd, setStartTimeTbd] = useState(true)
+
   const [venue, setVenue] = useState('')
+  const [linkVenue, setLinkVenue] = useState(false)
+  const [selectedLocationId, setSelectedLocationId] = useState<string | null>(
+    null,
+  )
+  const [selectedLocationName, setSelectedLocationName] = useState('')
+  const [venueSearchQuery, setVenueSearchQuery] = useState('')
+  const [venueSearchResults, setVenueSearchResults] = useState<
+    VenueSearchResult[]
+  >([])
+  const [venueSearchLoading, setVenueSearchLoading] = useState(false)
+
   const [guestCount, setGuestCount] = useState('')
   const [eventType, setEventType] = useState('')
   const [totalStaffNeeded, setTotalStaffNeeded] = useState('')
+  const [organizationId, setOrganizationId] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<FieldKey, string>>>({})
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -150,6 +96,136 @@ export default function QuickEventForm({
     color: colors.brand_navy,
   } as const
 
+  const linkCheckboxLabelStyle = {
+    fontSize: '11px',
+    color: colors.text_muted,
+  } as const
+
+  useEffect(() => {
+    if (!linkClient && !linkVenue) {
+      return
+    }
+
+    let cancelled = false
+
+    async function loadOrganizationId() {
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser()
+
+      if (cancelled || error) {
+        return
+      }
+
+      const id = user?.user_metadata?.organization_id
+      if (typeof id === 'string' && id.trim().length > 0) {
+        setOrganizationId(id.trim())
+      }
+    }
+
+    void loadOrganizationId()
+
+    return () => {
+      cancelled = true
+    }
+  }, [linkClient, linkVenue])
+
+  useEffect(() => {
+    if (!linkClient || selectedClientId || !organizationId) {
+      setClientSearchResults([])
+      return
+    }
+
+    const query = clientSearchQuery.trim()
+    if (query.length === 0) {
+      setClientSearchResults([])
+      return
+    }
+
+    let cancelled = false
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        setClientSearchLoading(true)
+
+        const { data, error } = await supabase
+          .from('clients')
+          .select('id, name')
+          .eq('organization_id', organizationId)
+          .ilike('name', `%${query}%`)
+          .limit(10)
+
+        if (cancelled) {
+          return
+        }
+
+        if (error) {
+          console.error('Client search failed:', error)
+          setClientSearchResults([])
+        } else {
+          setClientSearchResults(data ?? [])
+        }
+
+        setClientSearchLoading(false)
+      })()
+    }, 300)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [
+    clientSearchQuery,
+    linkClient,
+    organizationId,
+    selectedClientId,
+  ])
+
+  useEffect(() => {
+    if (!linkVenue || selectedLocationId || !organizationId) {
+      setVenueSearchResults([])
+      return
+    }
+
+    const query = venueSearchQuery.trim()
+    if (query.length === 0) {
+      setVenueSearchResults([])
+      return
+    }
+
+    let cancelled = false
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        setVenueSearchLoading(true)
+
+        const { data, error } = await supabase
+          .from('client_locations')
+          .select('id, location_name')
+          .eq('organization_id', organizationId)
+          .ilike('location_name', `%${query}%`)
+          .limit(10)
+
+        if (cancelled) {
+          return
+        }
+
+        if (error) {
+          console.error('Venue search failed:', error)
+          setVenueSearchResults([])
+        } else {
+          setVenueSearchResults(data ?? [])
+        }
+
+        setVenueSearchLoading(false)
+      })()
+    }, 300)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [linkVenue, organizationId, selectedLocationId, venueSearchQuery])
+
   const validate = (): boolean => {
     const next: Partial<Record<FieldKey, string>> = {}
     const required = labels.qe_field_required
@@ -157,7 +233,11 @@ export default function QuickEventForm({
     if (!eventName.trim()) {
       next.eventName = required
     }
-    if (!clientName.trim()) {
+    if (linkClient) {
+      if (!selectedClientId) {
+        next.clientName = required
+      }
+    } else if (!clientName.trim()) {
       next.clientName = required
     }
     if (!eventDate) {
@@ -166,7 +246,11 @@ export default function QuickEventForm({
     if (!startTimeTbd && !eventStartTime) {
       next.eventStartTime = required
     }
-    if (!venue.trim()) {
+    if (linkVenue) {
+      if (!selectedLocationId) {
+        next.venue = required
+      }
+    } else if (!venue.trim()) {
       next.venue = required
     }
     if (guestCount === '') {
@@ -213,65 +297,38 @@ export default function QuickEventForm({
         throw userError
       }
 
-      const organizationId = user?.user_metadata?.organization_id
+      const orgIdFromUser = user?.user_metadata?.organization_id
 
       if (
-        typeof organizationId !== 'string' ||
-        organizationId.trim().length === 0
+        typeof orgIdFromUser !== 'string' ||
+        orgIdFromUser.trim().length === 0
       ) {
         throw new Error('Missing organization_id in user profile')
       }
 
-      const organizationIdTrimmed = organizationId.trim()
+      const organizationIdTrimmed = orgIdFromUser.trim()
 
-      const clientId = await findOrCreateClientId(
-        organizationIdTrimmed,
-        clientName,
-      )
-      const locationId = await findOrCreateLocationId(
-        organizationIdTrimmed,
-        clientId,
-        venue,
-      )
-
-      const coreInsert = {
-        event_name: eventName.trim(),
-        client_id: clientId,
-        location_id: locationId,
-        event_date: eventDate,
-        event_start_time: startTimeTbd ? null : eventStartTime,
-        guest_count: parseInt(guestCount, 10),
-        event_type: eventType,
-        organization_id: organizationIdTrimmed,
-        status: 'draft' as const,
-      }
-
-      const extendedInsert = {
-        ...coreInsert,
-        client_name: clientName.trim(),
-        venue_name: venue.trim(),
-        total_staff_needed: parseInt(totalStaffNeeded, 10),
-      }
-
-      let { data, error } = await supabase
+      const { data, error } = await supabase
         .from('events')
-        .insert(extendedInsert)
+        .insert({
+          event_name: eventName.trim(),
+          client_name:
+            linkClient && selectedClientId ? null : clientName.trim(),
+          client_id: linkClient && selectedClientId ? selectedClientId : null,
+          event_date: eventDate,
+          event_start_time: startTimeTbd ? null : eventStartTime,
+          venue_name:
+            linkVenue && selectedLocationId ? null : venue.trim(),
+          location_id:
+            linkVenue && selectedLocationId ? selectedLocationId : null,
+          guest_count: parseInt(guestCount, 10),
+          event_type: eventType,
+          total_staff_needed: parseInt(totalStaffNeeded, 10),
+          organization_id: organizationIdTrimmed,
+          status: 'draft',
+        })
         .select('id')
         .single()
-
-      if (error?.code === 'PGRST204') {
-        console.warn(
-          'QuickEventForm: optional event columns missing, using core insert',
-          error.message,
-        )
-        const retry = await supabase
-          .from('events')
-          .insert(coreInsert)
-          .select('id')
-          .single()
-        data = retry.data
-        error = retry.error
-      }
 
       if (error) {
         console.error('QuickEventForm insert failed:', error)
@@ -289,6 +346,20 @@ export default function QuickEventForm({
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  function clearClientSelection() {
+    setSelectedClientId(null)
+    setSelectedClientName('')
+    setClientSearchQuery('')
+    setClientSearchResults([])
+  }
+
+  function clearVenueSelection() {
+    setSelectedLocationId(null)
+    setSelectedLocationName('')
+    setVenueSearchQuery('')
+    setVenueSearchResults([])
   }
 
   return (
@@ -315,18 +386,112 @@ export default function QuickEventForm({
       </div>
 
       <div>
-        <label htmlFor="qe-client-name" className="mb-1 block" style={labelStyle}>
-          {labels.qe_client_name}
-        </label>
-        <input
-          id="qe-client-name"
-          type="text"
-          value={clientName}
-          onChange={(e) => setClientName(e.target.value)}
-          placeholder={labels.qe_client_name_placeholder}
-          className={inputClassName}
-          disabled={isSubmitting}
-        />
+        <div className="mb-1 flex items-center justify-between gap-3">
+          <label htmlFor="qe-client-name" style={labelStyle}>
+            {labels.qe_client_name}
+          </label>
+          <label
+            className="flex shrink-0 cursor-pointer items-center gap-1"
+            style={linkCheckboxLabelStyle}
+          >
+            <input
+              type="checkbox"
+              checked={linkClient}
+              onChange={(e) => {
+                const checked = e.target.checked
+                setLinkClient(checked)
+                clearClientSelection()
+                if (!checked) {
+                  setClientName('')
+                }
+                setFieldErrors((prev) => {
+                  const next = { ...prev }
+                  delete next.clientName
+                  return next
+                })
+              }}
+              disabled={isSubmitting}
+              className="rounded border-gray-300"
+            />
+            {labels.qe_link_existing_client}
+          </label>
+        </div>
+        {linkClient ? (
+          selectedClientId ? (
+            <div className="flex items-center gap-2">
+              <input
+                id="qe-client-name"
+                type="text"
+                readOnly
+                value={selectedClientName}
+                className={inputClassName}
+                disabled={isSubmitting}
+              />
+              <button
+                type="button"
+                onClick={clearClientSelection}
+                disabled={isSubmitting}
+                className="shrink-0 text-xs text-gray-500 hover:text-gray-700"
+              >
+                {labels.qe_clear_selection}
+              </button>
+            </div>
+          ) : (
+            <div className="relative">
+              <input
+                id="qe-client-name"
+                type="text"
+                value={clientSearchQuery}
+                onChange={(e) => setClientSearchQuery(e.target.value)}
+                placeholder={labels.qe_search_client_placeholder}
+                className={inputClassName}
+                disabled={isSubmitting}
+                autoComplete="off"
+              />
+              {clientSearchLoading ? (
+                <p className="mt-1 text-xs text-gray-500">Searching...</p>
+              ) : null}
+              {clientSearchResults.length > 0 ? (
+                <ul
+                  className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-gray-300 bg-white shadow-sm"
+                  role="listbox"
+                >
+                  {clientSearchResults.map((result) => (
+                    <li key={result.id}>
+                      <button
+                        type="button"
+                        className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50"
+                        onClick={() => {
+                          setSelectedClientId(result.id)
+                          setSelectedClientName(result.name)
+                          setClientSearchQuery('')
+                          setClientSearchResults([])
+                          setFieldErrors((prev) => {
+                            const next = { ...prev }
+                            delete next.clientName
+                            return next
+                          })
+                        }}
+                      >
+                        {result.name}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          )
+        ) : (
+          <input
+            id="qe-client-name"
+            type="text"
+            value={clientName}
+            onChange={(e) => setClientName(e.target.value)}
+            placeholder={labels.qe_client_name_placeholder}
+            className={inputClassName}
+            disabled={isSubmitting}
+          />
+        )}
         {fieldErrors.clientName ? (
           <p className="mt-1 text-xs text-red-500">{fieldErrors.clientName}</p>
         ) : null}
@@ -394,18 +559,112 @@ export default function QuickEventForm({
       </div>
 
       <div>
-        <label htmlFor="qe-venue" className="mb-1 block" style={labelStyle}>
-          {labels.qe_venue}
-        </label>
-        <input
-          id="qe-venue"
-          type="text"
-          value={venue}
-          onChange={(e) => setVenue(e.target.value)}
-          placeholder={labels.qe_venue_placeholder}
-          className={inputClassName}
-          disabled={isSubmitting}
-        />
+        <div className="mb-1 flex items-center justify-between gap-3">
+          <label htmlFor="qe-venue" style={labelStyle}>
+            {labels.qe_venue}
+          </label>
+          <label
+            className="flex shrink-0 cursor-pointer items-center gap-1"
+            style={linkCheckboxLabelStyle}
+          >
+            <input
+              type="checkbox"
+              checked={linkVenue}
+              onChange={(e) => {
+                const checked = e.target.checked
+                setLinkVenue(checked)
+                clearVenueSelection()
+                if (!checked) {
+                  setVenue('')
+                }
+                setFieldErrors((prev) => {
+                  const next = { ...prev }
+                  delete next.venue
+                  return next
+                })
+              }}
+              disabled={isSubmitting}
+              className="rounded border-gray-300"
+            />
+            {labels.qe_link_existing_venue}
+          </label>
+        </div>
+        {linkVenue ? (
+          selectedLocationId ? (
+            <div className="flex items-center gap-2">
+              <input
+                id="qe-venue"
+                type="text"
+                readOnly
+                value={selectedLocationName}
+                className={inputClassName}
+                disabled={isSubmitting}
+              />
+              <button
+                type="button"
+                onClick={clearVenueSelection}
+                disabled={isSubmitting}
+                className="shrink-0 text-xs text-gray-500 hover:text-gray-700"
+              >
+                {labels.qe_clear_selection}
+              </button>
+            </div>
+          ) : (
+            <div className="relative">
+              <input
+                id="qe-venue"
+                type="text"
+                value={venueSearchQuery}
+                onChange={(e) => setVenueSearchQuery(e.target.value)}
+                placeholder={labels.qe_search_venue_placeholder}
+                className={inputClassName}
+                disabled={isSubmitting}
+                autoComplete="off"
+              />
+              {venueSearchLoading ? (
+                <p className="mt-1 text-xs text-gray-500">Searching...</p>
+              ) : null}
+              {venueSearchResults.length > 0 ? (
+                <ul
+                  className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-gray-300 bg-white shadow-sm"
+                  role="listbox"
+                >
+                  {venueSearchResults.map((result) => (
+                    <li key={result.id}>
+                      <button
+                        type="button"
+                        className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50"
+                        onClick={() => {
+                          setSelectedLocationId(result.id)
+                          setSelectedLocationName(result.location_name)
+                          setVenueSearchQuery('')
+                          setVenueSearchResults([])
+                          setFieldErrors((prev) => {
+                            const next = { ...prev }
+                            delete next.venue
+                            return next
+                          })
+                        }}
+                      >
+                        {result.location_name}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          )
+        ) : (
+          <input
+            id="qe-venue"
+            type="text"
+            value={venue}
+            onChange={(e) => setVenue(e.target.value)}
+            placeholder={labels.qe_venue_placeholder}
+            className={inputClassName}
+            disabled={isSubmitting}
+          />
+        )}
         {fieldErrors.venue ? (
           <p className="mt-1 text-xs text-red-500">{fieldErrors.venue}</p>
         ) : null}

@@ -118,6 +118,11 @@ export interface ProductLabels {
   qe_event_name_placeholder: string
   qe_client_name: string
   qe_client_name_placeholder: string
+  qe_link_existing_client: string
+  qe_link_existing_venue: string
+  qe_search_client_placeholder: string
+  qe_search_venue_placeholder: string
+  qe_clear_selection: string
   qe_event_date: string
   qe_event_start_time: string
   qe_start_time_tbd: string
