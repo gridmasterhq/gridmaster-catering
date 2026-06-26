@@ -1,10 +1,12 @@
 import { type FormEvent, useEffect, useState } from 'react'
+import type { BEOExtractedData } from './BEOUpload'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
 import { supabase } from '../../lib/supabase'
 
 interface QuickEventFormProps {
   onSuccess: (eventId: string, eventName: string) => void
   onCancel: () => void
+  initialValues?: BEOExtractedData
 }
 
 type FieldKey =
@@ -50,13 +52,14 @@ function getErrorMessage(error: unknown, fallback: string): string {
 export default function QuickEventForm({
   onSuccess,
   onCancel: _onCancel,
+  initialValues,
 }: QuickEventFormProps) {
   void _onCancel
 
-  const { labels, colors, event_types } = useProductConfig()
+  const { labels, colors, event_types, service_styles } = useProductConfig()
 
-  const [eventName, setEventName] = useState('')
-  const [clientName, setClientName] = useState('')
+  const [eventName, setEventName] = useState(initialValues?.event_name ?? '')
+  const [clientName, setClientName] = useState(initialValues?.client_name ?? '')
   const [linkClient, setLinkClient] = useState(false)
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null)
   const [selectedClientName, setSelectedClientName] = useState('')
@@ -66,11 +69,15 @@ export default function QuickEventForm({
   >([])
   const [clientSearchLoading, setClientSearchLoading] = useState(false)
 
-  const [eventDate, setEventDate] = useState('')
-  const [eventStartTime, setEventStartTime] = useState('')
-  const [startTimeTbd, setStartTimeTbd] = useState(true)
+  const [eventDate, setEventDate] = useState(initialValues?.event_date ?? '')
+  const [eventStartTime, setEventStartTime] = useState(
+    initialValues?.event_start_time ?? '',
+  )
+  const [startTimeTbd, setStartTimeTbd] = useState(
+    !initialValues?.event_start_time,
+  )
 
-  const [venue, setVenue] = useState('')
+  const [venue, setVenue] = useState(initialValues?.venue_name ?? '')
   const [linkVenue, setLinkVenue] = useState(false)
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(
     null,
@@ -82,9 +89,30 @@ export default function QuickEventForm({
   >([])
   const [venueSearchLoading, setVenueSearchLoading] = useState(false)
 
-  const [guestCount, setGuestCount] = useState('')
-  const [eventType, setEventType] = useState('')
-  const [totalStaffNeeded, setTotalStaffNeeded] = useState('')
+  const [guestCount, setGuestCount] = useState(
+    initialValues?.guest_count != null ? String(initialValues.guest_count) : '',
+  )
+  const [eventType, setEventType] = useState(() => {
+    if (!initialValues?.event_type) {
+      return ''
+    }
+    return event_types.some((type) => type.value === initialValues.event_type)
+      ? initialValues.event_type
+      : ''
+  })
+  const [serviceStyle, setServiceStyle] = useState(() => {
+    if (!initialValues?.service_style) {
+      return ''
+    }
+    return service_styles.some((style) => style.value === initialValues.service_style)
+      ? initialValues.service_style
+      : ''
+  })
+  const [totalStaffNeeded, setTotalStaffNeeded] = useState(
+    initialValues?.total_staff_needed != null
+      ? String(initialValues.total_staff_needed)
+      : '',
+  )
   const [organizationId, setOrganizationId] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<FieldKey, string>>>({})
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -710,6 +738,26 @@ export default function QuickEventForm({
         {fieldErrors.eventType ? (
           <p className="mt-1 text-xs text-red-500">{fieldErrors.eventType}</p>
         ) : null}
+      </div>
+
+      <div>
+        <label htmlFor="qe-service-style" className="mb-1 block" style={labelStyle}>
+          {labels.qe_service_style}
+        </label>
+        <select
+          id="qe-service-style"
+          value={serviceStyle}
+          onChange={(e) => setServiceStyle(e.target.value)}
+          className={inputClassName}
+          disabled={isSubmitting}
+        >
+          <option value="">{labels.qe_select_service_style}</option>
+          {service_styles.map((style) => (
+            <option key={style.value} value={style.value}>
+              {style.label}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div>

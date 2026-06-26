@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { IconArrowLeft } from '@tabler/icons-react'
+import BEOUpload, { type BEOExtractedData } from '../components/catering/BEOUpload'
 import QuickEventForm from '../components/catering/QuickEventForm'
 import NewEventModeSelect, {
   type NewEventMode,
@@ -17,6 +18,9 @@ function NewEvent() {
   const { labels, colors } = useProductConfig()
   const [selectedMode, setSelectedMode] = useState<NewEventMode | null>(null)
   const [postSave, setPostSave] = useState<PostSaveState | null>(null)
+  const [beoInitialValues, setBeoInitialValues] = useState<BEOExtractedData | null>(
+    null,
+  )
 
   const modeLabel = useMemo(() => {
     if (selectedMode === 'quick') {
@@ -40,6 +44,18 @@ function NewEvent() {
     )
   }
 
+  if (selectedMode === 'beo') {
+    return (
+      <BEOUpload
+        onCancel={() => setSelectedMode(null)}
+        onSuccess={(extractedData) => {
+          setBeoInitialValues(extractedData)
+          setSelectedMode('quick')
+        }}
+      />
+    )
+  }
+
   if (selectedMode === 'quick') {
     return (
       <>
@@ -49,7 +65,10 @@ function NewEvent() {
         >
           <button
             type="button"
-            onClick={() => setSelectedMode(null)}
+            onClick={() => {
+              setBeoInitialValues(null)
+              setSelectedMode(null)
+            }}
             className="mb-6 flex items-center gap-2 self-start"
             style={{ color: colors.brand_navy }}
           >
@@ -60,7 +79,11 @@ function NewEvent() {
           </button>
 
           <QuickEventForm
-            onCancel={() => setSelectedMode(null)}
+            initialValues={beoInitialValues ?? undefined}
+            onCancel={() => {
+              setBeoInitialValues(null)
+              setSelectedMode(null)
+            }}
             onSuccess={(eventId, eventName) => {
               setPostSave({ eventId, eventName })
             }}

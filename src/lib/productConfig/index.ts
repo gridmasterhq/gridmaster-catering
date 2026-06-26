@@ -132,6 +132,8 @@ export interface ProductLabels {
   qe_guest_count_placeholder: string
   qe_event_type: string
   qe_select_event_type: string
+  qe_service_style: string
+  qe_select_service_style: string
   qe_total_staff_needed: string
   qe_total_staff_placeholder: string
   qe_create_event: string
@@ -141,6 +143,22 @@ export interface ProductLabels {
   ps_add_more_details: string
   ps_build_staff_grid: string
   ps_done_go_to_calendar: string
+  beo_drop_zone_primary: string
+  beo_drop_zone_secondary: string
+  beo_or_divider: string
+  beo_browse_files: string
+  beo_processing_heading: string
+  beo_processing_subtext: string
+  beo_review_heading: string
+  beo_review_subtext: string
+  beo_notes: string
+  beo_notes_placeholder: string
+  beo_confirm_create: string
+  beo_start_over: string
+  beo_error_message: string
+  beo_try_again: string
+  beo_enter_manually: string
+  beo_extraction_system_prompt: string
 }
 
 export interface ProductColors {
@@ -179,6 +197,11 @@ export interface EventType {
   second_color?: string
 }
 
+export interface ServiceStyleOption {
+  value: string
+  label: string
+}
+
 export interface ProductConfig {
   product_type: ProductType
   product_name: string
@@ -190,6 +213,7 @@ export interface ProductConfig {
   features: ProductFeatures
   roles: string[]
   event_types: EventType[]
+  service_styles: ServiceStyleOption[]
   grid_departments: string[]
   buffer_options: number[]
   rating_floors: number[]
