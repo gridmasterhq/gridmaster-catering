@@ -265,6 +265,10 @@ export async function checkAntiFatigue(
   messageType: OutreachMessageType,
   bypassAntiFatigue?: boolean,
 ): Promise<AntiFatigueCheckResult> {
+  if (bypassAntiFatigue === true) {
+    return { blocked: false }
+  }
+
   if (shouldBypassAntiFatigue(messageType, bypassAntiFatigue)) {
     return { blocked: false }
   }

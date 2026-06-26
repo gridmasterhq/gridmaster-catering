@@ -1,19 +1,19 @@
 import { useEffect, useState } from 'react'
-import { BrowserRouter } from 'react-router-dom'
+import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import AppShell, { useActiveScreen } from './components/shared/AppShell'
 import SMSDeepLinkHandler from './components/shared/SMSDeepLinkHandler'
 import cateringConfig from './lib/productConfig'
-import {
-  ProductConfigProvider,
-} from './lib/hooks/useProductConfig'
+import { ProductConfigProvider } from './lib/hooks/useProductConfig'
 import { supabase } from './lib/supabase'
 import LoginPage from './pages/auth/LoginPage'
 import CalendarPage from './pages/catering/CalendarPage'
 import CommandCenterPage from './pages/catering/CommandCenterPage'
+import StaffCheckInPage from './pages/staff/StaffCheckInPage'
+import StaffCheckoutPage from './pages/staff/StaffCheckoutPage'
 
 type AuthState = 'loading' | 'authenticated' | 'unauthenticated'
 
-function AppContent() {
+function CoordinatorApp() {
   const [authState, setAuthState] = useState<AuthState>('loading')
   const { activeScreen } = useActiveScreen()
 
@@ -56,10 +56,19 @@ function App() {
   return (
     <ProductConfigProvider value={cateringConfig}>
       <BrowserRouter>
-        <AppShell>
-          <SMSDeepLinkHandler />
-          <AppContent />
-        </AppShell>
+        <Routes>
+          <Route path="/staff/checkin" element={<StaffCheckInPage />} />
+          <Route path="/staff/checkout" element={<StaffCheckoutPage />} />
+          <Route
+            path="*"
+            element={
+              <AppShell>
+                <SMSDeepLinkHandler />
+                <CoordinatorApp />
+              </AppShell>
+            }
+          />
+        </Routes>
       </BrowserRouter>
     </ProductConfigProvider>
   )
