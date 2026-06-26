@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { IconArrowLeft } from '@tabler/icons-react'
 import NewEventModeSelect, {
   type NewEventMode,
@@ -6,6 +7,7 @@ import NewEventModeSelect, {
 import { useProductConfig } from '../lib/hooks/useProductConfig'
 
 function NewEvent() {
+  const navigate = useNavigate()
   const { labels, colors } = useProductConfig()
   const [selectedMode, setSelectedMode] = useState<NewEventMode | null>(null)
 
@@ -26,7 +28,7 @@ function NewEvent() {
     return (
       <NewEventModeSelect
         onSelect={setSelectedMode}
-        onCancel={() => setSelectedMode(null)}
+        onCancel={() => navigate('/')}
       />
     )
   }
