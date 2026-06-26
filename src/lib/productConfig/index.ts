@@ -3,6 +3,7 @@ export type ProductType = 'catering' | 'vending' | 'gigs' | 'venues' | 'services
 export interface NavItem {
   id: string
   label: string
+  subtext?: string
 }
 
 export interface ProductNavigation {

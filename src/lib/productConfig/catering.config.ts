@@ -16,7 +16,7 @@ const cateringConfig: ProductConfig = {
       { id: 'pay_rates', label: 'Pay Rates' },
       { id: 'transport', label: 'Transport' },
       { id: 'integrations', label: 'Integrations' },
-      { id: 'expert_mode', label: 'Expert Mode' },
+      { id: 'expert_mode', label: 'Expert Mode', subtext: 'Faster navigation for experienced coordinators' },
       { id: 'help', label: 'Help' },
     ],
     blue: [
@@ -28,7 +28,7 @@ const cateringConfig: ProductConfig = {
       { id: 'templates', label: 'Templates' },
       { id: 'reports', label: 'Reports' },
       { id: 'incentives', label: 'Incentives' },
-      { id: 'expert_mode', label: 'Expert Mode' },
+      { id: 'expert_mode', label: 'Expert Mode', subtext: 'Faster navigation for experienced coordinators' },
       { id: 'help', label: 'Help' },
     ],
   },

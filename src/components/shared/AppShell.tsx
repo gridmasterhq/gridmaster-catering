@@ -24,6 +24,11 @@ import type { Icon } from '@tabler/icons-react'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
 import { supabase } from '../../lib/supabase'
 import type { NavItem } from '../../lib/productConfig'
+import {
+  ExpertModeProvider,
+  useExpertMode,
+  type ExpertModeScreen,
+} from './ExpertModeToggle'
 
 type ActiveScreen = 'cc' | 'calendar'
 
@@ -199,10 +204,18 @@ const calendarSidebarSections = [
 interface SidebarItemProps {
   icon: Icon
   label: string
+  subtext?: string
+  hideSubtext?: boolean
   onClick: () => void
 }
 
-function SidebarItem({ icon: ItemIcon, label, onClick }: SidebarItemProps) {
+function SidebarItem({
+  icon: ItemIcon,
+  label,
+  subtext,
+  hideSubtext = false,
+  onClick,
+}: SidebarItemProps) {
   return (
     <button
       type="button"
@@ -222,7 +235,40 @@ function SidebarItem({ icon: ItemIcon, label, onClick }: SidebarItemProps) {
       onClick={onClick}
     >
       <ItemIcon size={16} color="#1B3A5C" style={{ flexShrink: 0 }} />
-      <span>{label}</span>
+      <span className="flex min-w-0 flex-1 flex-col items-start text-left">
+        <span>{label}</span>
+        {subtext && !hideSubtext ? (
+          <span style={{ fontSize: '10px', color: '#9ca3af', lineHeight: 1.3 }}>
+            {subtext}
+          </span>
+        ) : null}
+      </span>
+    </button>
+  )
+}
+
+interface SidebarExpertBoltProps {
+  onClick: () => void
+}
+
+function SidebarExpertBolt({ onClick }: SidebarExpertBoltProps) {
+  return (
+    <button
+      type="button"
+      className="flex w-full items-center justify-center hover:bg-[#f3f4f6]"
+      style={{
+        padding: '7px 8px',
+        borderRadius: '6px',
+        cursor: 'pointer',
+        marginBottom: '1px',
+        marginLeft: '12px',
+        marginRight: '12px',
+        width: 'calc(100% - 24px)',
+      }}
+      onClick={onClick}
+      aria-label="Exit Expert Mode"
+    >
+      <IconBolt size={16} color="#1B3A5C" stroke={2} />
     </button>
   )
 }
@@ -330,6 +376,66 @@ function resolveNavLabel(
   }
 
   return items.find((item) => item.id === itemId)?.label ?? ''
+}
+
+function resolveNavSubtext(itemId: string, items: NavItem[]): string | undefined {
+  return items.find((item) => item.id === itemId)?.subtext
+}
+
+interface SidebarNavItemsProps {
+  screen: ExpertModeScreen
+  itemIds: readonly string[]
+  iconMap: Record<string, Icon>
+  navItems: NavItem[]
+  trainingLabel: string
+  onClose: () => void
+}
+
+function SidebarNavItems({
+  screen,
+  itemIds,
+  iconMap,
+  navItems,
+  trainingLabel,
+  onClose,
+}: SidebarNavItemsProps) {
+  const { isExpert, setExpertMode } = useExpertMode(screen)
+
+  return (
+    <>
+      {itemIds.map((itemId) => {
+        if (itemId === 'expert_mode' && isExpert) {
+          return (
+            <SidebarExpertBolt
+              key={itemId}
+              onClick={() => setExpertMode(false)}
+            />
+          )
+        }
+
+        const ItemIcon = iconMap[itemId]
+        const label = resolveNavLabel(itemId, navItems, trainingLabel)
+        const subtext = resolveNavSubtext(itemId, navItems)
+
+        return (
+          <SidebarItem
+            key={itemId}
+            icon={ItemIcon}
+            label={label}
+            subtext={subtext}
+            hideSubtext={isExpert}
+            onClick={() => {
+              if (itemId === 'expert_mode') {
+                setExpertMode(true)
+                return
+              }
+              onClose()
+            }}
+          />
+        )
+      })}
+    </>
+  )
 }
 
 interface AppShellProps {
@@ -461,6 +567,7 @@ function AppShell({ children }: AppShellProps) {
   const sidebarOpen = leftSidebarOpen || rightSidebarOpen
 
   return (
+    <ExpertModeProvider>
     <ActiveScreenContext.Provider value={{ activeScreen, setActiveScreen }}>
     <div className="min-h-screen flex flex-col" style={themeVars}>
       <header className="fixed top-0 left-0 right-0 z-30 flex h-12 w-full">
@@ -663,21 +770,14 @@ function AppShell({ children }: AppShellProps) {
             label={labels[section.labelKey]}
             showDivider={sectionIndex > 0}
           >
-            {section.itemIds.map((itemId) => {
-              const ItemIcon = ccIconMap[itemId]
-              return (
-                <SidebarItem
-                  key={itemId}
-                  icon={ItemIcon}
-                  label={resolveNavLabel(
-                    itemId,
-                    navigation.red,
-                    labels.training,
-                  )}
-                  onClick={closeSidebars}
-                />
-              )
-            })}
+            <SidebarNavItems
+              screen="cc"
+              itemIds={section.itemIds}
+              iconMap={ccIconMap}
+              navItems={navigation.red}
+              trainingLabel={labels.training}
+              onClose={closeSidebars}
+            />
           </SidebarSection>
         ))}
       </AppSidebar>
@@ -695,21 +795,14 @@ function AppShell({ children }: AppShellProps) {
             label={labels[section.labelKey]}
             showDivider={sectionIndex > 0}
           >
-            {section.itemIds.map((itemId) => {
-              const ItemIcon = calendarIconMap[itemId]
-              return (
-                <SidebarItem
-                  key={itemId}
-                  icon={ItemIcon}
-                  label={resolveNavLabel(
-                    itemId,
-                    navigation.blue,
-                    labels.training,
-                  )}
-                  onClick={closeSidebars}
-                />
-              )
-            })}
+            <SidebarNavItems
+              screen="cal"
+              itemIds={section.itemIds}
+              iconMap={calendarIconMap}
+              navItems={navigation.blue}
+              trainingLabel={labels.training}
+              onClose={closeSidebars}
+            />
           </SidebarSection>
         ))}
       </AppSidebar>
@@ -743,6 +836,7 @@ function AppShell({ children }: AppShellProps) {
       </div>
     </div>
     </ActiveScreenContext.Provider>
+    </ExpertModeProvider>
   )
 }
 

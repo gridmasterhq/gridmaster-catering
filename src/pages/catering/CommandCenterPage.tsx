@@ -9,7 +9,6 @@ import {
   IconSpeakerphone,
 } from '@tabler/icons-react'
 import type { Icon } from '@tabler/icons-react'
-import ExpertModeToggle from '../../components/ExpertModeToggle'
 import { useActiveScreen } from '../../components/shared/AppShell'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
 import { supabase } from '../../lib/supabase'
@@ -169,7 +168,6 @@ function ToolGridItem({ icon: ItemIcon, title, subtitle }: ToolGridItemProps) {
 }
 
 function CommandCenterPage() {
-  const [isExpert, setIsExpert] = useState(false)
   const { labels, navigation } = useProductConfig()
   const { setActiveScreen } = useActiveScreen()
   const [eventCount, setEventCount] = useState<number | null>(null)
@@ -276,13 +274,9 @@ function CommandCenterPage() {
 
   return (
     <div
-      className={`relative min-h-full${isExpert ? ' expert-mode' : ''}`}
+      className="min-h-full"
       style={{ backgroundColor: '#F3F4F6', padding: '12px 14px' }}
     >
-      <ExpertModeToggle
-        pageName="commandCenter"
-        onModeChange={setIsExpert}
-      />
       {eventCount === 0 ? (
         <div
           style={{
