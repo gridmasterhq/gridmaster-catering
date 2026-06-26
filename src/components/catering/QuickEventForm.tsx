@@ -3,7 +3,7 @@ import { useProductConfig } from '../../lib/hooks/useProductConfig'
 import { supabase } from '../../lib/supabase'
 
 interface QuickEventFormProps {
-  onSuccess: (eventId: string) => void
+  onSuccess: (eventId: string, eventName: string) => void
   onCancel: () => void
 }
 
@@ -339,7 +339,7 @@ export default function QuickEventForm({
         throw new Error('Event created but no ID returned')
       }
 
-      onSuccess(data.id)
+      onSuccess(data.id, eventName.trim())
     } catch (error) {
       console.error('QuickEventForm submit failed:', error)
       setSubmitError(getErrorMessage(error, 'Failed to create event'))

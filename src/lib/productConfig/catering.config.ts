@@ -263,6 +263,10 @@ const cateringConfig: ProductConfig = {
     qe_create_event: 'Create Event',
     qe_creating: 'Creating...',
     qe_field_required: 'Required',
+    ps_event_created_heading: 'Event Created!',
+    ps_add_more_details: 'Add More Details',
+    ps_build_staff_grid: 'Build My Staff Grid',
+    ps_done_go_to_calendar: "I'm done for now — go to calendar",
   },
   colors: {
     brand_navy: '#1B3A5C',

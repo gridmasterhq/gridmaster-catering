@@ -137,6 +137,10 @@ export interface ProductLabels {
   qe_create_event: string
   qe_creating: string
   qe_field_required: string
+  ps_event_created_heading: string
+  ps_add_more_details: string
+  ps_build_staff_grid: string
+  ps_done_go_to_calendar: string
 }
 
 export interface ProductColors {
