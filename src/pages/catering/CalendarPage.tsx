@@ -9,28 +9,6 @@ import { supabase } from '../../lib/supabase'
 
 const ORGANIZATION_ID = '00000000-0000-0000-0000-000000000001'
 
-const EVENT_TYPE_BAR_COLORS: Record<string, string> = {
-  wedding: '#C9A84C',
-  rehearsal_dinner: '#C9A84C',
-  bridal_shower: '#C9A84C',
-  bar_bat_mitzvah: '#C9A84C',
-  birthday: '#C9A84C',
-  anniversary: '#C9A84C',
-  baby_shower: '#C9A84C',
-  graduation: '#C9A84C',
-  retirement: '#C9A84C',
-  corporate_lunch: '#1B3A5C',
-  corporate_dinner: '#1B3A5C',
-  corporate_reception: '#1B3A5C',
-  cocktail_party: '#7C5CBF',
-  holiday_party: '#7C5CBF',
-  private_dinner: '#7C5CBF',
-  brunch: '#7C5CBF',
-  gala_fundraiser: '#1A6B3C',
-  drop_off_delivery: '#0D9E8A',
-  custom: '#C85000',
-}
-
 interface PillStyle {
   backgroundColor: string
   border: string
@@ -177,7 +155,12 @@ function isWithinNext30Days(eventDate: Date, today: Date): boolean {
 }
 
 function CalendarPage() {
-  const { labels, navigation } = useProductConfig()
+  const { labels, navigation, event_types } = useProductConfig()
+
+  const eventTypeColorMap = useMemo(
+    () => new Map(event_types.map((type) => [type.value, type])),
+    [event_types],
+  )
 
   const [events, setEvents] = useState<CateringEvent[]>([])
   const [loading, setLoading] = useState(true)
@@ -475,8 +458,8 @@ function CalendarPage() {
                     const isCancelled = event.is_cancelled
                     const isPostponed = event.is_postponed && !isCancelled
                     const isInactivePill = isCancelled || isPostponed
-                    const barColor =
-                      EVENT_TYPE_BAR_COLORS[event.event_type] ?? '#9CA3AF'
+                    const eventTypeConfig = eventTypeColorMap.get(event.event_type)
+                    const barColor = eventTypeConfig?.color ?? '#9CA3AF'
                     const pillStyle = getPillStyle(event.status, isInactivePill)
                     const formattedStartTime = formatEventTime(
                       event.event_start_time,
@@ -503,15 +486,41 @@ function CalendarPage() {
                         onClick={() => handleEventClick(event.id)}
                       >
                         {!isInactivePill ? (
-                          <div
-                            className="self-stretch"
-                            style={{
-                              width: '8px',
-                              flexShrink: 0,
-                              backgroundColor: barColor,
-                            }}
-                            aria-hidden="true"
-                          />
+                          event.event_type === 'holiday_party' ? (
+                            <div
+                              className="flex self-stretch"
+                              style={{
+                                width: '8px',
+                                flexShrink: 0,
+                              }}
+                              aria-hidden="true"
+                            >
+                              <div
+                                style={{
+                                  width: '50%',
+                                  backgroundColor:
+                                    eventTypeConfig?.color ?? '#C0392B',
+                                }}
+                              />
+                              <div
+                                style={{
+                                  width: '50%',
+                                  backgroundColor:
+                                    eventTypeConfig?.second_color ?? '#2E8B57',
+                                }}
+                              />
+                            </div>
+                          ) : (
+                            <div
+                              className="self-stretch"
+                              style={{
+                                width: '8px',
+                                flexShrink: 0,
+                                backgroundColor: barColor,
+                              }}
+                              aria-hidden="true"
+                            />
+                          )
                         ) : null}
                         <div
                           className="flex flex-1 flex-col justify-center"
