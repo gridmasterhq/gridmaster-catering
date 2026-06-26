@@ -119,8 +119,12 @@ export interface ProductLabels {
   qe_client_name: string
   qe_client_name_placeholder: string
   qe_event_date: string
+  qe_event_start_time: string
+  qe_start_time_tbd: string
   qe_venue: string
   qe_venue_placeholder: string
+  qe_guest_count: string
+  qe_guest_count_placeholder: string
   qe_event_type: string
   qe_select_event_type: string
   qe_total_staff_needed: string

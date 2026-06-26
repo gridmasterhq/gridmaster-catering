@@ -11,7 +11,9 @@ type FieldKey =
   | 'eventName'
   | 'clientName'
   | 'eventDate'
+  | 'eventStartTime'
   | 'venue'
+  | 'guestCount'
   | 'eventType'
   | 'totalStaffNeeded'
 
@@ -29,7 +31,10 @@ export default function QuickEventForm({
   const [eventName, setEventName] = useState('')
   const [clientName, setClientName] = useState('')
   const [eventDate, setEventDate] = useState('')
+  const [eventStartTime, setEventStartTime] = useState('')
+  const [startTimeTbd, setStartTimeTbd] = useState(true)
   const [venue, setVenue] = useState('')
+  const [guestCount, setGuestCount] = useState('')
   const [eventType, setEventType] = useState('')
   const [totalStaffNeeded, setTotalStaffNeeded] = useState('')
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<FieldKey, string>>>({})
@@ -55,8 +60,19 @@ export default function QuickEventForm({
     if (!eventDate) {
       next.eventDate = required
     }
+    if (!startTimeTbd && !eventStartTime) {
+      next.eventStartTime = required
+    }
     if (!venue.trim()) {
       next.venue = required
+    }
+    if (guestCount === '') {
+      next.guestCount = required
+    } else {
+      const count = Number(guestCount)
+      if (Number.isNaN(count) || count <= 0) {
+        next.guestCount = required
+      }
     }
     if (!eventType) {
       next.eventType = required
@@ -109,7 +125,9 @@ export default function QuickEventForm({
           event_name: eventName.trim(),
           client_name: clientName.trim(),
           event_date: eventDate,
+          event_start_time: startTimeTbd ? null : eventStartTime,
           venue_name: venue.trim(),
+          guest_count: parseInt(guestCount, 10),
           event_type: eventType,
           total_staff_needed: parseInt(totalStaffNeeded, 10),
           organization_id: organizationId.trim(),
@@ -196,6 +214,50 @@ export default function QuickEventForm({
       </div>
 
       <div>
+        <div className="mb-1 flex items-center justify-between gap-3">
+          <label htmlFor="qe-event-start-time" style={labelStyle}>
+            {labels.qe_event_start_time}
+          </label>
+          <label
+            className="flex shrink-0 cursor-pointer items-center gap-1.5"
+            style={{ fontSize: '13px', fontWeight: 500, color: colors.brand_navy }}
+          >
+            <input
+              type="checkbox"
+              checked={startTimeTbd}
+              onChange={(e) => {
+                setStartTimeTbd(e.target.checked)
+                if (e.target.checked) {
+                  setEventStartTime('')
+                  setFieldErrors((prev) => {
+                    const next = { ...prev }
+                    delete next.eventStartTime
+                    return next
+                  })
+                }
+              }}
+              disabled={isSubmitting}
+              className="rounded border-gray-300"
+            />
+            {labels.qe_start_time_tbd}
+          </label>
+        </div>
+        {!startTimeTbd ? (
+          <input
+            id="qe-event-start-time"
+            type="time"
+            value={eventStartTime}
+            onChange={(e) => setEventStartTime(e.target.value)}
+            className={inputClassName}
+            disabled={isSubmitting}
+          />
+        ) : null}
+        {fieldErrors.eventStartTime ? (
+          <p className="mt-1 text-xs text-red-500">{fieldErrors.eventStartTime}</p>
+        ) : null}
+      </div>
+
+      <div>
         <label htmlFor="qe-venue" className="mb-1 block" style={labelStyle}>
           {labels.qe_venue}
         </label>
@@ -210,6 +272,25 @@ export default function QuickEventForm({
         />
         {fieldErrors.venue ? (
           <p className="mt-1 text-xs text-red-500">{fieldErrors.venue}</p>
+        ) : null}
+      </div>
+
+      <div>
+        <label htmlFor="qe-guest-count" className="mb-1 block" style={labelStyle}>
+          {labels.qe_guest_count}
+        </label>
+        <input
+          id="qe-guest-count"
+          type="number"
+          min={0}
+          value={guestCount}
+          onChange={(e) => setGuestCount(e.target.value)}
+          placeholder={labels.qe_guest_count_placeholder}
+          className={inputClassName}
+          disabled={isSubmitting}
+        />
+        {fieldErrors.guestCount ? (
+          <p className="mt-1 text-xs text-red-500">{fieldErrors.guestCount}</p>
         ) : null}
       </div>
 
