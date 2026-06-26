@@ -3,6 +3,7 @@ import {
   useMemo,
   useState,
 } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
 import { supabase } from '../../lib/supabase'
 
@@ -310,8 +311,10 @@ function CalendarPage() {
     setActiveDate(startOfDay(new Date()))
   }
 
+  const navigate = useNavigate()
+
   const handleNewEvent = () => {
-    console.log(`${newEventLabel} clicked`)
+    navigate('/new-event')
   }
 
   const handleEventClick = (eventId: string) => {
