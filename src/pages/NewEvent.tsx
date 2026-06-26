@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { IconArrowLeft } from '@tabler/icons-react'
+import QuickEventForm from '../components/catering/QuickEventForm'
 import NewEventModeSelect, {
   type NewEventMode,
 } from '../components/catering/NewEventModeSelect'
@@ -30,6 +31,34 @@ function NewEvent() {
         onSelect={setSelectedMode}
         onCancel={() => navigate('/')}
       />
+    )
+  }
+
+  if (selectedMode === 'quick') {
+    return (
+      <div
+        className="flex min-h-screen flex-col px-4 py-6"
+        style={{ backgroundColor: colors.brand_light_blue }}
+      >
+        <button
+          type="button"
+          onClick={() => setSelectedMode(null)}
+          className="mb-6 flex items-center gap-2 self-start"
+          style={{ color: colors.brand_navy }}
+        >
+          <IconArrowLeft size={20} stroke={2} />
+          <span style={{ fontSize: '14px', fontWeight: 500 }}>
+            {labels.ne_cancel}
+          </span>
+        </button>
+
+        <QuickEventForm
+          onCancel={() => setSelectedMode(null)}
+          onSuccess={() => {
+            navigate('/')
+          }}
+        />
+      </div>
     )
   }
 

@@ -114,6 +114,20 @@ export interface ProductLabels {
   ne_manual_entry_subtext: string
   ne_cancel: string
   ne_mode_selected: string
+  qe_event_name: string
+  qe_event_name_placeholder: string
+  qe_client_name: string
+  qe_client_name_placeholder: string
+  qe_event_date: string
+  qe_venue: string
+  qe_venue_placeholder: string
+  qe_event_type: string
+  qe_select_event_type: string
+  qe_total_staff_needed: string
+  qe_total_staff_placeholder: string
+  qe_create_event: string
+  qe_creating: string
+  qe_field_required: string
 }
 
 export interface ProductColors {
