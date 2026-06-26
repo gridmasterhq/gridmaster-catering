@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, createContext, useContext, type CSSProperties, type ReactNode } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   IconBell,
   IconBolt,
@@ -410,6 +411,7 @@ function SidebarNavItems({
   trainingLabel,
   onClose,
 }: SidebarNavItemsProps) {
+  const navigate = useNavigate()
   const { isExpert, setExpertMode } = useExpertMode(screen)
 
   return (
@@ -439,6 +441,9 @@ function SidebarNavItems({
               if (itemId === 'expert_mode') {
                 setExpertMode(true)
                 return
+              }
+              if (itemId === 'new_event') {
+                navigate('/new-event')
               }
               onClose()
             }}
