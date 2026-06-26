@@ -8,6 +8,9 @@ import { supabase } from './lib/supabase'
 import LoginPage from './pages/auth/LoginPage'
 import CalendarPage from './pages/catering/CalendarPage'
 import CommandCenterPage from './pages/catering/CommandCenterPage'
+import CaptainRatePage from './pages/captain/CaptainRatePage'
+import MobileCommandCenterPage from './pages/coordinator/MobileCommandCenterPage'
+import SOSPage from './pages/coordinator/SOSPage'
 import StaffCheckInPage from './pages/staff/StaffCheckInPage'
 import StaffCheckoutPage from './pages/staff/StaffCheckoutPage'
 
@@ -59,6 +62,12 @@ function App() {
         <Routes>
           <Route path="/staff/checkin" element={<StaffCheckInPage />} />
           <Route path="/staff/checkout" element={<StaffCheckoutPage />} />
+          <Route
+            path="/mobile/command-center"
+            element={<MobileCommandCenterPage />}
+          />
+          <Route path="/captain/rate" element={<CaptainRatePage />} />
+          <Route path="/sos" element={<SOSPage />} />
           <Route
             path="*"
             element={
