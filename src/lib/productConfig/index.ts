@@ -90,6 +90,7 @@ export interface ProductLabels {
   nav_section_account: string
   nav_section_preferences: string
   nav_section_events: string
+  nav_section_templates: string
   nav_section_people: string
   nav_section_development: string
   nav_section_more: string
