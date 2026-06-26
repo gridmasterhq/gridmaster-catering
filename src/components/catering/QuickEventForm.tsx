@@ -351,6 +351,7 @@ export default function QuickEventForm({
             linkVenue && selectedLocationId ? selectedLocationId : null,
           guest_count: parseInt(guestCount, 10),
           event_type: eventType,
+          service_style: serviceStyle || null,
           total_staff_needed: parseInt(totalStaffNeeded, 10),
           organization_id: organizationIdTrimmed,
           status: 'draft',

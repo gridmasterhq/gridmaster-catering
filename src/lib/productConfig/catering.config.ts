@@ -233,7 +233,7 @@ const cateringConfig: ProductConfig = {
       'Every action you take teaches GridMaster your preferences — the more you use it, the smarter it gets.',
     ne_mode_prompt: 'How would you like to start?',
     ne_quick_event: 'Quick Event',
-    ne_quick_event_subtext: '8 fields. Done in 60 seconds.',
+    ne_quick_event_subtext: '9 fields. Done in 60 seconds.',
     ne_beo_upload: 'BEO Upload',
     ne_beo_upload_subtext: 'Drop your BEO and AI builds the event for you.',
     ne_manual_entry: 'Manual Entry',
