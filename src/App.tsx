@@ -9,6 +9,7 @@ import LoginPage from './pages/auth/LoginPage'
 import CalendarPage from './pages/catering/CalendarPage'
 import CommandCenterPage from './pages/catering/CommandCenterPage'
 import NewEvent from './pages/NewEvent'
+import UniformsPage from './pages/settings/UniformsPage'
 import CaptainRatePage from './pages/captain/CaptainRatePage'
 import MobileCommandCenterPage from './pages/coordinator/MobileCommandCenterPage'
 import SOSPage from './pages/coordinator/SOSPage'
@@ -56,6 +57,7 @@ function CoordinatorApp() {
   return (
     <Routes>
       <Route path="/new-event" element={<NewEvent />} />
+      <Route path="/settings/uniforms" element={<UniformsPage />} />
       <Route
         path="*"
         element={

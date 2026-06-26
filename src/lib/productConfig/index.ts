@@ -159,6 +159,48 @@ export interface ProductLabels {
   beo_try_again: string
   beo_enter_manually: string
   beo_extraction_system_prompt: string
+  me_section_event_basics: string
+  me_section_venue: string
+  me_section_guest_staffing: string
+  me_section_event_details: string
+  me_section_save_options: string
+  me_event_end_time: string
+  me_end_time_tbd: string
+  me_address: string
+  me_address_placeholder: string
+  me_arrival_notes: string
+  me_arrival_notes_placeholder: string
+  me_buffer_pct: string
+  me_rating_floor: string
+  me_select_rating_floor: string
+  me_star: string
+  me_stars: string
+  me_uniform_notes: string
+  me_uniform_notes_placeholder: string
+  me_coordinator_notes: string
+  me_coordinator_notes_placeholder: string
+  me_bar_service_type: string
+  me_select_bar_service_type: string
+  me_alcohol_cutoff: string
+  me_vehicle_departure_time: string
+  me_vehicle_load_time: string
+  me_searching: string
+  me_submit_error_fallback: string
+  uniforms_heading: string
+  uniforms_subtext: string
+  uniforms_add: string
+  uniforms_name: string
+  uniforms_name_placeholder: string
+  uniforms_description: string
+  uniforms_description_placeholder: string
+  uniforms_save: string
+  uniforms_empty_headline: string
+  uniforms_empty_subtext: string
+  uniforms_field_required: string
+  uniforms_delete_confirm: string
+  uniforms_load_error: string
+  uniforms_save_error: string
+  uniforms_delete_error: string
 }
 
 export interface ProductColors {
@@ -202,6 +244,11 @@ export interface ServiceStyleOption {
   label: string
 }
 
+export interface BarServiceTypeOption {
+  value: string
+  label: string
+}
+
 export interface ProductConfig {
   product_type: ProductType
   product_name: string
@@ -214,9 +261,12 @@ export interface ProductConfig {
   roles: string[]
   event_types: EventType[]
   service_styles: ServiceStyleOption[]
+  bar_service_types: BarServiceTypeOption[]
   grid_departments: string[]
   buffer_options: number[]
   rating_floors: number[]
+  default_buffer_pct: number
+  default_alcohol_cutoff: boolean
 }
 
 export { default } from './catering.config'

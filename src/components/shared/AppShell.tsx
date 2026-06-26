@@ -19,6 +19,7 @@ import {
   IconReceipt,
   IconSchool,
   IconSettings,
+  IconShirt,
   IconSparkles,
   IconTruck,
   IconUsers,
@@ -156,6 +157,7 @@ const calendarIconMap: Record<string, Icon> = {
   staff: IconUsers,
   clients: IconBuilding,
   roles: IconBriefcase,
+  uniforms: IconShirt,
   training: IconSchool,
   reports: IconChartBar,
   incentives: IconGift,
@@ -201,7 +203,7 @@ const calendarSidebarSections = [
   },
   {
     labelKey: 'nav_section_people' as const,
-    itemIds: ['staff', 'clients', 'roles'],
+    itemIds: ['staff', 'clients', 'roles', 'uniforms'],
   },
   {
     labelKey: 'nav_section_development' as const,
@@ -444,6 +446,9 @@ function SidebarNavItems({
               }
               if (itemId === 'new_event') {
                 navigate('/new-event')
+              }
+              if (itemId === 'uniforms') {
+                navigate('/settings/uniforms')
               }
               onClose()
             }}
