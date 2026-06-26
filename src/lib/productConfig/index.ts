@@ -201,6 +201,23 @@ export interface ProductLabels {
   uniforms_load_error: string
   uniforms_save_error: string
   uniforms_delete_error: string
+  note_templates_heading: string
+  note_templates_subtext: string
+  note_templates_add: string
+  note_templates_name: string
+  note_templates_name_placeholder: string
+  note_templates_event_type: string
+  note_templates_all_event_types: string
+  note_templates_description: string
+  note_templates_description_placeholder: string
+  note_templates_save: string
+  note_templates_empty_headline: string
+  note_templates_empty_subtext: string
+  note_templates_field_required: string
+  note_templates_delete_confirm: string
+  note_templates_load_error: string
+  note_templates_save_error: string
+  note_templates_delete_error: string
 }
 
 export interface ProductColors {

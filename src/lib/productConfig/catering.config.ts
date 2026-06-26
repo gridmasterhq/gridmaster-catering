@@ -76,6 +76,11 @@ const cateringConfig: ProductConfig = {
         subtext: 'Defaults and preferences for new events',
       },
       {
+        id: 'note_templates',
+        label: 'Note Templates',
+        subtext: 'Reusable coordinator notes for events',
+      },
+      {
         id: 'my_templates',
         label: 'My Templates',
         subtext: 'Your saved grids and past event templates',
@@ -336,6 +341,26 @@ const cateringConfig: ProductConfig = {
     uniforms_load_error: 'Failed to load uniforms',
     uniforms_save_error: 'Failed to save uniform',
     uniforms_delete_error: 'Failed to delete uniform',
+    note_templates_heading: 'Note Templates',
+    note_templates_subtext:
+      'Save reusable coordinator notes to apply across events.',
+    note_templates_add: 'Add Template',
+    note_templates_name: 'Name',
+    note_templates_name_placeholder: 'e.g. Standard Wedding Protocol',
+    note_templates_event_type: 'Event Type',
+    note_templates_all_event_types: 'All event types',
+    note_templates_description: 'Description',
+    note_templates_description_placeholder:
+      'e.g. Remind captain to confirm bar closing time with client 30 min before cutoff...',
+    note_templates_save: 'Save',
+    note_templates_empty_headline: 'No note templates saved yet.',
+    note_templates_empty_subtext:
+      'Add your first template to reuse coordinator notes across events.',
+    note_templates_field_required: 'Required',
+    note_templates_delete_confirm: 'Delete this note template?',
+    note_templates_load_error: 'Failed to load note templates',
+    note_templates_save_error: 'Failed to save note template',
+    note_templates_delete_error: 'Failed to delete note template',
   },
   colors: {
     brand_navy: '#1B3A5C',

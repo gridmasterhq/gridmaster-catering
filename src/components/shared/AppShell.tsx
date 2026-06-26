@@ -14,6 +14,7 @@ import {
   IconHelpCircle,
   IconLayoutGrid,
   IconMapPin,
+  IconNotes,
   IconPlug,
   IconPlus,
   IconReceipt,
@@ -151,6 +152,7 @@ const ccIconMap: Record<string, Icon> = {
 const calendarIconMap: Record<string, Icon> = {
   new_event: IconPlus,
   event_settings: IconSettings,
+  note_templates: IconNotes,
   my_templates: IconCopy,
   gridmaster_templates: IconLayoutGrid,
   ai_template_builder: IconSparkles,
@@ -195,7 +197,7 @@ const ccSidebarSections = [
 const calendarSidebarSections = [
   {
     labelKey: 'nav_section_events' as const,
-    itemIds: ['new_event', 'event_settings'],
+    itemIds: ['new_event', 'event_settings', 'note_templates'],
   },
   {
     labelKey: 'nav_section_templates' as const,
@@ -449,6 +451,9 @@ function SidebarNavItems({
               }
               if (itemId === 'uniforms') {
                 navigate('/settings/uniforms')
+              }
+              if (itemId === 'note_templates') {
+                navigate('/settings/note-templates')
               }
               onClose()
             }}
