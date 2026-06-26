@@ -163,6 +163,7 @@ export interface EventType {
   value: string
   label: string
   color: string
+  second_color?: string
 }
 
 export interface ProductConfig {
