@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   IconActivity,
   IconCloud,
@@ -11,7 +11,59 @@ import {
 import type { Icon } from '@tabler/icons-react'
 import { useActiveScreen } from '../../components/shared/AppShell'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
+import { formatDateForInput } from '../../lib/dateUtils'
 import { supabase } from '../../lib/supabase'
+
+const DRAFT_ACTION_REFRESH_MS = 5 * 60 * 1000
+
+interface DraftActionEvent {
+  id: string
+  event_name: string
+  event_date: string
+  created_at: string
+  status: string
+}
+
+function getFortyEightHoursAgoIso(): string {
+  return new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
+}
+
+function getTwoDaysFromTodayDate(): string {
+  const date = new Date()
+  date.setDate(date.getDate() + 2)
+  return formatDateForInput(date)
+}
+
+function isEventDateWithinTwoDays(eventDate: string): boolean {
+  return eventDate <= getTwoDaysFromTodayDate()
+}
+
+function getHoursUntilEventStart(eventDate: string): number {
+  const eventStart = new Date(`${eventDate}T00:00:00`)
+  return Math.round((eventStart.getTime() - Date.now()) / (1000 * 60 * 60))
+}
+
+function getDraftActionSubtext(event: DraftActionEvent): string {
+  if (isEventDateWithinTwoDays(event.event_date)) {
+    const hours = getHoursUntilEventStart(event.event_date)
+    if (hours > 0) {
+      return `Event is in ${hours} hours — still a draft`
+    }
+    if (hours === 0) {
+      return 'Event is today — still a draft'
+    }
+    const hoursAgo = Math.abs(hours)
+    return `Event was ${hoursAgo} hours ago — still a draft`
+  }
+
+  const draftDays = Math.max(
+    1,
+    Math.floor(
+      (Date.now() - new Date(event.created_at).getTime()) / (1000 * 60 * 60 * 24),
+    ),
+  )
+  return `Draft for ${draftDays} days — needs review`
+}
 
 const boxStyle: CSSProperties = {
   backgroundColor: '#ffffff',
@@ -171,6 +223,69 @@ function CommandCenterPage() {
   const { labels, navigation } = useProductConfig()
   const { setActiveScreen } = useActiveScreen()
   const [eventCount, setEventCount] = useState<number | null>(null)
+  const [draftActionItems, setDraftActionItems] = useState<DraftActionEvent[]>([])
+
+  const fetchDraftActionItems = useCallback(async () => {
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser()
+
+      if (userError) {
+        console.error('[CommandCenter] draft actions: getUser failed', userError)
+        setDraftActionItems([])
+        return
+      }
+
+      const organizationId = user?.user_metadata?.organization_id
+      if (typeof organizationId !== 'string' || !organizationId.trim()) {
+        console.error(
+          '[CommandCenter] draft actions: missing organization_id in user_metadata',
+          user?.user_metadata,
+        )
+        setDraftActionItems([])
+        return
+      }
+
+      const fortyEightHoursAgo = getFortyEightHoursAgoIso()
+      const twoDaysFromToday = getTwoDaysFromTodayDate()
+
+      const { data, error } = await supabase
+        .from('events')
+        .select('id, event_name, event_date, created_at, status')
+        .eq('organization_id', organizationId.trim())
+        .eq('status', 'draft')
+        .eq('is_deleted', false)
+        .or(
+          `created_at.lte."${fortyEightHoursAgo}",event_date.lte.${twoDaysFromToday}`,
+        )
+        .order('event_date', { ascending: true })
+
+      if (error) {
+        console.error('[CommandCenter] draft actions query failed', error)
+        setDraftActionItems([])
+        return
+      }
+
+      setDraftActionItems((data ?? []) as DraftActionEvent[])
+    } catch (error) {
+      console.error('[CommandCenter] draft actions unexpected error', error)
+      setDraftActionItems([])
+    }
+  }, [])
+
+  useEffect(() => {
+    void fetchDraftActionItems()
+
+    const intervalId = window.setInterval(() => {
+      void fetchDraftActionItems()
+    }, DRAFT_ACTION_REFRESH_MS)
+
+    return () => {
+      window.clearInterval(intervalId)
+    }
+  }, [fetchDraftActionItems])
 
   useEffect(() => {
     async function fetchEventCount() {
@@ -223,7 +338,7 @@ function CommandCenterPage() {
   const competingEventsLabel =
     navigation.red.find((item) => item.id === 'competing_events')?.label ?? ''
 
-  const actionItemCount = 0
+  const actionItemCount = draftActionItems.length
   const vendorAlertCount = 0
   const highlightCount = 0
   const competingEventCount = 0
@@ -337,26 +452,89 @@ function CommandCenterPage() {
             color="#991b1b"
             right={<span style={countBadgeStyle}>{actionItemCount}</span>}
           />
-          <BoxItemRow>
-            <div
-              className="flex w-full items-center justify-center text-gray-400"
-              style={{ gap: '6px', fontSize: '11px', padding: '17px 0' }}
-            >
-              <span
+          {draftActionItems.length === 0 ? (
+            <BoxItemRow>
+              <div
+                className="flex w-full items-center justify-center text-gray-400"
+                style={{ gap: '6px', fontSize: '11px', padding: '17px 0' }}
+              >
+                <span
+                  style={{
+                    width: '6px',
+                    height: '6px',
+                    borderRadius: '50%',
+                    backgroundColor: '#ef4444',
+                    flexShrink: 0,
+                  }}
+                  aria-hidden="true"
+                />
+                <span>{labels.cc_no_open_action_items}</span>
+                <span aria-hidden="true">·</span>
+                <span>{labels.cc_all_clear_subtext}</span>
+              </div>
+            </BoxItemRow>
+          ) : (
+            draftActionItems.map((event) => (
+              <div
+                key={event.id}
                 style={{
-                  width: '6px',
-                  height: '6px',
-                  borderRadius: '50%',
-                  backgroundColor: '#ef4444',
-                  flexShrink: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  padding: '10px 12px',
+                  borderBottom: '0.5px solid #f3f4f6',
                 }}
-                aria-hidden="true"
-              />
-              <span>{labels.cc_no_open_action_items}</span>
-              <span aria-hidden="true">·</span>
-              <span>{labels.cc_all_clear_subtext}</span>
-            </div>
-          </BoxItemRow>
+              >
+                <span
+                  aria-hidden="true"
+                  style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    backgroundColor: '#C0392B',
+                    flexShrink: 0,
+                  }}
+                />
+                <div className="min-w-0 flex-1">
+                  <p
+                    style={{
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      color: '#1B3A5C',
+                      lineHeight: 1.3,
+                    }}
+                  >
+                    {event.event_name}
+                  </p>
+                  <p
+                    style={{
+                      fontSize: '12px',
+                      color: '#6b7280',
+                      marginTop: '2px',
+                      lineHeight: 1.3,
+                    }}
+                  >
+                    {getDraftActionSubtext(event)}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => window.open(`/event/${event.id}`, '_blank')}
+                  className="shrink-0 hover:underline"
+                  style={{
+                    fontSize: '12px',
+                    color: '#1B3A5C',
+                    cursor: 'pointer',
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                  }}
+                >
+                  Review
+                </button>
+              </div>
+            ))
+          )}
         </CommandCenterBox>
 
         <CommandCenterBox fullWidth>
