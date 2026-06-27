@@ -165,6 +165,18 @@ export interface ProductLabels {
   save_as_template_manual_label: string
   save_as_template_name_required: string
   save_as_template_save_error: string
+  ai_template_builder_heading: string
+  ai_template_builder_subtitle: string
+  ai_template_mode_freeform: string
+  ai_template_mode_guided: string
+  ai_template_input_placeholder: string
+  ai_template_api_error: string
+  ai_template_retry: string
+  ai_template_ready_heading: string
+  ai_template_save_button: string
+  ai_template_saved_confirmation: string
+  ai_template_use_now_button: string
+  ai_template_start_over: string
   beo_drop_zone_primary: string
   beo_drop_zone_secondary: string
   beo_or_divider: string

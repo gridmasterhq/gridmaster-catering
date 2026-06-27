@@ -42,6 +42,7 @@ import RolesPage from '../../pages/RolesPage'
 import NewEvent from '../../pages/NewEvent'
 import MyTemplatesOverlay from '../overlays/MyTemplatesOverlay'
 import GridMasterTemplatesOverlay from '../overlays/GridMasterTemplatesOverlay'
+import AITemplateBuilderOverlay from '../overlays/AITemplateBuilderOverlay'
 import type { EventTemplate } from '../../lib/types/eventTemplate'
 
 type ActiveScreen = 'cc' | 'calendar'
@@ -80,7 +81,11 @@ export interface OpenOverlayOptions {
   initialTemplate?: EventTemplate
 }
 
-const TEMPLATE_OVERLAY_IDS = ['my-templates', 'gridmaster-templates'] as const
+const TEMPLATE_OVERLAY_IDS = [
+  'my-templates',
+  'gridmaster-templates',
+  'ai-template-builder',
+] as const
 
 const OverlayContext = createContext<OverlayContextValue | null>(null)
 
@@ -498,6 +503,8 @@ function SidebarNavItems({
                 openOverlay('my-templates')
               } else if (itemId === 'gridmaster_templates') {
                 openOverlay('gridmaster-templates')
+              } else if (itemId === 'ai_template_builder') {
+                openOverlay('ai-template-builder')
               }
               onClose()
             }}
@@ -657,6 +664,7 @@ function AppShell({ children }: AppShellProps) {
     'note-templates': labels.note_templates_heading,
     'my-templates': labels.event_templates_heading,
     'gridmaster-templates': labels.gridmaster_templates_heading,
+    'ai-template-builder': labels.ai_template_builder_heading,
     'new-event':
       navigation.blue.find((item) => item.id === 'new_event')?.label ??
       'New Event',
@@ -668,6 +676,7 @@ function AppShell({ children }: AppShellProps) {
     'note-templates': true,
     'my-templates': true,
     'gridmaster-templates': true,
+    'ai-template-builder': true,
     'new-event': false,
   }
 
@@ -974,6 +983,9 @@ function AppShell({ children }: AppShellProps) {
           {activeOverlay === 'my-templates' ? <MyTemplatesOverlay /> : null}
           {activeOverlay === 'gridmaster-templates' ? (
             <GridMasterTemplatesOverlay />
+          ) : null}
+          {activeOverlay === 'ai-template-builder' ? (
+            <AITemplateBuilderOverlay />
           ) : null}
           {activeOverlay === 'new-event' ? <NewEvent /> : null}
         </OverlayPanel>
