@@ -219,7 +219,8 @@ export interface ProductLabels {
   note_templates_save_error: string
   note_templates_delete_error: string
   roles_page_heading: string
-  roles_page_subtext: string
+  roles_page_subtext_prefix: string
+  roles_page_subtext_suffix: string
   roles_add: string
   roles_name: string
   roles_name_placeholder: string

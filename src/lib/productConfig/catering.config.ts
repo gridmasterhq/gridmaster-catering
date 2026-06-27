@@ -362,7 +362,9 @@ const cateringConfig: ProductConfig = {
     note_templates_save_error: 'Failed to save note template',
     note_templates_delete_error: 'Failed to delete note template',
     roles_page_heading: 'Roles',
-    roles_page_subtext: 'Define your role types and assign default uniforms.',
+    roles_page_subtext_prefix:
+      'Define your role types and assign default uniforms. To build and manage your uniform presets, go to ',
+    roles_page_subtext_suffix: '.',
     roles_add: 'Add Role',
     roles_name: 'Role Name',
     roles_name_placeholder: 'e.g. Server',
