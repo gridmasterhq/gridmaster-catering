@@ -218,6 +218,24 @@ export interface ProductLabels {
   note_templates_load_error: string
   note_templates_save_error: string
   note_templates_delete_error: string
+  roles_page_heading: string
+  roles_page_subtext: string
+  roles_add: string
+  roles_name: string
+  roles_name_placeholder: string
+  roles_default_uniform: string
+  roles_select_uniform: string
+  roles_no_uniform: string
+  roles_custom_uniform: string
+  roles_custom_uniform_placeholder: string
+  roles_save: string
+  roles_empty_headline: string
+  roles_empty_subtext: string
+  roles_field_required: string
+  roles_delete_confirm: string
+  roles_load_error: string
+  roles_save_error: string
+  roles_delete_error: string
 }
 
 export interface ProductColors {

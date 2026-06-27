@@ -11,6 +11,7 @@ import CommandCenterPage from './pages/catering/CommandCenterPage'
 import NewEvent from './pages/NewEvent'
 import UniformsPage from './pages/settings/UniformsPage'
 import NoteTemplatesPage from './pages/settings/NoteTemplatesPage'
+import RolesPage from './pages/RolesPage'
 import CaptainRatePage from './pages/captain/CaptainRatePage'
 import MobileCommandCenterPage from './pages/coordinator/MobileCommandCenterPage'
 import SOSPage from './pages/coordinator/SOSPage'
@@ -60,6 +61,7 @@ function CoordinatorApp() {
       <Route path="/new-event" element={<NewEvent />} />
       <Route path="/settings/uniforms" element={<UniformsPage />} />
       <Route path="/settings/note-templates" element={<NoteTemplatesPage />} />
+      <Route path="/roles" element={<RolesPage />} />
       <Route
         path="*"
         element={

@@ -455,6 +455,9 @@ function SidebarNavItems({
               if (itemId === 'note_templates') {
                 navigate('/settings/note-templates')
               }
+              if (itemId === 'roles') {
+                navigate('/roles')
+              }
               onClose()
             }}
           />
