@@ -132,7 +132,6 @@ export default function ManualEntryForm({
     service_styles,
     bar_service_types,
     buffer_options,
-    rating_floors,
     default_buffer_pct,
     default_alcohol_cutoff,
   } = useProductConfig()
@@ -199,7 +198,6 @@ export default function ManualEntryForm({
       : '',
   )
   const [bufferPct, setBufferPct] = useState(String(default_buffer_pct))
-  const [ratingFloor, setRatingFloor] = useState('')
 
   const [uniformNotes, setUniformNotes] = useState('')
   const [selectedUniformId, setSelectedUniformId] = useState('')
@@ -491,8 +489,6 @@ export default function ManualEntryForm({
               ? null
               : Number.parseInt(totalStaffNeeded, 10),
           buffer_pct: Number.parseInt(bufferPct, 10),
-          rating_floor:
-            ratingFloor === '' ? null : Number.parseInt(ratingFloor, 10),
           uniform_notes: uniformNotes.trim() || null,
           coordinator_notes: coordinatorNotes.trim() || null,
           bar_service_type: barServiceType || null,
@@ -541,10 +537,6 @@ export default function ManualEntryForm({
     setSelectedLocationName('')
     setVenueSearchQuery('')
     setVenueSearchResults([])
-  }
-
-  function ratingFloorLabel(floor: number): string {
-    return `${floor} ${floor === 1 ? labels.me_star : labels.me_stars}`
   }
 
   return (
@@ -977,24 +969,6 @@ export default function ManualEntryForm({
               {buffer_options.map((option) => (
                 <option key={option} value={String(option)}>
                   {option}%
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <FieldLabel htmlFor="me-rating-floor">{labels.me_rating_floor}</FieldLabel>
-            <select
-              id="me-rating-floor"
-              value={ratingFloor}
-              onChange={(e) => setRatingFloor(e.target.value)}
-              className={inputClassName}
-              disabled={isSubmitting}
-            >
-              <option value="">{labels.me_select_rating_floor}</option>
-              {rating_floors.map((floor) => (
-                <option key={floor} value={String(floor)}>
-                  {ratingFloorLabel(floor)}
                 </option>
               ))}
             </select>
