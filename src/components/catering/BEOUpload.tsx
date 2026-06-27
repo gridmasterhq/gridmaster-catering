@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { IconArrowLeft, IconFileUpload } from '@tabler/icons-react'
+import { IconAlertTriangle, IconArrowLeft, IconFileUpload } from '@tabler/icons-react'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
-import { formatDateForInput } from '../../lib/dateUtils'
+import { formatDateDisplay, formatDateForInput } from '../../lib/dateUtils'
 import { supabase } from '../../lib/supabase'
 
 export interface BEOExtractedData {
@@ -100,6 +100,19 @@ export default function BEOUpload({
   const [serviceStyle, setServiceStyle] = useState('')
   const [totalStaffNeeded, setTotalStaffNeeded] = useState('')
   const [notes, setNotes] = useState('')
+  const [dateMismatch, setDateMismatch] = useState<{ extractedDate: string } | null>(
+    null,
+  )
+
+  const mismatchButtonStyle = {
+    border: '1px solid #854D0E',
+    background: 'white',
+    color: '#854D0E',
+    borderRadius: '4px',
+    padding: '4px 10px',
+    fontSize: '12px',
+    cursor: 'pointer',
+  } as const
 
   const labelStyle = {
     fontSize: '13px',
@@ -118,15 +131,20 @@ export default function BEOUpload({
     setServiceStyle('')
     setTotalStaffNeeded('')
     setNotes('')
+    setDateMismatch(null)
   }, [])
 
   const applyExtractedData = useCallback((data: BEOExtractedData) => {
     const allowedEventTypes = new Set(event_types.map((type) => type.value))
     const allowedServiceStyles = new Set(service_styles.map((style) => style.value))
+    const extractedDate = toReviewString(data.event_date)
+    const hasMismatch =
+      Boolean(prefilledDate) &&
+      Boolean(extractedDate) &&
+      extractedDate !== prefilledDateValue
 
     setEventName(toReviewString(data.event_name))
     setClientName(toReviewString(data.client_name))
-    setEventDate(toReviewString(data.event_date) || prefilledDateValue)
     setEventStartTime(toReviewString(data.event_start_time))
     setVenueName(toReviewString(data.venue_name))
     setGuestCount(toReviewString(data.guest_count))
@@ -142,7 +160,16 @@ export default function BEOUpload({
     )
     setTotalStaffNeeded(toReviewString(data.total_staff_needed))
     setNotes(toReviewString(data.notes))
-  }, [event_types, prefilledDateValue, service_styles])
+
+    if (hasMismatch) {
+      setDateMismatch({ extractedDate })
+      setEventDate(prefilledDateValue)
+      return
+    }
+
+    setDateMismatch(null)
+    setEventDate(extractedDate || prefilledDateValue)
+  }, [event_types, prefilledDate, prefilledDateValue, service_styles])
 
   useEffect(() => {
     if (!prefilledDateValue) {
@@ -465,9 +492,69 @@ export default function BEOUpload({
                 id="beo-event-date"
                 type="date"
                 value={eventDate}
-                onChange={(e) => setEventDate(e.target.value)}
+                onChange={(e) => {
+                  setEventDate(e.target.value)
+                  setDateMismatch(null)
+                }}
                 className={inputClassName}
               />
+              {dateMismatch && prefilledDate ? (
+                <div
+                  style={{
+                    backgroundColor: '#FEF9C3',
+                    border: '1px solid #FDE047',
+                    borderRadius: '6px',
+                    padding: '10px 12px',
+                    marginTop: '6px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: '6px',
+                    }}
+                  >
+                    <IconAlertTriangle
+                      size={14}
+                      stroke={2}
+                      color="#854D0E"
+                      style={{ flexShrink: 0, marginTop: '2px' }}
+                    />
+                    <p style={{ fontSize: '13px', color: '#854D0E', margin: 0 }}>
+                      The date in your BEO (
+                      {formatDateDisplay(dateMismatch.extractedDate)}) doesn&apos;t match
+                      the date you selected ({formatDateDisplay(prefilledDate)}).
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    <button
+                      type="button"
+                      style={mismatchButtonStyle}
+                      onClick={() => {
+                        setEventDate(dateMismatch.extractedDate)
+                        setDateMismatch(null)
+                      }}
+                    >
+                      Use BEO date (
+                      {formatDateDisplay(dateMismatch.extractedDate)})
+                    </button>
+                    <button
+                      type="button"
+                      style={mismatchButtonStyle}
+                      onClick={() => {
+                        setEventDate(prefilledDateValue)
+                        setDateMismatch(null)
+                      }}
+                    >
+                      Keep my selected date ({formatDateDisplay(prefilledDate)})
+                    </button>
+                  </div>
+                </div>
+              ) : null}
             </div>
 
             <div>
