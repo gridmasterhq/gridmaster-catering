@@ -24,10 +24,6 @@ interface DraftActionEvent {
   status: string
 }
 
-function getFortyEightHoursAgoIso(): string {
-  return new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
-}
-
 function getTwoDaysFromTodayDate(): string {
   const date = new Date()
   date.setDate(date.getDate() + 2)
@@ -248,18 +244,21 @@ function CommandCenterPage() {
         return
       }
 
-      const fortyEightHoursAgo = getFortyEightHoursAgoIso()
-      const twoDaysFromToday = getTwoDaysFromTodayDate()
+      const fortyEightHoursAgo = new Date(
+        Date.now() - 48 * 60 * 60 * 1000,
+      ).toISOString()
+      const twoDaysFromNow = new Date(
+        Date.now() + 2 * 24 * 60 * 60 * 1000,
+      )
+        .toISOString()
+        .split('T')[0]
 
       const { data, error } = await supabase
         .from('events')
         .select('id, event_name, event_date, created_at, status')
         .eq('organization_id', organizationId.trim())
         .eq('status', 'draft')
-        .eq('is_deleted', false)
-        .or(
-          `created_at.lte."${fortyEightHoursAgo}",event_date.lte.${twoDaysFromToday}`,
-        )
+        .or(`created_at.lte.${fortyEightHoursAgo},event_date.lte.${twoDaysFromNow}`)
         .order('event_date', { ascending: true })
 
       if (error) {

@@ -99,12 +99,26 @@ interface PillStyle {
   color: string
 }
 
-function getPillStyle(status: string, isInactivePill: boolean): PillStyle {
+function getPillStyle(
+  status: string,
+  isInactivePill: boolean,
+  eventDate: string,
+): PillStyle {
   if (isInactivePill) {
     return {
       backgroundColor: '#000000',
       border: 'none',
       color: '#ffffff',
+    }
+  }
+
+  const isPast =
+    new Date(eventDate) < new Date(new Date().toDateString())
+  if (isPast) {
+    return {
+      backgroundColor: '#F3F4F6',
+      color: '#6B7280',
+      border: '1px solid #D1D5DB',
     }
   }
 
@@ -609,9 +623,18 @@ function CalendarPage() {
                     const isCancelled = event.is_cancelled
                     const isPostponed = event.is_postponed && !isCancelled
                     const isInactivePill = isCancelled || isPostponed
+                    const isPast =
+                      new Date(event.event_date) <
+                      new Date(new Date().toDateString())
                     const eventTypeConfig = eventTypeColorMap.get(event.event_type)
-                    const barColor = eventTypeConfig?.color ?? '#9CA3AF'
-                    const pillStyle = getPillStyle(event.status, isInactivePill)
+                    const barColor = isPast
+                      ? '#D1D5DB'
+                      : (eventTypeConfig?.color ?? '#9CA3AF')
+                    const pillStyle = getPillStyle(
+                      event.status,
+                      isInactivePill,
+                      event.event_date,
+                    )
                     const formattedStartTime = formatEventTime(
                       event.event_start_time,
                     )
@@ -637,7 +660,17 @@ function CalendarPage() {
                         onClick={() => handleEventClick(event.id)}
                       >
                         {!isInactivePill ? (
-                          event.event_type === 'holiday_party' ? (
+                          isPast ? (
+                            <div
+                              className="self-stretch"
+                              style={{
+                                width: '8px',
+                                flexShrink: 0,
+                                backgroundColor: '#D1D5DB',
+                              }}
+                              aria-hidden="true"
+                            />
+                          ) : event.event_type === 'holiday_party' ? (
                             <div
                               className="flex self-stretch"
                               style={{
