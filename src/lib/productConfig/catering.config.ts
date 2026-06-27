@@ -332,6 +332,11 @@ const cateringConfig: ProductConfig = {
     me_coordinator_notes_placeholder: 'Internal notes only — not visible to staff',
     me_bar_service_type: 'Bar Service Type',
     me_select_bar_service_type: 'Select bar service type...',
+    me_bar_service_custom_placeholder:
+      'e.g. Wine service only during dinner, champagne toast at 8pm',
+    me_staff_notes: 'Staff Notes',
+    me_staff_notes_placeholder:
+      'e.g. Request bilingual staff, no staff with visible tattoos per client request, experienced wine service required',
     me_alcohol_cutoff: 'Alcohol Cutoff',
     me_vehicle_departure_time: 'Vehicle Departure Time',
     me_vehicle_load_time: 'Vehicle Load Time',
@@ -473,6 +478,7 @@ const cateringConfig: ProductConfig = {
     { value: 'beer_wine', label: 'Beer & Wine' },
     { value: 'soft_drinks', label: 'Soft Drinks Only' },
     { value: 'no_bar', label: 'No Bar' },
+    { value: 'custom', label: 'Custom' },
   ],
   grid_departments: ['FOH', 'BOH', 'Setup/Breakdown', 'Other'],
   buffer_options: [0, 5, 10, 15, 20],

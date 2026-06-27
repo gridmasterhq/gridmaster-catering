@@ -192,6 +192,9 @@ export interface ProductLabels {
   me_coordinator_notes_placeholder: string
   me_bar_service_type: string
   me_select_bar_service_type: string
+  me_bar_service_custom_placeholder: string
+  me_staff_notes: string
+  me_staff_notes_placeholder: string
   me_alcohol_cutoff: string
   me_vehicle_departure_time: string
   me_vehicle_load_time: string

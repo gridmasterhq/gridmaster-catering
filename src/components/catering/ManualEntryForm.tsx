@@ -198,6 +198,7 @@ export default function ManualEntryForm({
       : '',
   )
   const [bufferPct, setBufferPct] = useState(String(default_buffer_pct))
+  const [staffNotes, setStaffNotes] = useState('')
 
   const [uniformNotes, setUniformNotes] = useState('')
   const [selectedUniformId, setSelectedUniformId] = useState('')
@@ -210,6 +211,7 @@ export default function ManualEntryForm({
   const [noteTemplates, setNoteTemplates] = useState<NoteTemplate[]>([])
   const [noteTemplatesLoaded, setNoteTemplatesLoaded] = useState(false)
   const [barServiceType, setBarServiceType] = useState('')
+  const [barServiceCustom, setBarServiceCustom] = useState('')
   const [alcoholCutoff, setAlcoholCutoff] = useState(default_alcohol_cutoff)
   const [vehicleDepartureTime, setVehicleDepartureTime] = useState('')
   const [vehicleLoadTime, setVehicleLoadTime] = useState('')
@@ -489,9 +491,12 @@ export default function ManualEntryForm({
               ? null
               : Number.parseInt(totalStaffNeeded, 10),
           buffer_pct: Number.parseInt(bufferPct, 10),
+          staff_notes: staffNotes.trim() || null,
           uniform_notes: uniformNotes.trim() || null,
           coordinator_notes: coordinatorNotes.trim() || null,
           bar_service_type: barServiceType || null,
+          bar_service_custom:
+            barServiceType === 'custom' ? barServiceCustom.trim() || null : null,
           alcohol_cutoff: alcoholCutoff,
           vehicle_departure_time: vehicleDepartureTime || null,
           vehicle_load_time: vehicleLoadTime || null,
@@ -973,6 +978,19 @@ export default function ManualEntryForm({
               ))}
             </select>
           </div>
+
+          <div>
+            <FieldLabel htmlFor="me-staff-notes">{labels.me_staff_notes}</FieldLabel>
+            <textarea
+              id="me-staff-notes"
+              value={staffNotes}
+              onChange={(e) => setStaffNotes(e.target.value)}
+              placeholder={labels.me_staff_notes_placeholder}
+              rows={3}
+              className={inputClassName}
+              disabled={isSubmitting}
+            />
+          </div>
         </div>
       </section>
 
@@ -1102,7 +1120,13 @@ export default function ManualEntryForm({
             <select
               id="me-bar-service-type"
               value={barServiceType}
-              onChange={(e) => setBarServiceType(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value
+                setBarServiceType(value)
+                if (value !== 'custom') {
+                  setBarServiceCustom('')
+                }
+              }}
               className={inputClassName}
               disabled={isSubmitting}
             >
@@ -1113,6 +1137,17 @@ export default function ManualEntryForm({
                 </option>
               ))}
             </select>
+            {barServiceType === 'custom' ? (
+              <textarea
+                id="me-bar-service-custom"
+                value={barServiceCustom}
+                onChange={(e) => setBarServiceCustom(e.target.value)}
+                placeholder={labels.me_bar_service_custom_placeholder}
+                rows={3}
+                className={`${inputClassName} mt-2`}
+                disabled={isSubmitting}
+              />
+            ) : null}
           </div>
 
           <div>
