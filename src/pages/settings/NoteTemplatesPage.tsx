@@ -298,6 +298,12 @@ export default function NoteTemplatesPage() {
             >
               {labels.note_templates_subtext}
             </p>
+            <p
+              className="mt-1"
+              style={{ fontSize: '13px', color: colors.text_muted }}
+            >
+              {labels.note_templates_usage_subtext}
+            </p>
           </div>
 
           {templates.length > 0 ? (

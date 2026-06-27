@@ -1,4 +1,5 @@
 import { type FormEvent, useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import type { BEOExtractedData } from './BEOUpload'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
 import { supabase } from '../../lib/supabase'
@@ -29,6 +30,12 @@ interface VenueSearchResult {
   location_name: string
 }
 
+interface UniformPreset {
+  id: string
+  name: string
+  description: string
+}
+
 const inputClassName =
   'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-navy focus:ring-2 focus:ring-brand-navy focus:outline-none'
 
@@ -56,6 +63,7 @@ export default function QuickEventForm({
 }: QuickEventFormProps) {
   void _onCancel
 
+  const navigate = useNavigate()
   const { labels, colors, event_types, service_styles } = useProductConfig()
 
   const [eventName, setEventName] = useState(initialValues?.event_name ?? '')
@@ -113,6 +121,9 @@ export default function QuickEventForm({
       ? String(initialValues.total_staff_needed)
       : '',
   )
+  const [selectedUniformId, setSelectedUniformId] = useState('')
+  const [uniformPresets, setUniformPresets] = useState<UniformPreset[]>([])
+  const [uniformPresetsLoaded, setUniformPresetsLoaded] = useState(false)
   const [organizationId, setOrganizationId] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<FieldKey, string>>>({})
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -129,11 +140,15 @@ export default function QuickEventForm({
     color: colors.text_muted,
   } as const
 
-  useEffect(() => {
-    if (!linkClient && !linkVenue) {
-      return
-    }
+  const inlineNavLinkStyle = {
+    fontSize: '13px',
+    color: colors.brand_navy,
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+  } as const
 
+  useEffect(() => {
     let cancelled = false
 
     async function loadOrganizationId() {
@@ -157,7 +172,77 @@ export default function QuickEventForm({
     return () => {
       cancelled = true
     }
+  }, [])
+
+  useEffect(() => {
+    if (!linkClient && !linkVenue) {
+      return
+    }
+
+    let cancelled = false
+
+    async function loadOrganizationIdForSearch() {
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser()
+
+      if (cancelled || error) {
+        return
+      }
+
+      const id = user?.user_metadata?.organization_id
+      if (typeof id === 'string' && id.trim().length > 0) {
+        setOrganizationId(id.trim())
+      }
+    }
+
+    void loadOrganizationIdForSearch()
+
+    return () => {
+      cancelled = true
+    }
   }, [linkClient, linkVenue])
+
+  useEffect(() => {
+    if (!organizationId) {
+      setUniformPresets([])
+      setUniformPresetsLoaded(false)
+      return
+    }
+
+    let cancelled = false
+
+    async function loadUniformPresets() {
+      setUniformPresetsLoaded(false)
+
+      const { data, error } = await supabase
+        .from('uniform_presets')
+        .select('id, name, description')
+        .eq('organization_id', organizationId)
+        .order('sort_order', { ascending: true })
+        .order('name', { ascending: true })
+
+      if (cancelled) {
+        return
+      }
+
+      if (error) {
+        console.error('Failed to load uniform presets:', error)
+        setUniformPresets([])
+      } else {
+        setUniformPresets(data ?? [])
+      }
+
+      setUniformPresetsLoaded(true)
+    }
+
+    void loadUniformPresets()
+
+    return () => {
+      cancelled = true
+    }
+  }, [organizationId])
 
   useEffect(() => {
     if (!linkClient || selectedClientId || !organizationId) {
@@ -759,6 +844,43 @@ export default function QuickEventForm({
             </option>
           ))}
         </select>
+      </div>
+
+      <div>
+        <label htmlFor="qe-uniform" className="mb-1 block" style={labelStyle}>
+          {labels.form_uniform}
+        </label>
+        <select
+          id="qe-uniform"
+          value={selectedUniformId}
+          onChange={(e) => setSelectedUniformId(e.target.value)}
+          className={inputClassName}
+          disabled={isSubmitting}
+        >
+          <option value="">{labels.form_select_uniform}</option>
+          {uniformPresets.map((preset) => (
+            <option key={preset.id} value={preset.id}>
+              {preset.name}
+            </option>
+          ))}
+        </select>
+        {uniformPresetsLoaded && uniformPresets.length === 0 ? (
+          <p
+            className="mt-1"
+            style={{ fontSize: '13px', color: colors.text_muted }}
+          >
+            {labels.form_no_uniform_presets_prefix}
+            <button
+              type="button"
+              onClick={() => navigate('/settings/uniforms')}
+              className="inline p-0 underline"
+              style={inlineNavLinkStyle}
+            >
+              {labels.uniforms_heading}
+            </button>
+            {labels.form_no_uniform_presets_suffix}
+          </p>
+        ) : null}
       </div>
 
       <div>

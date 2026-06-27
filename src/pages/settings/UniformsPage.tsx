@@ -1,4 +1,5 @@
 import { type FormEvent, useCallback, useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { IconPencil, IconTrash } from '@tabler/icons-react'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
 import { supabase } from '../../lib/supabase'
@@ -34,6 +35,7 @@ function getErrorMessage(error: unknown, fallback: string): string {
 }
 
 export default function UniformsPage() {
+  const navigate = useNavigate()
   const { labels, colors } = useProductConfig()
 
   const [organizationId, setOrganizationId] = useState<string | null>(null)
@@ -274,6 +276,27 @@ export default function UniformsPage() {
               style={{ fontSize: '13px', color: colors.text_muted }}
             >
               {labels.uniforms_subtext}
+            </p>
+            <p
+              className="mt-1"
+              style={{ fontSize: '13px', color: colors.text_muted }}
+            >
+              {labels.uniforms_roles_subtext_prefix}
+              <button
+                type="button"
+                onClick={() => navigate('/roles')}
+                className="inline p-0 underline"
+                style={{
+                  fontSize: '13px',
+                  color: colors.brand_navy,
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                }}
+              >
+                {labels.roles_page_heading}
+              </button>
+              {labels.uniforms_roles_subtext_suffix}
             </p>
           </div>
 

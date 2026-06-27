@@ -139,6 +139,14 @@ export interface ProductLabels {
   qe_create_event: string
   qe_creating: string
   qe_field_required: string
+  form_uniform: string
+  form_select_uniform: string
+  form_no_uniform_presets_prefix: string
+  form_no_uniform_presets_suffix: string
+  form_note_template: string
+  form_select_note_template: string
+  form_no_note_templates_prefix: string
+  form_no_note_templates_suffix: string
   ps_event_created_heading: string
   ps_add_more_details: string
   ps_build_staff_grid: string
@@ -188,6 +196,8 @@ export interface ProductLabels {
   me_submit_error_fallback: string
   uniforms_heading: string
   uniforms_subtext: string
+  uniforms_roles_subtext_prefix: string
+  uniforms_roles_subtext_suffix: string
   uniforms_add: string
   uniforms_name: string
   uniforms_name_placeholder: string
@@ -203,6 +213,7 @@ export interface ProductLabels {
   uniforms_delete_error: string
   note_templates_heading: string
   note_templates_subtext: string
+  note_templates_usage_subtext: string
   note_templates_add: string
   note_templates_name: string
   note_templates_name_placeholder: string

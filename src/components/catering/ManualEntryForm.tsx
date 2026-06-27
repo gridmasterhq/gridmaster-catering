@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import { useNavigate } from 'react-router-dom'
 import type { BEOExtractedData } from './BEOUpload'
 import SaveAsTemplateCheckbox, {
   type SaveAsTemplateCheckboxHandle,
@@ -28,6 +29,18 @@ interface ClientSearchResult {
 interface VenueSearchResult {
   id: string
   location_name: string
+}
+
+interface UniformPreset {
+  id: string
+  name: string
+  description: string
+}
+
+interface NoteTemplate {
+  id: string
+  name: string
+  description: string
 }
 
 const PLACEHOLDER_EVENT_ID = '00000000-0000-0000-0000-000000000000'
@@ -111,6 +124,7 @@ export default function ManualEntryForm({
 }: ManualEntryFormProps) {
   void _onCancel
 
+  const navigate = useNavigate()
   const {
     labels,
     colors,
@@ -188,9 +202,15 @@ export default function ManualEntryForm({
   const [ratingFloor, setRatingFloor] = useState('')
 
   const [uniformNotes, setUniformNotes] = useState('')
+  const [selectedUniformId, setSelectedUniformId] = useState('')
+  const [uniformPresets, setUniformPresets] = useState<UniformPreset[]>([])
+  const [uniformPresetsLoaded, setUniformPresetsLoaded] = useState(false)
   const [coordinatorNotes, setCoordinatorNotes] = useState(
     initialValues?.notes ?? '',
   )
+  const [selectedNoteTemplateId, setSelectedNoteTemplateId] = useState('')
+  const [noteTemplates, setNoteTemplates] = useState<NoteTemplate[]>([])
+  const [noteTemplatesLoaded, setNoteTemplatesLoaded] = useState(false)
   const [barServiceType, setBarServiceType] = useState('')
   const [alcoholCutoff, setAlcoholCutoff] = useState(default_alcohol_cutoff)
   const [vehicleDepartureTime, setVehicleDepartureTime] = useState('')
@@ -206,6 +226,14 @@ export default function ManualEntryForm({
   const linkCheckboxLabelStyle = {
     fontSize: '11px',
     color: colors.text_muted,
+  } as const
+
+  const inlineNavLinkStyle = {
+    fontSize: '13px',
+    color: colors.brand_navy,
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
   } as const
 
   const resolvedVenueName =
@@ -238,6 +266,65 @@ export default function ManualEntryForm({
       cancelled = true
     }
   }, [])
+
+  useEffect(() => {
+    if (!organizationId) {
+      setUniformPresets([])
+      setUniformPresetsLoaded(false)
+      setNoteTemplates([])
+      setNoteTemplatesLoaded(false)
+      return
+    }
+
+    let cancelled = false
+
+    async function loadPresetsAndTemplates() {
+      setUniformPresetsLoaded(false)
+      setNoteTemplatesLoaded(false)
+
+      const [uniformsResult, templatesResult] = await Promise.all([
+        supabase
+          .from('uniform_presets')
+          .select('id, name, description')
+          .eq('organization_id', organizationId)
+          .order('sort_order', { ascending: true })
+          .order('name', { ascending: true }),
+        supabase
+          .from('note_templates')
+          .select('id, name, description')
+          .eq('organization_id', organizationId)
+          .order('sort_order', { ascending: true })
+          .order('name', { ascending: true }),
+      ])
+
+      if (cancelled) {
+        return
+      }
+
+      if (uniformsResult.error) {
+        console.error('Failed to load uniform presets:', uniformsResult.error)
+        setUniformPresets([])
+      } else {
+        setUniformPresets(uniformsResult.data ?? [])
+      }
+
+      if (templatesResult.error) {
+        console.error('Failed to load note templates:', templatesResult.error)
+        setNoteTemplates([])
+      } else {
+        setNoteTemplates(templatesResult.data ?? [])
+      }
+
+      setUniformPresetsLoaded(true)
+      setNoteTemplatesLoaded(true)
+    }
+
+    void loadPresetsAndTemplates()
+
+    return () => {
+      cancelled = true
+    }
+  }, [organizationId])
 
   useEffect(() => {
     if (!linkClient || selectedClientId || !organizationId) {
@@ -921,6 +1008,48 @@ export default function ManualEntryForm({
         <SectionHeading>{labels.me_section_event_details}</SectionHeading>
         <div className="flex flex-col gap-4">
           <div>
+            <FieldLabel htmlFor="me-uniform">{labels.form_uniform}</FieldLabel>
+            <select
+              id="me-uniform"
+              value={selectedUniformId}
+              onChange={(e) => {
+                const id = e.target.value
+                setSelectedUniformId(id)
+                const preset = uniformPresets.find((item) => item.id === id)
+                if (preset) {
+                  setUniformNotes(preset.description)
+                }
+              }}
+              className={inputClassName}
+              disabled={isSubmitting}
+            >
+              <option value="">{labels.form_select_uniform}</option>
+              {uniformPresets.map((preset) => (
+                <option key={preset.id} value={preset.id}>
+                  {preset.name}
+                </option>
+              ))}
+            </select>
+            {uniformPresetsLoaded && uniformPresets.length === 0 ? (
+              <p
+                className="mt-1"
+                style={{ fontSize: '13px', color: colors.text_muted }}
+              >
+                {labels.form_no_uniform_presets_prefix}
+                <button
+                  type="button"
+                  onClick={() => navigate('/settings/uniforms')}
+                  className="inline p-0 underline"
+                  style={inlineNavLinkStyle}
+                >
+                  {labels.uniforms_heading}
+                </button>
+                {labels.form_no_uniform_presets_suffix}
+              </p>
+            ) : null}
+          </div>
+
+          <div>
             <FieldLabel htmlFor="me-uniform-notes">{labels.me_uniform_notes}</FieldLabel>
             <textarea
               id="me-uniform-notes"
@@ -931,6 +1060,50 @@ export default function ManualEntryForm({
               className={inputClassName}
               disabled={isSubmitting}
             />
+          </div>
+
+          <div>
+            <FieldLabel htmlFor="me-note-template">
+              {labels.form_note_template}
+            </FieldLabel>
+            <select
+              id="me-note-template"
+              value={selectedNoteTemplateId}
+              onChange={(e) => {
+                const id = e.target.value
+                setSelectedNoteTemplateId(id)
+                const template = noteTemplates.find((item) => item.id === id)
+                if (template) {
+                  setCoordinatorNotes(template.description)
+                }
+              }}
+              className={inputClassName}
+              disabled={isSubmitting}
+            >
+              <option value="">{labels.form_select_note_template}</option>
+              {noteTemplates.map((template) => (
+                <option key={template.id} value={template.id}>
+                  {template.name}
+                </option>
+              ))}
+            </select>
+            {noteTemplatesLoaded && noteTemplates.length === 0 ? (
+              <p
+                className="mt-1"
+                style={{ fontSize: '13px', color: colors.text_muted }}
+              >
+                {labels.form_no_note_templates_prefix}
+                <button
+                  type="button"
+                  onClick={() => navigate('/settings/note-templates')}
+                  className="inline p-0 underline"
+                  style={inlineNavLinkStyle}
+                >
+                  {labels.note_templates_heading}
+                </button>
+                {labels.form_no_note_templates_suffix}
+              </p>
+            ) : null}
           </div>
 
           <div>

@@ -275,6 +275,16 @@ const cateringConfig: ProductConfig = {
     qe_create_event: 'Create Event',
     qe_creating: 'Creating...',
     qe_field_required: 'Required',
+    form_uniform: 'Uniform',
+    form_select_uniform: 'Select uniform preset...',
+    form_no_uniform_presets_prefix:
+      'No uniform presets saved yet — set them up in ',
+    form_no_uniform_presets_suffix: '.',
+    form_note_template: 'Note Template',
+    form_select_note_template: 'Select note template...',
+    form_no_note_templates_prefix:
+      'No note templates saved yet — set them up in ',
+    form_no_note_templates_suffix: '.',
     ps_event_created_heading: 'Event Created!',
     ps_add_more_details: 'Add More Details',
     ps_build_staff_grid: 'Build My Staff Grid',
@@ -327,6 +337,9 @@ const cateringConfig: ProductConfig = {
     uniforms_heading: 'Uniforms',
     uniforms_subtext:
       'Save your standard uniforms here to reuse them across events.',
+    uniforms_roles_subtext_prefix:
+      'To assign these uniforms to your roles, go to ',
+    uniforms_roles_subtext_suffix: '.',
     uniforms_add: 'Add Uniform',
     uniforms_name: 'Name',
     uniforms_name_placeholder: 'e.g. Black Tie',
@@ -344,6 +357,8 @@ const cateringConfig: ProductConfig = {
     note_templates_heading: 'Note Templates',
     note_templates_subtext:
       'Save reusable coordinator notes to apply across events.',
+    note_templates_usage_subtext:
+      'Note templates are used in the Coordinator Notes field when creating events.',
     note_templates_add: 'Add Template',
     note_templates_name: 'Name',
     note_templates_name_placeholder: 'e.g. Standard Wedding Protocol',
