@@ -383,7 +383,7 @@ function CalendarPage() {
   }
 
   const handleEventClick = (eventId: string) => {
-    console.log(eventId)
+    window.open(`/event/${eventId}`, '_blank')
   }
 
   if (loading) {

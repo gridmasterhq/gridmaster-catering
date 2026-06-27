@@ -5,8 +5,8 @@ import {
   useRef,
   useState,
 } from 'react'
-import { useNavigate } from 'react-router-dom'
 import type { BEOExtractedData } from './BEOUpload'
+import { useOverlay } from '../shared/AppShell'
 import SaveAsTemplateCheckbox, {
   type SaveAsTemplateCheckboxHandle,
 } from '../shared/SaveAsTemplateCheckbox'
@@ -124,7 +124,7 @@ export default function ManualEntryForm({
 }: ManualEntryFormProps) {
   void _onCancel
 
-  const navigate = useNavigate()
+  const { openOverlay } = useOverlay()
   const {
     labels,
     colors,
@@ -1038,7 +1038,7 @@ export default function ManualEntryForm({
                 {labels.form_no_uniform_presets_prefix}
                 <button
                   type="button"
-                  onClick={() => navigate('/settings/uniforms')}
+                  onClick={() => openOverlay('uniforms')}
                   className="inline p-0 underline"
                   style={inlineNavLinkStyle}
                 >
@@ -1095,7 +1095,7 @@ export default function ManualEntryForm({
                 {labels.form_no_note_templates_prefix}
                 <button
                   type="button"
-                  onClick={() => navigate('/settings/note-templates')}
+                  onClick={() => openOverlay('note-templates')}
                   className="inline p-0 underline"
                   style={inlineNavLinkStyle}
                 >

@@ -35,6 +35,10 @@ import {
   useExpertMode,
   type ExpertModeScreen,
 } from './ExpertModeToggle'
+import OverlayPanel from './OverlayPanel'
+import UniformsPage from '../../pages/settings/UniformsPage'
+import NoteTemplatesPage from '../../pages/settings/NoteTemplatesPage'
+import RolesPage from '../../pages/RolesPage'
 
 type ActiveScreen = 'cc' | 'calendar'
 
@@ -50,6 +54,24 @@ export function useActiveScreen(): ActiveScreenContextValue {
 
   if (!context) {
     throw new Error('useActiveScreen must be used within AppShell')
+  }
+
+  return context
+}
+
+interface OverlayContextValue {
+  activeOverlay: string | null
+  openOverlay: (id: string) => void
+  closeOverlay: () => void
+}
+
+const OverlayContext = createContext<OverlayContextValue | null>(null)
+
+export function useOverlay(): OverlayContextValue {
+  const context = useContext(OverlayContext)
+
+  if (!context) {
+    throw new Error('useOverlay must be used within AppShell')
   }
 
   return context
@@ -405,6 +427,8 @@ interface SidebarNavItemsProps {
   navItems: NavItem[]
   trainingLabel: string
   onClose: () => void
+  openOverlay: (id: string) => void
+  closeOverlay: () => void
 }
 
 function SidebarNavItems({
@@ -414,6 +438,8 @@ function SidebarNavItems({
   navItems,
   trainingLabel,
   onClose,
+  openOverlay,
+  closeOverlay,
 }: SidebarNavItemsProps) {
   const navigate = useNavigate()
   const { isExpert, setExpertMode } = useExpertMode(screen)
@@ -447,16 +473,14 @@ function SidebarNavItems({
                 return
               }
               if (itemId === 'new_event') {
+                closeOverlay()
                 navigate('/new-event')
-              }
-              if (itemId === 'uniforms') {
-                navigate('/settings/uniforms')
-              }
-              if (itemId === 'note_templates') {
-                navigate('/settings/note-templates')
-              }
-              if (itemId === 'roles') {
-                navigate('/roles')
+              } else if (itemId === 'uniforms') {
+                openOverlay('uniforms')
+              } else if (itemId === 'note_templates') {
+                openOverlay('note-templates')
+              } else if (itemId === 'roles') {
+                openOverlay('roles')
               }
               onClose()
             }}
@@ -481,6 +505,7 @@ function AppShell({ children }: AppShellProps) {
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false)
   const [showFooter, setShowFooter] = useState(false)
   const [activeScreen, setActiveScreen] = useState<ActiveScreen>('calendar')
+  const [activeOverlay, setActiveOverlay] = useState<string | null>(null)
   const [accountMenuOpen, setAccountMenuOpen] = useState(false)
   const [userDisplayName, setUserDisplayName] = useState('')
   const accountMenuRef = useRef<HTMLDivElement>(null)
@@ -561,15 +586,30 @@ function AppShell({ children }: AppShellProps) {
     window.location.reload()
   }, [])
 
+  const openOverlay = useCallback((id: string) => {
+    setActiveOverlay(id)
+  }, [])
+
+  const closeOverlay = useCallback(() => {
+    setActiveOverlay(null)
+  }, [])
+
   const handleScreenSelect = useCallback(
     (screen: ActiveScreen) => {
       setActiveScreen(screen)
+      setActiveOverlay(null)
       if (location.pathname !== '/') {
         navigate('/')
       }
     },
     [location.pathname, navigate],
   )
+
+  const overlayTitles: Record<string, string> = {
+    uniforms: labels.uniforms_heading,
+    roles: labels.roles_page_heading,
+    'note-templates': labels.note_templates_heading,
+  }
 
   const screenLabelStyle = useCallback(
     (screen: ActiveScreen): CSSProperties => {
@@ -610,6 +650,9 @@ function AppShell({ children }: AppShellProps) {
   return (
     <ExpertModeProvider>
     <ActiveScreenContext.Provider value={{ activeScreen, setActiveScreen }}>
+    <OverlayContext.Provider
+      value={{ activeOverlay, openOverlay, closeOverlay }}
+    >
     <div className="min-h-screen flex flex-col" style={themeVars}>
       <header className="fixed top-0 left-0 right-0 z-30 flex h-12 w-full">
         <section className="flex flex-1 items-center gap-10 bg-[var(--shell-brand-red)] px-16">
@@ -818,6 +861,8 @@ function AppShell({ children }: AppShellProps) {
               navItems={navigation.red}
               trainingLabel={labels.training}
               onClose={closeSidebars}
+              openOverlay={openOverlay}
+              closeOverlay={closeOverlay}
             />
           </SidebarSection>
         ))}
@@ -843,10 +888,24 @@ function AppShell({ children }: AppShellProps) {
               navItems={navigation.blue}
               trainingLabel={labels.training}
               onClose={closeSidebars}
+              openOverlay={openOverlay}
+              closeOverlay={closeOverlay}
             />
           </SidebarSection>
         ))}
       </AppSidebar>
+
+      {activeOverlay ? (
+        <OverlayPanel
+          isOpen={activeOverlay !== null}
+          title={overlayTitles[activeOverlay] ?? ''}
+          onClose={closeOverlay}
+        >
+          {activeOverlay === 'uniforms' ? <UniformsPage /> : null}
+          {activeOverlay === 'roles' ? <RolesPage /> : null}
+          {activeOverlay === 'note-templates' ? <NoteTemplatesPage /> : null}
+        </OverlayPanel>
+      ) : null}
 
       <div className="flex min-h-screen flex-col pt-12">
         <main className="flex-1">{children}</main>
@@ -876,6 +935,7 @@ function AppShell({ children }: AppShellProps) {
         </footer>
       </div>
     </div>
+    </OverlayContext.Provider>
     </ActiveScreenContext.Provider>
     </ExpertModeProvider>
   )

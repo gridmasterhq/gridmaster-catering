@@ -9,9 +9,7 @@ import LoginPage from './pages/auth/LoginPage'
 import CalendarPage from './pages/catering/CalendarPage'
 import CommandCenterPage from './pages/catering/CommandCenterPage'
 import NewEvent from './pages/NewEvent'
-import UniformsPage from './pages/settings/UniformsPage'
-import NoteTemplatesPage from './pages/settings/NoteTemplatesPage'
-import RolesPage from './pages/RolesPage'
+import EventGridPage from './pages/EventGridPage'
 import CaptainRatePage from './pages/captain/CaptainRatePage'
 import MobileCommandCenterPage from './pages/coordinator/MobileCommandCenterPage'
 import SOSPage from './pages/coordinator/SOSPage'
@@ -59,9 +57,6 @@ function CoordinatorApp() {
   return (
     <Routes>
       <Route path="/new-event" element={<NewEvent />} />
-      <Route path="/settings/uniforms" element={<UniformsPage />} />
-      <Route path="/settings/note-templates" element={<NoteTemplatesPage />} />
-      <Route path="/roles" element={<RolesPage />} />
       <Route
         path="*"
         element={
@@ -85,6 +80,7 @@ function App() {
           />
           <Route path="/captain/rate" element={<CaptainRatePage />} />
           <Route path="/sos" element={<SOSPage />} />
+          <Route path="/event/:eventId" element={<EventGridPage />} />
           <Route
             path="*"
             element={

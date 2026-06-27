@@ -1,6 +1,6 @@
 import { type FormEvent, useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import type { BEOExtractedData } from './BEOUpload'
+import { useOverlay } from '../shared/AppShell'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
 import { supabase } from '../../lib/supabase'
 
@@ -63,7 +63,7 @@ export default function QuickEventForm({
 }: QuickEventFormProps) {
   void _onCancel
 
-  const navigate = useNavigate()
+  const { openOverlay } = useOverlay()
   const { labels, colors, event_types, service_styles } = useProductConfig()
 
   const [eventName, setEventName] = useState(initialValues?.event_name ?? '')
@@ -872,7 +872,7 @@ export default function QuickEventForm({
             {labels.form_no_uniform_presets_prefix}
             <button
               type="button"
-              onClick={() => navigate('/settings/uniforms')}
+              onClick={() => openOverlay('uniforms')}
               className="inline p-0 underline"
               style={inlineNavLinkStyle}
             >

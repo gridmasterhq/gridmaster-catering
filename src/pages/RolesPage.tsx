@@ -1,6 +1,6 @@
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { IconPencil, IconTrash } from '@tabler/icons-react'
+import { useOverlay } from '../components/shared/AppShell'
 import { useProductConfig } from '../lib/hooks/useProductConfig'
 import { supabase } from '../lib/supabase'
 
@@ -45,7 +45,7 @@ function getErrorMessage(error: unknown, fallback: string): string {
 }
 
 export default function RolesPage() {
-  const navigate = useNavigate()
+  const { openOverlay } = useOverlay()
   const { labels, colors } = useProductConfig()
 
   const [organizationId, setOrganizationId] = useState<string | null>(null)
@@ -346,7 +346,7 @@ export default function RolesPage() {
               {labels.roles_page_subtext_prefix}
               <button
                 type="button"
-                onClick={() => navigate('/settings/uniforms')}
+                onClick={() => openOverlay('uniforms')}
                 className="inline p-0 underline"
                 style={{
                   fontSize: '13px',
