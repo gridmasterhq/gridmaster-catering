@@ -41,8 +41,8 @@ export default function UniformsPage() {
   const [loading, setLoading] = useState(true)
   const [formMode, setFormMode] = useState<FormMode>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
+  const [presetName, setPresetName] = useState('')
+  const [presetDescription, setPresetDescription] = useState('')
   const [fieldErrors, setFieldErrors] = useState<{ name?: string; description?: string }>(
     {},
   )
@@ -114,8 +114,8 @@ export default function UniformsPage() {
   const resetForm = () => {
     setFormMode(null)
     setEditingId(null)
-    setName('')
-    setDescription('')
+    setPresetName('')
+    setPresetDescription('')
     setFieldErrors({})
     setFormError(null)
   }
@@ -123,8 +123,8 @@ export default function UniformsPage() {
   const openAddForm = () => {
     setFormMode('add')
     setEditingId(null)
-    setName('')
-    setDescription('')
+    setPresetName('')
+    setPresetDescription('')
     setFieldErrors({})
     setFormError(null)
   }
@@ -132,8 +132,8 @@ export default function UniformsPage() {
   const openEditForm = (preset: UniformPreset) => {
     setFormMode('edit')
     setEditingId(preset.id)
-    setName(preset.name)
-    setDescription(preset.description)
+    setPresetName(preset.name)
+    setPresetDescription(preset.description)
     setFieldErrors({})
     setFormError(null)
   }
@@ -142,10 +142,10 @@ export default function UniformsPage() {
     const next: { name?: string; description?: string } = {}
     const required = labels.uniforms_field_required
 
-    if (!name.trim()) {
+    if (!presetName.trim()) {
       next.name = required
     }
-    if (!description.trim()) {
+    if (!presetDescription.trim()) {
       next.description = required
     }
 
@@ -164,8 +164,8 @@ export default function UniformsPage() {
     setIsSaving(true)
 
     try {
-      const trimmedName = name.trim()
-      const trimmedDescription = description.trim()
+      const trimmedName = presetName.trim()
+      const trimmedDescription = presetDescription.trim()
 
       if (formMode === 'edit' && editingId) {
         const { error } = await supabase
@@ -295,6 +295,7 @@ export default function UniformsPage() {
 
         {formMode ? (
           <form
+            key={formMode === 'edit' ? `edit-${editingId}` : 'add'}
             onSubmit={handleSave}
             className="mb-6 rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
           >
@@ -305,12 +306,14 @@ export default function UniformsPage() {
                 </label>
                 <input
                   id="uniform-name"
+                  name="uniform-preset-name"
                   type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  value={presetName}
+                  onChange={(e) => setPresetName(e.target.value)}
                   placeholder={labels.uniforms_name_placeholder}
                   className={inputClassName}
                   disabled={isSaving}
+                  autoComplete="off"
                 />
                 {fieldErrors.name ? (
                   <p className="mt-1 text-xs text-red-500">{fieldErrors.name}</p>
@@ -327,12 +330,14 @@ export default function UniformsPage() {
                 </label>
                 <textarea
                   id="uniform-description"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
+                  name="uniform-preset-description"
+                  value={presetDescription}
+                  onChange={(e) => setPresetDescription(e.target.value)}
                   placeholder={labels.uniforms_description_placeholder}
                   rows={3}
                   className={inputClassName}
                   disabled={isSaving}
+                  autoComplete="off"
                 />
                 {fieldErrors.description ? (
                   <p className="mt-1 text-xs text-red-500">{fieldErrors.description}</p>

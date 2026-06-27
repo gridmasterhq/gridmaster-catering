@@ -21,6 +21,8 @@ interface RoleLibraryEntry {
 
 type FormMode = 'add' | 'edit' | null
 
+const CUSTOM_UNIFORM_VALUE = '__custom__'
+
 const inputClassName =
   'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-navy focus:ring-2 focus:ring-brand-navy focus:outline-none'
 
@@ -168,11 +170,28 @@ export default function RolesPage() {
     setFormMode('edit')
     setEditingId(role.id)
     setName(role.name)
-    setDefaultUniformId(role.default_uniform_id ?? '')
-    setCustomUniformText(role.default_uniform_custom_text ?? '')
+    if (role.default_uniform_id) {
+      setDefaultUniformId(role.default_uniform_id)
+      setCustomUniformText('')
+    } else if (role.default_uniform_custom_text?.trim()) {
+      setDefaultUniformId(CUSTOM_UNIFORM_VALUE)
+      setCustomUniformText(role.default_uniform_custom_text)
+    } else {
+      setDefaultUniformId('')
+      setCustomUniformText('')
+    }
     setFieldErrors({})
     setFormError(null)
   }
+
+  const handleDefaultUniformChange = (value: string) => {
+    setDefaultUniformId(value)
+    if (value !== CUSTOM_UNIFORM_VALUE) {
+      setCustomUniformText('')
+    }
+  }
+
+  const isCustomUniform = defaultUniformId === CUSTOM_UNIFORM_VALUE
 
   const getUniformDisplay = (role: RoleLibraryEntry): string => {
     if (role.default_uniform_id) {
@@ -209,8 +228,14 @@ export default function RolesPage() {
       const trimmedName = name.trim()
       const payload = {
         name: trimmedName,
-        default_uniform_id: defaultUniformId || null,
-        default_uniform_custom_text: customUniformText.trim() || null,
+        default_uniform_id:
+          defaultUniformId && defaultUniformId !== CUSTOM_UNIFORM_VALUE
+            ? defaultUniformId
+            : null,
+        default_uniform_custom_text:
+          defaultUniformId === CUSTOM_UNIFORM_VALUE
+            ? customUniformText.trim() || null
+            : null,
         updated_at: new Date().toISOString(),
       }
 
@@ -367,7 +392,7 @@ export default function RolesPage() {
                 <select
                   id="role-uniform"
                   value={defaultUniformId}
-                  onChange={(e) => setDefaultUniformId(e.target.value)}
+                  onChange={(e) => handleDefaultUniformChange(e.target.value)}
                   className={inputClassName}
                   disabled={isSaving}
                 >
@@ -377,23 +402,27 @@ export default function RolesPage() {
                       {preset.name}
                     </option>
                   ))}
+                  <option value={CUSTOM_UNIFORM_VALUE}>{labels.roles_uniform_custom}</option>
                 </select>
               </div>
 
-              <div>
-                <label htmlFor="role-custom-uniform" className="mb-1 block" style={labelStyle}>
-                  {labels.roles_custom_uniform}
-                </label>
-                <textarea
-                  id="role-custom-uniform"
-                  value={customUniformText}
-                  onChange={(e) => setCustomUniformText(e.target.value)}
-                  placeholder={labels.roles_custom_uniform_placeholder}
-                  rows={3}
-                  className={inputClassName}
-                  disabled={isSaving}
-                />
-              </div>
+              {isCustomUniform ? (
+                <div>
+                  <label htmlFor="role-custom-uniform" className="mb-1 block" style={labelStyle}>
+                    {labels.roles_custom_uniform}
+                  </label>
+                  <textarea
+                    id="role-custom-uniform"
+                    value={customUniformText}
+                    onChange={(e) => setCustomUniformText(e.target.value)}
+                    placeholder={labels.roles_custom_uniform_placeholder}
+                    rows={3}
+                    className={inputClassName}
+                    disabled={isSaving}
+                    autoComplete="off"
+                  />
+                </div>
+              ) : null}
 
               {formError ? (
                 <p className="text-sm text-red-500">{formError}</p>

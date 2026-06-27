@@ -225,6 +225,7 @@ export interface ProductLabels {
   roles_name_placeholder: string
   roles_default_uniform: string
   roles_select_uniform: string
+  roles_uniform_custom: string
   roles_no_uniform: string
   roles_custom_uniform: string
   roles_custom_uniform_placeholder: string

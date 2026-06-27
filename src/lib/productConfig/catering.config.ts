@@ -368,6 +368,7 @@ const cateringConfig: ProductConfig = {
     roles_name_placeholder: 'e.g. Server',
     roles_default_uniform: 'Default Uniform',
     roles_select_uniform: 'Select a uniform preset...',
+    roles_uniform_custom: 'Custom',
     roles_no_uniform: 'No uniform assigned',
     roles_custom_uniform: 'Custom Uniform Text',
     roles_custom_uniform_placeholder:
