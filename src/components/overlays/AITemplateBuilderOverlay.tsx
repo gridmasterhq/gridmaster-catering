@@ -15,14 +15,17 @@ import { useOverlay } from '../shared/AppShell'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
 import { supabase } from '../../lib/supabase'
 import {
+  AI_TEMPLATE_BUILDER_SYSTEM_PROMPT,
   aiTemplateToEventTemplate,
-  callTemplateBuilderApi,
   insertAiGeneratedTemplate,
   parseTemplateBuilderResponse,
   type AIGeneratedTemplate,
   type AnthropicChatMessage,
 } from '../../lib/aiTemplateBuilder'
 import { type EventTemplate, EVENT_TEMPLATE_SELECT } from '../../lib/types/eventTemplate'
+
+const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
+const ANTHROPIC_MODEL = 'claude-sonnet-4-6'
 
 type BuilderMode = 'select' | 'freeform' | 'guided'
 
@@ -298,7 +301,45 @@ export default function AITemplateBuilderOverlay() {
 
       const run = async () => {
         try {
-          const rawResponse = await callTemplateBuilderApi(history)
+          const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
+          if (!apiKey) {
+            throw new Error('Missing VITE_ANTHROPIC_API_KEY')
+          }
+
+          const response = await fetch(ANTHROPIC_API_URL, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-api-key': apiKey,
+              'anthropic-version': '2023-06-01',
+              'anthropic-dangerous-direct-browser-access': 'true',
+            },
+            body: JSON.stringify({
+              model: ANTHROPIC_MODEL,
+              max_tokens: 1000,
+              system: AI_TEMPLATE_BUILDER_SYSTEM_PROMPT,
+              messages: history,
+            }),
+          })
+
+          if (!response.ok) {
+            const errorBody = await response.text()
+            throw new Error(errorBody || `Anthropic API error: ${response.status}`)
+          }
+
+          const payload = (await response.json()) as {
+            content?: Array<{ type: string; text?: string }>
+          }
+
+          const textBlock = payload.content?.find(
+            (block) => block.type === 'text' && typeof block.text === 'string',
+          )
+
+          if (!textBlock?.text) {
+            throw new Error('No text content in Anthropic response')
+          }
+
+          const rawResponse = textBlock.text
           const { displayText, template } = parseTemplateBuilderResponse(rawResponse)
 
           appendAssistantMessage(displayText)
