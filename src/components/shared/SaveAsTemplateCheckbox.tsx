@@ -4,149 +4,218 @@ import {
   useMemo,
   useState,
 } from 'react'
-import { IconCircleCheck } from '@tabler/icons-react'
-import { supabase } from '../../lib/supabase'
+import { IconCopy } from '@tabler/icons-react'
+import { useProductConfig } from '../../lib/hooks/useProductConfig'
+import { buildDefaultTemplateDescription, insertMyEventTemplate } from '../../lib/eventTemplateSave'
+import type { EventTemplateSourceData } from '../../lib/types/eventTemplate'
 
 export interface SaveAsTemplateCheckboxProps {
-  event_id: string
-  organization_id: string
-  event_type: string
-  venue_name: string
-  onTemplateSaved?: (template_name: string) => void
+  sourceData: EventTemplateSourceData
+  checkboxLabel: string
+  showDivider?: boolean
 }
 
 export interface SaveAsTemplateCheckboxHandle {
-  saveTemplate: () => Promise<void>
+  isChecked: () => boolean
+  validateForSubmit: () => boolean
+  saveTemplate: () => Promise<{ success: boolean }>
 }
 
-function toTitleCase(value: string): string {
-  return value
-    .split(/[\s_-]+/)
-    .filter(Boolean)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ')
-}
+const inputClassName =
+  'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-navy focus:ring-2 focus:ring-brand-navy focus:outline-none'
 
 const SaveAsTemplateCheckbox = forwardRef<
   SaveAsTemplateCheckboxHandle,
   SaveAsTemplateCheckboxProps
 >(function SaveAsTemplateCheckbox(
-  {
-    event_id,
-    organization_id,
-    event_type,
-    venue_name,
-    onTemplateSaved,
-  },
+  { sourceData, checkboxLabel, showDivider = false },
   ref,
 ) {
+  const { labels, colors, event_types, service_styles } = useProductConfig()
   const [checked, setChecked] = useState(false)
   const [templateName, setTemplateName] = useState('')
+  const [description, setDescription] = useState('')
+  const [nameError, setNameError] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
 
-  const defaultTemplateName = useMemo(
-    () => `${toTitleCase(event_type)} — ${toTitleCase(venue_name)}`,
-    [event_type, venue_name],
+  const eventTypeLabel = useMemo(() => {
+    if (!sourceData.event_type) {
+      return null
+    }
+    return (
+      event_types.find((type) => type.value === sourceData.event_type)?.label ??
+      null
+    )
+  }, [event_types, sourceData.event_type])
+
+  const serviceStyleLabel = useMemo(() => {
+    if (!sourceData.service_style) {
+      return null
+    }
+    return (
+      service_styles.find((style) => style.value === sourceData.service_style)
+        ?.label ?? null
+    )
+  }, [service_styles, sourceData.service_style])
+
+  const defaultTemplateName = sourceData.event_name
+  const defaultDescription = useMemo(
+    () => buildDefaultTemplateDescription(eventTypeLabel, serviceStyleLabel),
+    [eventTypeLabel, serviceStyleLabel],
   )
 
   useImperativeHandle(ref, () => ({
+    isChecked: () => checked,
+    validateForSubmit: () => {
+      if (!checked) {
+        setNameError(null)
+        return true
+      }
+
+      if (!templateName.trim()) {
+        setNameError(labels.save_as_template_name_required)
+        return false
+      }
+
+      setNameError(null)
+      return true
+    },
     async saveTemplate() {
       if (!checked) {
-        return
+        return { success: true }
       }
 
-      const name = templateName.trim() || defaultTemplateName
+      const trimmedName = templateName.trim()
+      if (!trimmedName) {
+        setNameError(labels.save_as_template_name_required)
+        return { success: false }
+      }
+
       setSaving(true)
+      setSaveError(null)
 
-      const { error: eventError } = await supabase
-        .from('events')
-        .update({
-          save_as_template_checked: true,
-          template_name: name,
-        })
-        .eq('id', event_id)
-        .eq('organization_id', organization_id)
-
-      if (eventError) {
-        console.error('Failed to update event template fields', eventError.message)
-        setSaving(false)
-        return
-      }
-
-      const { error: templateError } = await supabase.from('templates').insert({
-        organization_id,
-        event_id,
-        template_name: name,
-        event_type,
-        venue_name,
-      })
-
-      if (templateError) {
-        console.log(
-          '[SaveAsTemplate] templates table not available yet — event fields saved',
-          name,
-        )
-      }
+      const { error } = await insertMyEventTemplate(
+        sourceData,
+        trimmedName,
+        description.trim() || null,
+      )
 
       setSaving(false)
-      setSaved(true)
-      onTemplateSaved?.(name)
+
+      if (error) {
+        console.error('Failed to save event template:', error)
+        setSaveError(labels.save_as_template_save_error)
+        return { success: false }
+      }
+
+      return { success: true }
     },
   }))
 
+  function resetToDefaults() {
+    setTemplateName(defaultTemplateName)
+    setDescription(defaultDescription)
+    setNameError(null)
+    setSaveError(null)
+  }
+
   function handleCheckedChange(nextChecked: boolean) {
     setChecked(nextChecked)
-    setSaved(false)
-    if (nextChecked && !templateName.trim()) {
-      setTemplateName(defaultTemplateName)
+    if (nextChecked) {
+      resetToDefaults()
+      return
     }
+
+    setTemplateName('')
+    setDescription('')
+    setNameError(null)
+    setSaveError(null)
   }
 
   return (
     <div className="w-full">
-      <label className="flex items-start gap-3 text-sm text-text-body">
+      {showDivider ? (
+        <hr className="mb-4 border-gray-200" style={{ borderColor: '#E5E7EB' }} />
+      ) : null}
+
+      <label className="flex cursor-pointer items-start gap-2">
         <input
           type="checkbox"
           checked={checked}
           onChange={(event) => handleCheckedChange(event.target.checked)}
-          className="mt-1 size-4 rounded border-gray-300"
+          className="mt-0.5 size-4 rounded border-gray-300"
         />
-        <span>Save as template for future events</span>
+        <span className="flex items-center gap-1.5">
+          <IconCopy size={14} color={colors.brand_navy} stroke={2} />
+          <span
+            style={{
+              fontSize: '13px',
+              fontWeight: 500,
+              color: '#1B3A5C',
+            }}
+          >
+            {checkboxLabel}
+          </span>
+        </span>
       </label>
 
-      <div
-        className="overflow-hidden transition-all duration-200 ease-out"
-        style={{
-          maxHeight: checked ? '120px' : '0px',
-          opacity: checked ? 1 : 0,
-          marginTop: checked ? '12px' : '0px',
-        }}
-      >
-        <input
-          type="text"
-          value={templateName}
-          onChange={(event) => {
-            setTemplateName(event.target.value)
-            setSaved(false)
-          }}
-          placeholder="Template name"
-          className="w-full rounded border border-gray-300 px-3 py-2 text-text-body focus:border-brand-navy focus:ring-2 focus:ring-brand-navy focus:outline-none"
-        />
-      </div>
+      {checked ? (
+        <div className="mt-3 flex flex-col gap-3 pl-6">
+          <div>
+            <label
+              htmlFor="save-as-template-name"
+              className="mb-1 block"
+              style={{
+                fontSize: '13px',
+                fontWeight: 500,
+                color: colors.brand_navy,
+              }}
+            >
+              Template name
+            </label>
+            <input
+              id="save-as-template-name"
+              type="text"
+              value={templateName}
+              onChange={(event) => {
+                setTemplateName(event.target.value)
+                setNameError(null)
+                setSaveError(null)
+              }}
+              disabled={saving}
+              className={inputClassName}
+            />
+            {nameError ? (
+              <p className="mt-1 text-xs text-red-500">{nameError}</p>
+            ) : null}
+            {saveError ? (
+              <p className="mt-1 text-xs text-red-500">{saveError}</p>
+            ) : null}
+          </div>
 
-      {saved ? (
-        <div
-          className="mt-2 flex items-center gap-2 text-sm"
-          style={{ color: '#22C55E' }}
-        >
-          <IconCircleCheck size={16} color="#22C55E" />
-          <span>Template saved</span>
+          <div>
+            <label
+              htmlFor="save-as-template-description"
+              className="mb-1 block"
+              style={{
+                fontSize: '13px',
+                fontWeight: 500,
+                color: colors.brand_navy,
+              }}
+            >
+              Description (optional)
+            </label>
+            <textarea
+              id="save-as-template-description"
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              disabled={saving}
+              rows={2}
+              className={inputClassName}
+            />
+          </div>
         </div>
-      ) : null}
-
-      {saving ? (
-        <p className="mt-2 text-xs text-gray-500">Saving template...</p>
       ) : null}
     </div>
   )

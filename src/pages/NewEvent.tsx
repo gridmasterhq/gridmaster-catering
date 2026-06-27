@@ -9,10 +9,13 @@ import NewEventModeSelect, {
 } from '../components/catering/NewEventModeSelect'
 import { useOverlay, type NewEventOpenMode } from '../components/shared/AppShell'
 import { useProductConfig } from '../lib/hooks/useProductConfig'
+import type { EventSaveResult } from '../lib/types/eventTemplate'
 
 interface PostSaveState {
   eventId: string
   eventName: string
+  templateSource?: EventSaveResult['templateSource']
+  templateSavedFromForm?: boolean
 }
 
 function resolveInitialMode(
@@ -60,9 +63,14 @@ function NewEvent() {
     setSelectedMode(null)
   }
 
-  const handleSuccess = (eventId: string, eventName: string) => {
+  const handleSuccess = (result: EventSaveResult) => {
     setBeoInitialValues(null)
-    setPostSave({ eventId, eventName })
+    setPostSave({
+      eventId: result.eventId,
+      eventName: result.eventName,
+      templateSource: result.templateSource,
+      templateSavedFromForm: result.templateSavedFromForm,
+    })
   }
 
   if (selectedMode === null) {
@@ -121,7 +129,12 @@ function NewEvent() {
         </div>
 
         {postSave ? (
-          <PostSavePopup eventId={postSave.eventId} eventName={postSave.eventName} />
+          <PostSavePopup
+            eventId={postSave.eventId}
+            eventName={postSave.eventName}
+            templateSource={postSave.templateSource}
+            hideTemplateSection={postSave.templateSavedFromForm}
+          />
         ) : null}
       </>
     )

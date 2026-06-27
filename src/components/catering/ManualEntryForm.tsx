@@ -2,6 +2,7 @@ import {
   type FormEvent,
   type ReactNode,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react'
@@ -15,8 +16,10 @@ import { formatDateForInput } from '../../lib/dateUtils'
 import { supabase } from '../../lib/supabase'
 import type { EventTemplate } from '../../lib/types/eventTemplate'
 
+import type { EventSaveResult, EventTemplateSourceData } from '../../lib/types/eventTemplate'
+
 interface ManualEntryFormProps {
-  onSuccess: (eventId: string, eventName: string) => void
+  onSuccess: (result: EventSaveResult) => void
   onCancel: () => void
   initialValues?: BEOExtractedData
   prefilledDate?: Date
@@ -47,7 +50,6 @@ interface NoteTemplate {
   description: string
 }
 
-const PLACEHOLDER_EVENT_ID = '00000000-0000-0000-0000-000000000000'
 const CUSTOM_OPTION_VALUE = 'custom'
 const NONE_OPTION_VALUE = 'none'
 
@@ -152,7 +154,6 @@ export default function ManualEntryForm({
   } = useProductConfig()
 
   const templateRef = useRef<SaveAsTemplateCheckboxHandle>(null)
-  const [templateEventId, setTemplateEventId] = useState(PLACEHOLDER_EVENT_ID)
 
   const [eventName, setEventName] = useState(initialValues?.event_name ?? '')
   const [clientName, setClientName] = useState(initialValues?.client_name ?? '')
@@ -256,10 +257,71 @@ export default function ManualEntryForm({
     cursor: 'pointer',
   } as const
 
-  const resolvedVenueName =
-    linkVenue && selectedLocationName
-      ? selectedLocationName
-      : venue.trim() || labels.qe_venue_placeholder
+  const templateSourceData = useMemo((): EventTemplateSourceData | null => {
+    if (!organizationId) {
+      return null
+    }
+
+    const selectedUniformPreset =
+      selectedUniformId &&
+      selectedUniformId !== CUSTOM_OPTION_VALUE &&
+      selectedUniformId !== NONE_OPTION_VALUE
+        ? uniformPresets.find((preset) => preset.id === selectedUniformId)
+        : undefined
+
+    const selectedNoteTemplate =
+      selectedNoteTemplateId &&
+      selectedNoteTemplateId !== CUSTOM_OPTION_VALUE &&
+      selectedNoteTemplateId !== NONE_OPTION_VALUE
+        ? noteTemplates.find((template) => template.id === selectedNoteTemplateId)
+        : undefined
+
+    const effectiveCoordinatorNotes =
+      selectedNoteTemplateId === CUSTOM_OPTION_VALUE
+        ? coordinatorNotes.trim() || null
+        : (selectedNoteTemplate?.description ?? coordinatorNotes.trim()) || null
+
+    return {
+      organization_id: organizationId,
+      event_name: eventName.trim(),
+      event_type: eventType || null,
+      service_style: serviceStyle || null,
+      guest_count:
+        guestCount.trim() === '' ? null : Number.parseInt(guestCount, 10),
+      total_staff_needed:
+        totalStaffNeeded.trim() === ''
+          ? null
+          : Number.parseInt(totalStaffNeeded, 10),
+      bar_service_type:
+        barServiceType && barServiceType !== CUSTOM_OPTION_VALUE
+          ? barServiceType
+          : null,
+      alcohol_cutoff: alcoholCutoff ? 'enabled' : null,
+      venue_name:
+        linkVenue && selectedLocationName
+          ? selectedLocationName
+          : venue.trim() || null,
+      coordinator_notes: effectiveCoordinatorNotes,
+      uniform_preset_id: selectedUniformPreset?.id ?? null,
+    }
+  }, [
+    organizationId,
+    eventName,
+    eventType,
+    serviceStyle,
+    guestCount,
+    totalStaffNeeded,
+    barServiceType,
+    alcoholCutoff,
+    linkVenue,
+    selectedLocationName,
+    venue,
+    coordinatorNotes,
+    selectedNoteTemplateId,
+    noteTemplates,
+    selectedUniformId,
+    uniformPresets,
+  ])
 
   useEffect(() => {
     if (initialValues?.event_date || !prefilledDate) {
@@ -531,6 +593,10 @@ export default function ManualEntryForm({
       return
     }
 
+    if (templateRef.current && !templateRef.current.validateForSubmit()) {
+      return
+    }
+
     setIsSubmitting(true)
 
     try {
@@ -553,6 +619,12 @@ export default function ManualEntryForm({
       }
 
       const organizationIdTrimmed = orgIdFromUser.trim()
+      const saveAsTemplateChecked = templateRef.current?.isChecked() ?? false
+
+      if (saveAsTemplateChecked) {
+        await templateRef.current!.saveTemplate()
+      }
+
       const trimmedEventName = eventName.trim()
 
       const trimmedAddress = address.trim()
@@ -706,13 +778,12 @@ export default function ManualEntryForm({
         }
       }
 
-      setTemplateEventId(data.id)
-      await new Promise<void>((resolve) => {
-        window.requestAnimationFrame(() => resolve())
+      onSuccess({
+        eventId: data.id,
+        eventName: trimmedEventName,
+        templateSource: templateSourceData ?? undefined,
+        templateSavedFromForm: saveAsTemplateChecked,
       })
-      await templateRef.current?.saveTemplate()
-
-      onSuccess(data.id, trimmedEventName)
     } catch (error) {
       console.error('ManualEntryForm submit failed:', error)
       setSubmitError(getErrorMessage(error, labels.me_submit_error_fallback))
@@ -1433,13 +1504,13 @@ export default function ManualEntryForm({
 
       <section>
         <SectionHeading>{labels.me_section_save_options}</SectionHeading>
-        <SaveAsTemplateCheckbox
-          ref={templateRef}
-          event_id={templateEventId}
-          organization_id={organizationId ?? ''}
-          event_type={eventType || 'custom'}
-          venue_name={resolvedVenueName}
-        />
+        {templateSourceData ? (
+          <SaveAsTemplateCheckbox
+            ref={templateRef}
+            sourceData={templateSourceData}
+            checkboxLabel={labels.save_as_template_manual_label}
+          />
+        ) : null}
       </section>
 
       {submitError ? (

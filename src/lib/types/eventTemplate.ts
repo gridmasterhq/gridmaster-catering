@@ -20,6 +20,27 @@ export interface EventTemplate {
   updated_at: string
 }
 
+export interface EventTemplateSourceData {
+  organization_id: string
+  event_name: string
+  event_type: string | null
+  service_style: string | null
+  guest_count: number | null
+  total_staff_needed: number | null
+  bar_service_type: string | null
+  alcohol_cutoff: string | null
+  venue_name: string | null
+  coordinator_notes: string | null
+  uniform_preset_id: string | null
+}
+
+export interface EventSaveResult {
+  eventId: string
+  eventName: string
+  templateSource?: EventTemplateSourceData
+  templateSavedFromForm?: boolean
+}
+
 export const EVENT_TEMPLATE_SELECT =
   'id, organization_id, name, description, source, event_type, service_style, guest_count_default, total_staff_needed, buffer_percent, bar_service_type, alcohol_cutoff, venue_name, uniform_preset_id, coordinator_notes, grid_structure, is_active, created_at, updated_at'
 

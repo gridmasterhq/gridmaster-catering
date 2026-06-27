@@ -1,16 +1,43 @@
+import { useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useOverlay } from '../../components/shared/AppShell'
+import SaveAsTemplateCheckbox, {
+  type SaveAsTemplateCheckboxHandle,
+} from '../../components/shared/SaveAsTemplateCheckbox'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
+import type { EventTemplateSourceData } from '../../lib/types/eventTemplate'
 
 interface PostSavePopupProps {
   eventId: string
   eventName: string
+  templateSource?: EventTemplateSourceData
+  hideTemplateSection?: boolean
 }
 
-export default function PostSavePopup({ eventId, eventName }: PostSavePopupProps) {
+export default function PostSavePopup({
+  eventId,
+  eventName,
+  templateSource,
+  hideTemplateSection = false,
+}: PostSavePopupProps) {
   const navigate = useNavigate()
   const { closeOverlay } = useOverlay()
   const { labels, colors } = useProductConfig()
+  const templateRef = useRef<SaveAsTemplateCheckboxHandle>(null)
+
+  const handleAction = async (action: () => void) => {
+    if (!hideTemplateSection && templateSource) {
+      if (!templateRef.current?.validateForSubmit()) {
+        return
+      }
+
+      if (templateRef.current.isChecked()) {
+        await templateRef.current.saveTemplate()
+      }
+    }
+
+    action()
+  }
 
   return (
     <div
@@ -38,10 +65,21 @@ export default function PostSavePopup({ eventId, eventName }: PostSavePopupProps
           {eventName}
         </p>
 
+        {!hideTemplateSection && templateSource ? (
+          <div className="mt-6">
+            <SaveAsTemplateCheckbox
+              ref={templateRef}
+              sourceData={templateSource}
+              checkboxLabel={labels.save_as_template_post_save_label}
+              showDivider
+            />
+          </div>
+        ) : null}
+
         <div className="mt-6 flex flex-col gap-3">
           <button
             type="button"
-            onClick={() => navigate(`/event/${eventId}`)}
+            onClick={() => void handleAction(() => navigate(`/event/${eventId}`))}
             className="w-full rounded-lg py-3 text-sm font-semibold text-white"
             style={{ backgroundColor: colors.brand_navy }}
           >
@@ -49,7 +87,9 @@ export default function PostSavePopup({ eventId, eventName }: PostSavePopupProps
           </button>
           <button
             type="button"
-            onClick={() => navigate(`/event/${eventId}/grid`)}
+            onClick={() =>
+              void handleAction(() => navigate(`/event/${eventId}/grid`))
+            }
             className="w-full rounded-lg py-3 text-sm font-semibold text-white"
             style={{ backgroundColor: colors.brand_red }}
           >
@@ -59,10 +99,12 @@ export default function PostSavePopup({ eventId, eventName }: PostSavePopupProps
 
         <button
           type="button"
-          onClick={() => {
-            closeOverlay()
-            navigate('/')
-          }}
+          onClick={() =>
+            void handleAction(() => {
+              closeOverlay()
+              navigate('/')
+            })
+          }
           className="mt-4 w-full text-center text-sm text-gray-500 hover:underline"
         >
           {labels.ps_done_go_to_calendar}

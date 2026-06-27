@@ -4,9 +4,10 @@ import { useOverlay } from '../shared/AppShell'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
 import { formatDateForInput } from '../../lib/dateUtils'
 import { supabase } from '../../lib/supabase'
+import type { EventSaveResult } from '../../lib/types/eventTemplate'
 
 interface QuickEventFormProps {
-  onSuccess: (eventId: string, eventName: string) => void
+  onSuccess: (result: EventSaveResult) => void
   onCancel: () => void
   initialValues?: BEOExtractedData
   prefilledDate?: Date
@@ -466,7 +467,28 @@ export default function QuickEventForm({
         throw new Error('Event created but no ID returned')
       }
 
-      onSuccess(data.id, eventName.trim())
+      const resolvedVenueName =
+        linkVenue && selectedLocationName
+          ? selectedLocationName
+          : venue.trim() || null
+
+      onSuccess({
+        eventId: data.id,
+        eventName: eventName.trim(),
+        templateSource: {
+          organization_id: organizationIdTrimmed,
+          event_name: eventName.trim(),
+          event_type: eventType,
+          service_style: serviceStyle || null,
+          guest_count: parseInt(guestCount, 10),
+          total_staff_needed: parseInt(totalStaffNeeded, 10),
+          bar_service_type: null,
+          alcohol_cutoff: null,
+          venue_name: resolvedVenueName,
+          coordinator_notes: null,
+          uniform_preset_id: null,
+        },
+      })
     } catch (error) {
       console.error('QuickEventForm submit failed:', error)
       setSubmitError(getErrorMessage(error, 'Failed to create event'))

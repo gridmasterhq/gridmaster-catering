@@ -302,6 +302,12 @@ const cateringConfig: ProductConfig = {
     ps_add_more_details: 'Add More Details',
     ps_build_staff_grid: 'Build My Staff Grid',
     ps_done_go_to_calendar: "I'm done for now — go to calendar",
+    save_as_template_post_save_label:
+      'Save this event as a template for future use',
+    save_as_template_manual_label: 'Save as template after saving',
+    save_as_template_name_required: 'Template name is required',
+    save_as_template_save_error:
+      "Couldn't save template. You can save it later from My Templates.",
     beo_drop_zone_primary: 'Drop your BEO here',
     beo_drop_zone_secondary: 'PDF or photo — AI builds the event for you',
     beo_or_divider: 'or',

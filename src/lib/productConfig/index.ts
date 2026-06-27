@@ -161,6 +161,10 @@ export interface ProductLabels {
   ps_add_more_details: string
   ps_build_staff_grid: string
   ps_done_go_to_calendar: string
+  save_as_template_post_save_label: string
+  save_as_template_manual_label: string
+  save_as_template_name_required: string
+  save_as_template_save_error: string
   beo_drop_zone_primary: string
   beo_drop_zone_secondary: string
   beo_or_divider: string
