@@ -2,6 +2,7 @@ import { useState } from 'react'
 import {
   IconArrowLeft,
   IconBolt,
+  IconCopy,
   IconEdit,
   IconFileUpload,
 } from '@tabler/icons-react'
@@ -13,6 +14,7 @@ export type NewEventMode = 'quick' | 'beo' | 'manual'
 interface NewEventModeSelectProps {
   onSelect: (mode: NewEventMode) => void
   onCancel: () => void
+  highlightTemplate?: boolean
 }
 
 interface ModeCardConfig {
@@ -25,6 +27,7 @@ interface ModeCardConfig {
 export default function NewEventModeSelect({
   onSelect,
   onCancel,
+  highlightTemplate = false,
 }: NewEventModeSelectProps) {
   const { labels, colors, navigation } = useProductConfig()
   const [pressedMode, setPressedMode] = useState<NewEventMode | null>(null)
@@ -145,6 +148,46 @@ export default function NewEventModeSelect({
               </button>
             )
           })}
+          <button
+            type="button"
+            disabled
+            className="flex w-full items-center gap-4 rounded-lg border p-4 text-left shadow-sm"
+            style={{
+              backgroundColor: highlightTemplate
+                ? colors.surface_hover
+                : colors.white,
+              borderColor: highlightTemplate ? colors.brand_navy : '#E5E7EB',
+              opacity: 0.85,
+              cursor: 'default',
+            }}
+          >
+            <div
+              className="flex size-10 shrink-0 items-center justify-center rounded-full"
+              style={{ backgroundColor: colors.brand_light_blue }}
+            >
+              <IconCopy size={20} color={colors.brand_navy} stroke={2} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p
+                style={{
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  color: colors.brand_navy,
+                }}
+              >
+                {labels.ne_use_template}
+              </p>
+              <p
+                style={{
+                  fontSize: '12px',
+                  color: colors.text_muted,
+                  marginTop: '4px',
+                }}
+              >
+                Coming soon
+              </p>
+            </div>
+          </button>
         </div>
       </div>
     </div>

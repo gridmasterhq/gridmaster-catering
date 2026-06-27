@@ -2,10 +2,12 @@ import {
   useEffect,
   useMemo,
   useState,
+  type MouseEvent,
 } from 'react'
 import type { EventType } from '../../lib/productConfig'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
-import { useOverlay } from '../../components/shared/AppShell'
+import { useOverlay, type NewEventOpenMode } from '../../components/shared/AppShell'
+import DayContextMenu from '../../components/DayContextMenu'
 import { supabase } from '../../lib/supabase'
 
 const ORGANIZATION_ID = '00000000-0000-0000-0000-000000000001'
@@ -252,6 +254,9 @@ function CalendarPage() {
   const [view, setView] = useState<CalendarView>('month')
   const [activeDate, setActiveDate] = useState(() => startOfDay(new Date()))
   const [showCancelled, setShowCancelled] = useState(false)
+  const [dayMenuAnchor, setDayMenuAnchor] = useState<HTMLElement | null>(null)
+  const [dayMenuDate, setDayMenuDate] = useState<Date | null>(null)
+  const [hoveredDayKey, setHoveredDayKey] = useState<string | null>(null)
 
   const newEventLabel =
     navigation.blue.find((item) => item.id === 'new_event')?.label ?? ''
@@ -378,8 +383,26 @@ function CalendarPage() {
 
   const { openOverlay } = useOverlay()
 
+  const openNewEventOverlay = (
+    mode?: NewEventOpenMode,
+    date?: Date,
+  ) => {
+    openOverlay('new-event', { mode, date })
+  }
+
   const handleNewEvent = () => {
-    openOverlay('new-event')
+    openNewEventOverlay()
+  }
+
+  const closeDayMenu = () => {
+    setDayMenuAnchor(null)
+    setDayMenuDate(null)
+  }
+
+  const handleDayNumberClick = (event: MouseEvent<HTMLElement>, date: Date) => {
+    event.stopPropagation()
+    setDayMenuAnchor(event.currentTarget)
+    setDayMenuDate(date)
   }
 
   const handleEventClick = (eventId: string) => {
@@ -527,13 +550,28 @@ function CalendarPage() {
                   view === 'month' && !inCurrentMonth ? 'bg-gray-50' : ''
                 } ${isSameDay(day, today) ? 'ring-2 ring-brand-red ring-inset' : ''}`}
               >
-                <p
-                  className={`mb-1 text-sm font-medium ${
-                    inCurrentMonth ? 'text-brand-mid-blue' : 'text-gray-400'
-                  }`}
-                >
-                  {day.getDate()}
-                </p>
+                <div className="mb-1">
+                  <button
+                    type="button"
+                    onClick={(event) => handleDayNumberClick(event, day)}
+                    onMouseEnter={() => setHoveredDayKey(dayKey)}
+                    onMouseLeave={() => setHoveredDayKey(null)}
+                    className={`text-sm font-medium ${
+                      inCurrentMonth ? '' : 'text-gray-400'
+                    }`}
+                    style={{
+                      color: inCurrentMonth ? '#1B3A5C' : undefined,
+                      cursor: 'pointer',
+                      textDecoration:
+                        hoveredDayKey === dayKey ? 'underline' : 'none',
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                    }}
+                  >
+                    {day.getDate()}
+                  </button>
+                </div>
 
                 <div className="flex flex-col gap-1">
                   {dayEvents.map((event) => {
@@ -780,6 +818,30 @@ function CalendarPage() {
           </div>
         </div>
       </section>
+
+      {dayMenuAnchor && dayMenuDate ? (
+        <DayContextMenu
+          date={dayMenuDate}
+          anchorEl={dayMenuAnchor}
+          onClose={closeDayMenu}
+          onQuickEvent={(date) => {
+            closeDayMenu()
+            openNewEventOverlay('quick', date)
+          }}
+          onBEOUpload={(date) => {
+            closeDayMenu()
+            openNewEventOverlay('beo', date)
+          }}
+          onManualEntry={(date) => {
+            closeDayMenu()
+            openNewEventOverlay('manual', date)
+          }}
+          onUseTemplate={(date) => {
+            closeDayMenu()
+            openNewEventOverlay('template', date)
+          }}
+        />
+      ) : null}
     </div>
   )
 }

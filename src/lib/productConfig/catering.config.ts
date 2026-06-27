@@ -248,6 +248,7 @@ const cateringConfig: ProductConfig = {
     ne_beo_upload_subtext: 'Drop your BEO and AI builds the event for you.',
     ne_manual_entry: 'Manual Entry',
     ne_manual_entry_subtext: 'Fill in every detail yourself.',
+    ne_use_template: 'Use a Template',
     ne_cancel: 'Cancel',
     ne_mode_selected: 'selected',
     overlay_discard_confirm: 'Are you sure? Your progress will be lost.',

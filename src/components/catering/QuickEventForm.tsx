@@ -2,12 +2,14 @@ import { type FormEvent, useEffect, useState } from 'react'
 import type { BEOExtractedData } from './BEOUpload'
 import { useOverlay } from '../shared/AppShell'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
+import { formatDateForInput } from '../../lib/dateUtils'
 import { supabase } from '../../lib/supabase'
 
 interface QuickEventFormProps {
   onSuccess: (eventId: string, eventName: string) => void
   onCancel: () => void
   initialValues?: BEOExtractedData
+  prefilledDate?: Date
 }
 
 type FieldKey =
@@ -60,6 +62,7 @@ export default function QuickEventForm({
   onSuccess,
   onCancel: _onCancel,
   initialValues,
+  prefilledDate,
 }: QuickEventFormProps) {
   void _onCancel
 
@@ -77,7 +80,10 @@ export default function QuickEventForm({
   >([])
   const [clientSearchLoading, setClientSearchLoading] = useState(false)
 
-  const [eventDate, setEventDate] = useState(initialValues?.event_date ?? '')
+  const [eventDate, setEventDate] = useState(
+    initialValues?.event_date ??
+      (prefilledDate ? formatDateForInput(prefilledDate) : ''),
+  )
   const [eventStartTime, setEventStartTime] = useState(
     initialValues?.event_start_time ?? '',
   )
@@ -147,6 +153,13 @@ export default function QuickEventForm({
     border: 'none',
     cursor: 'pointer',
   } as const
+
+  useEffect(() => {
+    if (initialValues?.event_date || !prefilledDate) {
+      return
+    }
+    setEventDate(formatDateForInput(prefilledDate))
+  }, [initialValues?.event_date, prefilledDate])
 
   useEffect(() => {
     let cancelled = false

@@ -112,6 +112,7 @@ export interface ProductLabels {
   ne_beo_upload_subtext: string
   ne_manual_entry: string
   ne_manual_entry_subtext: string
+  ne_use_template: string
   ne_cancel: string
   ne_mode_selected: string
   overlay_discard_confirm: string

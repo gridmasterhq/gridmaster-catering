@@ -62,8 +62,17 @@ export function useActiveScreen(): ActiveScreenContextValue {
 
 interface OverlayContextValue {
   activeOverlay: string | null
-  openOverlay: (id: string) => void
+  openOverlay: (id: string, options?: OpenOverlayOptions) => void
   closeOverlay: () => void
+  newEventPrefilledDate: Date | null
+  newEventInitialMode: NewEventOpenMode | null
+}
+
+export type NewEventOpenMode = 'quick' | 'beo' | 'manual' | 'template'
+
+export interface OpenOverlayOptions {
+  mode?: NewEventOpenMode
+  date?: Date
 }
 
 const OverlayContext = createContext<OverlayContextValue | null>(null)
@@ -503,6 +512,11 @@ function AppShell({ children }: AppShellProps) {
   const [showFooter, setShowFooter] = useState(false)
   const [activeScreen, setActiveScreen] = useState<ActiveScreen>('calendar')
   const [activeOverlay, setActiveOverlay] = useState<string | null>(null)
+  const [newEventPrefilledDate, setNewEventPrefilledDate] = useState<Date | null>(
+    null,
+  )
+  const [newEventInitialMode, setNewEventInitialMode] =
+    useState<NewEventOpenMode | null>(null)
   const [accountMenuOpen, setAccountMenuOpen] = useState(false)
   const [userDisplayName, setUserDisplayName] = useState('')
   const accountMenuRef = useRef<HTMLDivElement>(null)
@@ -583,12 +597,21 @@ function AppShell({ children }: AppShellProps) {
     window.location.reload()
   }, [])
 
-  const openOverlay = useCallback((id: string) => {
+  const openOverlay = useCallback((id: string, options?: OpenOverlayOptions) => {
+    if (id === 'new-event') {
+      setNewEventPrefilledDate(options?.date ?? null)
+      setNewEventInitialMode(options?.mode ?? null)
+    } else {
+      setNewEventPrefilledDate(null)
+      setNewEventInitialMode(null)
+    }
     setActiveOverlay(id)
   }, [])
 
   const closeOverlay = useCallback(() => {
     setActiveOverlay(null)
+    setNewEventPrefilledDate(null)
+    setNewEventInitialMode(null)
   }, [])
 
   const handleScreenSelect = useCallback(
@@ -658,7 +681,13 @@ function AppShell({ children }: AppShellProps) {
     <ExpertModeProvider>
     <ActiveScreenContext.Provider value={{ activeScreen, setActiveScreen }}>
     <OverlayContext.Provider
-      value={{ activeOverlay, openOverlay, closeOverlay }}
+      value={{
+        activeOverlay,
+        openOverlay,
+        closeOverlay,
+        newEventPrefilledDate,
+        newEventInitialMode,
+      }}
     >
     <div className="min-h-screen flex flex-col" style={themeVars}>
       <header className="fixed top-0 left-0 right-0 z-30 flex h-12 w-full">

@@ -1,6 +1,7 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { IconArrowLeft, IconFileUpload } from '@tabler/icons-react'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
+import { formatDateForInput } from '../../lib/dateUtils'
 import { supabase } from '../../lib/supabase'
 
 export interface BEOExtractedData {
@@ -19,6 +20,7 @@ export interface BEOExtractedData {
 interface BEOUploadProps {
   onSuccess: (extractedData: BEOExtractedData) => void
   onCancel: () => void
+  prefilledDate?: Date
 }
 
 type UploadState = 'upload' | 'processing' | 'review' | 'error'
@@ -72,9 +74,17 @@ function toReviewString(value: string | number | undefined | null): string {
   return String(value)
 }
 
-export default function BEOUpload({ onSuccess, onCancel }: BEOUploadProps) {
+export default function BEOUpload({
+  onSuccess,
+  onCancel,
+  prefilledDate,
+}: BEOUploadProps) {
   const { labels, colors, event_types, service_styles } = useProductConfig()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const prefilledDateValue = useMemo(
+    () => (prefilledDate ? formatDateForInput(prefilledDate) : ''),
+    [prefilledDate],
+  )
 
   const [uploadState, setUploadState] = useState<UploadState>('upload')
   const [uploadedFileName, setUploadedFileName] = useState('')
@@ -116,7 +126,7 @@ export default function BEOUpload({ onSuccess, onCancel }: BEOUploadProps) {
 
     setEventName(toReviewString(data.event_name))
     setClientName(toReviewString(data.client_name))
-    setEventDate(toReviewString(data.event_date))
+    setEventDate(toReviewString(data.event_date) || prefilledDateValue)
     setEventStartTime(toReviewString(data.event_start_time))
     setVenueName(toReviewString(data.venue_name))
     setGuestCount(toReviewString(data.guest_count))
@@ -132,7 +142,14 @@ export default function BEOUpload({ onSuccess, onCancel }: BEOUploadProps) {
     )
     setTotalStaffNeeded(toReviewString(data.total_staff_needed))
     setNotes(toReviewString(data.notes))
-  }, [event_types, service_styles])
+  }, [event_types, prefilledDateValue, service_styles])
+
+  useEffect(() => {
+    if (!prefilledDateValue) {
+      return
+    }
+    setEventDate((current) => current || prefilledDateValue)
+  }, [prefilledDateValue])
 
   const uploadToStorage = useCallback(async (file: File) => {
     const {

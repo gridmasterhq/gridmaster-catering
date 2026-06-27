@@ -11,12 +11,14 @@ import SaveAsTemplateCheckbox, {
   type SaveAsTemplateCheckboxHandle,
 } from '../shared/SaveAsTemplateCheckbox'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
+import { formatDateForInput } from '../../lib/dateUtils'
 import { supabase } from '../../lib/supabase'
 
 interface ManualEntryFormProps {
   onSuccess: (eventId: string, eventName: string) => void
   onCancel: () => void
   initialValues?: BEOExtractedData
+  prefilledDate?: Date
 }
 
 type FieldKey = 'eventName' | 'eventDate' | 'eventType'
@@ -130,6 +132,7 @@ export default function ManualEntryForm({
   onSuccess,
   onCancel: _onCancel,
   initialValues,
+  prefilledDate,
 }: ManualEntryFormProps) {
   void _onCancel
 
@@ -159,7 +162,10 @@ export default function ManualEntryForm({
   >([])
   const [clientSearchLoading, setClientSearchLoading] = useState(false)
 
-  const [eventDate, setEventDate] = useState(initialValues?.event_date ?? '')
+  const [eventDate, setEventDate] = useState(
+    initialValues?.event_date ??
+      (prefilledDate ? formatDateForInput(prefilledDate) : ''),
+  )
   const [eventStartTime, setEventStartTime] = useState(
     initialValues?.event_start_time ?? '',
   )
@@ -251,6 +257,13 @@ export default function ManualEntryForm({
     linkVenue && selectedLocationName
       ? selectedLocationName
       : venue.trim() || labels.qe_venue_placeholder
+
+  useEffect(() => {
+    if (initialValues?.event_date || !prefilledDate) {
+      return
+    }
+    setEventDate(formatDateForInput(prefilledDate))
+  }, [initialValues?.event_date, prefilledDate])
 
   useEffect(() => {
     let cancelled = false

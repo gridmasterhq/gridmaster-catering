@@ -7,7 +7,7 @@ import QuickEventForm from '../components/catering/QuickEventForm'
 import NewEventModeSelect, {
   type NewEventMode,
 } from '../components/catering/NewEventModeSelect'
-import { useOverlay } from '../components/shared/AppShell'
+import { useOverlay, type NewEventOpenMode } from '../components/shared/AppShell'
 import { useProductConfig } from '../lib/hooks/useProductConfig'
 
 interface PostSaveState {
@@ -15,14 +15,33 @@ interface PostSaveState {
   eventName: string
 }
 
+function resolveInitialMode(
+  initialMode: NewEventOpenMode | null,
+): NewEventMode | null {
+  if (
+    initialMode === 'quick' ||
+    initialMode === 'beo' ||
+    initialMode === 'manual'
+  ) {
+    return initialMode
+  }
+  return null
+}
+
 function NewEvent() {
-  const { closeOverlay } = useOverlay()
+  const { closeOverlay, newEventPrefilledDate, newEventInitialMode } =
+    useOverlay()
   const { labels, colors } = useProductConfig()
-  const [selectedMode, setSelectedMode] = useState<NewEventMode | null>(null)
+  const [selectedMode, setSelectedMode] = useState<NewEventMode | null>(() =>
+    resolveInitialMode(newEventInitialMode),
+  )
   const [postSave, setPostSave] = useState<PostSaveState | null>(null)
   const [beoInitialValues, setBeoInitialValues] = useState<BEOExtractedData | null>(
     null,
   )
+
+  const prefilledDate = newEventPrefilledDate ?? undefined
+  const highlightTemplate = newEventInitialMode === 'template'
 
   const handleCancel = () => {
     setBeoInitialValues(null)
@@ -39,6 +58,7 @@ function NewEvent() {
       <NewEventModeSelect
         onSelect={setSelectedMode}
         onCancel={closeOverlay}
+        highlightTemplate={highlightTemplate}
       />
     )
   }
@@ -46,6 +66,7 @@ function NewEvent() {
   if (selectedMode === 'beo') {
     return (
       <BEOUpload
+        prefilledDate={prefilledDate}
         onCancel={handleCancel}
         onSuccess={(extractedData) => {
           setBeoInitialValues(extractedData)
@@ -79,6 +100,7 @@ function NewEvent() {
 
           <FormComponent
             initialValues={beoInitialValues ?? undefined}
+            prefilledDate={prefilledDate}
             onCancel={handleCancel}
             onSuccess={handleSuccess}
           />
