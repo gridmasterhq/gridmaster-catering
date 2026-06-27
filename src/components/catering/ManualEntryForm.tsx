@@ -466,6 +466,12 @@ export default function ManualEntryForm({
       const organizationIdTrimmed = orgIdFromUser.trim()
       const trimmedEventName = eventName.trim()
 
+      const trimmedAddress = address.trim()
+      const trimmedUniformNotes = uniformNotes.trim()
+      const trimmedCoordinatorNotes = coordinatorNotes.trim()
+      const trimmedStaffNotes = staffNotes.trim()
+      const trimmedBarServiceCustom = barServiceCustom.trim()
+
       const { data, error } = await supabase
         .from('events')
         .insert({
@@ -482,7 +488,7 @@ export default function ManualEntryForm({
             linkVenue && selectedLocationId ? null : venue.trim() || null,
           location_id:
             linkVenue && selectedLocationId ? selectedLocationId : null,
-          venue_address: address.trim() || null,
+          address: trimmedAddress || null,
           arrival_notes: arrivalNotes.trim() || null,
           guest_count:
             guestCount.trim() === '' ? null : Number.parseInt(guestCount, 10),
@@ -490,14 +496,22 @@ export default function ManualEntryForm({
             totalStaffNeeded.trim() === ''
               ? null
               : Number.parseInt(totalStaffNeeded, 10),
-          buffer_pct: Number.parseInt(bufferPct, 10),
-          staff_notes: staffNotes.trim() || null,
-          uniform_notes: uniformNotes.trim() || null,
-          coordinator_notes: coordinatorNotes.trim() || null,
+          buffer_percentage: Number.parseInt(bufferPct, 10),
+          staff_notes: trimmedStaffNotes || null,
+          uniform_preset_id: selectedUniformId || null,
+          uniform_custom_text: selectedUniformId ? null : trimmedUniformNotes || null,
+          uniform_notes: selectedUniformId ? trimmedUniformNotes || null : null,
+          note_template_id: selectedNoteTemplateId || null,
+          coordinator_notes_custom: selectedNoteTemplateId
+            ? null
+            : trimmedCoordinatorNotes || null,
+          coordinator_notes: selectedNoteTemplateId
+            ? trimmedCoordinatorNotes || null
+            : null,
           bar_service_type: barServiceType || null,
           bar_service_custom:
-            barServiceType === 'custom' ? barServiceCustom.trim() || null : null,
-          alcohol_cutoff: alcoholCutoff,
+            barServiceType === 'custom' ? trimmedBarServiceCustom || null : null,
+          alcohol_cutoff_enabled: alcoholCutoff,
           vehicle_departure_time: vehicleDepartureTime || null,
           vehicle_load_time: vehicleLoadTime || null,
           organization_id: organizationIdTrimmed,
