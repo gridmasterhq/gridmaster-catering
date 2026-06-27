@@ -17,7 +17,11 @@ interface PostSaveState {
 
 function resolveInitialMode(
   initialMode: NewEventOpenMode | null,
+  hasInitialTemplate: boolean,
 ): NewEventMode | null {
+  if (hasInitialTemplate) {
+    return 'manual'
+  }
   if (
     initialMode === 'quick' ||
     initialMode === 'beo' ||
@@ -29,11 +33,19 @@ function resolveInitialMode(
 }
 
 function NewEvent() {
-  const { closeOverlay, newEventPrefilledDate, newEventInitialMode } =
-    useOverlay()
+  const {
+    closeOverlay,
+    newEventPrefilledDate,
+    newEventInitialMode,
+    newEventInitialTemplate,
+    openOverlay,
+  } = useOverlay()
   const { labels, colors } = useProductConfig()
   const [selectedMode, setSelectedMode] = useState<NewEventMode | null>(() =>
-    resolveInitialMode(newEventInitialMode),
+    resolveInitialMode(
+      newEventInitialMode,
+      newEventInitialTemplate != null,
+    ),
   )
   const [postSave, setPostSave] = useState<PostSaveState | null>(null)
   const [beoInitialValues, setBeoInitialValues] = useState<BEOExtractedData | null>(
@@ -58,6 +70,7 @@ function NewEvent() {
       <NewEventModeSelect
         onSelect={setSelectedMode}
         onCancel={closeOverlay}
+        onUseTemplate={() => openOverlay('my-templates')}
         highlightTemplate={highlightTemplate}
       />
     )
@@ -101,6 +114,7 @@ function NewEvent() {
           <FormComponent
             initialValues={beoInitialValues ?? undefined}
             prefilledDate={prefilledDate}
+            initialTemplate={newEventInitialTemplate ?? undefined}
             onCancel={handleCancel}
             onSuccess={handleSuccess}
           />

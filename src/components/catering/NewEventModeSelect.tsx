@@ -14,6 +14,7 @@ export type NewEventMode = 'quick' | 'beo' | 'manual'
 interface NewEventModeSelectProps {
   onSelect: (mode: NewEventMode) => void
   onCancel: () => void
+  onUseTemplate: () => void
   highlightTemplate?: boolean
 }
 
@@ -27,6 +28,7 @@ interface ModeCardConfig {
 export default function NewEventModeSelect({
   onSelect,
   onCancel,
+  onUseTemplate,
   highlightTemplate = false,
 }: NewEventModeSelectProps) {
   const { labels, colors, navigation } = useProductConfig()
@@ -150,15 +152,21 @@ export default function NewEventModeSelect({
           })}
           <button
             type="button"
-            disabled
-            className="flex w-full items-center gap-4 rounded-lg border p-4 text-left shadow-sm"
+            onClick={onUseTemplate}
+            className="flex w-full items-center gap-4 rounded-lg border p-4 text-left shadow-sm transition-transform hover:shadow-md active:scale-95"
             style={{
               backgroundColor: highlightTemplate
                 ? colors.surface_hover
                 : colors.white,
               borderColor: highlightTemplate ? colors.brand_navy : '#E5E7EB',
-              opacity: 0.85,
-              cursor: 'default',
+            }}
+            onMouseEnter={(event) => {
+              event.currentTarget.style.backgroundColor = colors.surface_hover
+            }}
+            onMouseLeave={(event) => {
+              event.currentTarget.style.backgroundColor = highlightTemplate
+                ? colors.surface_hover
+                : colors.white
             }}
           >
             <div
@@ -184,7 +192,7 @@ export default function NewEventModeSelect({
                   marginTop: '4px',
                 }}
               >
-                Coming soon
+                {labels.ne_use_template_subtext}
               </p>
             </div>
           </button>

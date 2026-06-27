@@ -262,6 +262,19 @@ export interface ProductLabels {
   roles_load_error: string
   roles_save_error: string
   roles_delete_error: string
+  event_templates_heading: string
+  gridmaster_templates_heading: string
+  gridmaster_templates_subtext: string
+  event_templates_empty_headline: string
+  event_templates_empty_subtext: string
+  event_templates_browse_gridmaster: string
+  event_templates_search_placeholder: string
+  event_templates_no_results: string
+  event_templates_delete_confirm: string
+  event_templates_load_error: string
+  event_templates_save_error: string
+  event_templates_delete_error: string
+  ne_use_template_subtext: string
 }
 
 export interface ProductColors {

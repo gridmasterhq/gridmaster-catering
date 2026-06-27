@@ -13,12 +13,14 @@ import SaveAsTemplateCheckbox, {
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
 import { formatDateForInput } from '../../lib/dateUtils'
 import { supabase } from '../../lib/supabase'
+import type { EventTemplate } from '../../lib/types/eventTemplate'
 
 interface ManualEntryFormProps {
   onSuccess: (eventId: string, eventName: string) => void
   onCancel: () => void
   initialValues?: BEOExtractedData
   prefilledDate?: Date
+  initialTemplate?: EventTemplate
 }
 
 type FieldKey = 'eventName' | 'eventDate' | 'eventType'
@@ -133,6 +135,7 @@ export default function ManualEntryForm({
   onCancel: _onCancel,
   initialValues,
   prefilledDate,
+  initialTemplate,
 }: ManualEntryFormProps) {
   void _onCancel
 
@@ -264,6 +267,68 @@ export default function ManualEntryForm({
     }
     setEventDate(formatDateForInput(prefilledDate))
   }, [initialValues?.event_date, prefilledDate])
+
+  useEffect(() => {
+    if (!initialTemplate) {
+      return
+    }
+
+    if (
+      initialTemplate.event_type &&
+      event_types.some((type) => type.value === initialTemplate.event_type)
+    ) {
+      setEventType(initialTemplate.event_type)
+    }
+
+    if (initialTemplate.service_style) {
+      const styleMatch = service_styles.find(
+        (style) =>
+          style.value === initialTemplate.service_style ||
+          style.label.toLowerCase() ===
+            initialTemplate.service_style?.toLowerCase(),
+      )
+      if (styleMatch) {
+        setServiceStyle(styleMatch.value)
+      }
+    }
+
+    if (initialTemplate.guest_count_default != null) {
+      setGuestCount(String(initialTemplate.guest_count_default))
+    }
+
+    if (initialTemplate.total_staff_needed != null) {
+      setTotalStaffNeeded(String(initialTemplate.total_staff_needed))
+    }
+
+    if (initialTemplate.venue_name) {
+      setVenue(initialTemplate.venue_name)
+    }
+
+    if (initialTemplate.bar_service_type) {
+      const barMatch = bar_service_types.find(
+        (type) =>
+          type.value === initialTemplate.bar_service_type ||
+          type.label.toLowerCase() ===
+            initialTemplate.bar_service_type?.toLowerCase(),
+      )
+      if (barMatch) {
+        setBarServiceType(barMatch.value)
+      }
+    }
+
+    if (initialTemplate.coordinator_notes) {
+      setCoordinatorNotes(initialTemplate.coordinator_notes)
+    }
+
+    if (initialTemplate.uniform_preset_id) {
+      setSelectedUniformId(initialTemplate.uniform_preset_id)
+    }
+  }, [
+    initialTemplate,
+    event_types,
+    service_styles,
+    bar_service_types,
+  ])
 
   useEffect(() => {
     let cancelled = false

@@ -40,6 +40,9 @@ import UniformsPage from '../../pages/settings/UniformsPage'
 import NoteTemplatesPage from '../../pages/settings/NoteTemplatesPage'
 import RolesPage from '../../pages/RolesPage'
 import NewEvent from '../../pages/NewEvent'
+import MyTemplatesOverlay from '../overlays/MyTemplatesOverlay'
+import GridMasterTemplatesOverlay from '../overlays/GridMasterTemplatesOverlay'
+import type { EventTemplate } from '../../lib/types/eventTemplate'
 
 type ActiveScreen = 'cc' | 'calendar'
 
@@ -66,6 +69,7 @@ interface OverlayContextValue {
   closeOverlay: () => void
   newEventPrefilledDate: Date | null
   newEventInitialMode: NewEventOpenMode | null
+  newEventInitialTemplate: EventTemplate | null
 }
 
 export type NewEventOpenMode = 'quick' | 'beo' | 'manual' | 'template'
@@ -73,7 +77,10 @@ export type NewEventOpenMode = 'quick' | 'beo' | 'manual' | 'template'
 export interface OpenOverlayOptions {
   mode?: NewEventOpenMode
   date?: Date
+  initialTemplate?: EventTemplate
 }
+
+const TEMPLATE_OVERLAY_IDS = ['my-templates', 'gridmaster-templates'] as const
 
 const OverlayContext = createContext<OverlayContextValue | null>(null)
 
@@ -487,6 +494,10 @@ function SidebarNavItems({
                 openOverlay('note-templates')
               } else if (itemId === 'roles') {
                 openOverlay('roles')
+              } else if (itemId === 'my_templates') {
+                openOverlay('my-templates')
+              } else if (itemId === 'gridmaster_templates') {
+                openOverlay('gridmaster-templates')
               }
               onClose()
             }}
@@ -517,6 +528,8 @@ function AppShell({ children }: AppShellProps) {
   )
   const [newEventInitialMode, setNewEventInitialMode] =
     useState<NewEventOpenMode | null>(null)
+  const [newEventInitialTemplate, setNewEventInitialTemplate] =
+    useState<EventTemplate | null>(null)
   const [accountMenuOpen, setAccountMenuOpen] = useState(false)
   const [userDisplayName, setUserDisplayName] = useState('')
   const accountMenuRef = useRef<HTMLDivElement>(null)
@@ -601,9 +614,21 @@ function AppShell({ children }: AppShellProps) {
     if (id === 'new-event') {
       setNewEventPrefilledDate(options?.date ?? null)
       setNewEventInitialMode(options?.mode ?? null)
+      setNewEventInitialTemplate(options?.initialTemplate ?? null)
+    } else if (
+      TEMPLATE_OVERLAY_IDS.includes(
+        id as (typeof TEMPLATE_OVERLAY_IDS)[number],
+      )
+    ) {
+      if (options?.date !== undefined) {
+        setNewEventPrefilledDate(options.date)
+      }
+      setNewEventInitialMode(null)
+      setNewEventInitialTemplate(null)
     } else {
       setNewEventPrefilledDate(null)
       setNewEventInitialMode(null)
+      setNewEventInitialTemplate(null)
     }
     setActiveOverlay(id)
   }, [])
@@ -612,6 +637,7 @@ function AppShell({ children }: AppShellProps) {
     setActiveOverlay(null)
     setNewEventPrefilledDate(null)
     setNewEventInitialMode(null)
+    setNewEventInitialTemplate(null)
   }, [])
 
   const handleScreenSelect = useCallback(
@@ -629,6 +655,8 @@ function AppShell({ children }: AppShellProps) {
     uniforms: labels.uniforms_heading,
     roles: labels.roles_page_heading,
     'note-templates': labels.note_templates_heading,
+    'my-templates': labels.event_templates_heading,
+    'gridmaster-templates': labels.gridmaster_templates_heading,
     'new-event':
       navigation.blue.find((item) => item.id === 'new_event')?.label ??
       'New Event',
@@ -638,6 +666,8 @@ function AppShell({ children }: AppShellProps) {
     uniforms: true,
     roles: true,
     'note-templates': true,
+    'my-templates': true,
+    'gridmaster-templates': true,
     'new-event': false,
   }
 
@@ -687,6 +717,7 @@ function AppShell({ children }: AppShellProps) {
         closeOverlay,
         newEventPrefilledDate,
         newEventInitialMode,
+        newEventInitialTemplate,
       }}
     >
     <div className="min-h-screen flex flex-col" style={themeVars}>
@@ -940,6 +971,10 @@ function AppShell({ children }: AppShellProps) {
           {activeOverlay === 'uniforms' ? <UniformsPage /> : null}
           {activeOverlay === 'roles' ? <RolesPage /> : null}
           {activeOverlay === 'note-templates' ? <NoteTemplatesPage /> : null}
+          {activeOverlay === 'my-templates' ? <MyTemplatesOverlay /> : null}
+          {activeOverlay === 'gridmaster-templates' ? (
+            <GridMasterTemplatesOverlay />
+          ) : null}
           {activeOverlay === 'new-event' ? <NewEvent /> : null}
         </OverlayPanel>
       ) : null}

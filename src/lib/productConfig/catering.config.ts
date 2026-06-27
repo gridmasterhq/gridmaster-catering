@@ -417,6 +417,21 @@ const cateringConfig: ProductConfig = {
     roles_load_error: 'Failed to load roles',
     roles_save_error: 'Failed to save role',
     roles_delete_error: 'Failed to delete role',
+    event_templates_heading: 'My Templates',
+    gridmaster_templates_heading: 'GridMaster Templates',
+    gridmaster_templates_subtext:
+      'Starter templates built for catering operations. Select one to start your event — edit anything before saving.',
+    event_templates_empty_headline: 'No templates yet',
+    event_templates_empty_subtext:
+      'Save any GridMaster Template as your own, or save an event after creating it.',
+    event_templates_browse_gridmaster: 'Browse GridMaster Templates →',
+    event_templates_search_placeholder: 'Search templates...',
+    event_templates_no_results: 'No templates match your search.',
+    event_templates_delete_confirm: 'Delete this template?',
+    event_templates_load_error: 'Failed to load templates',
+    event_templates_save_error: 'Failed to save template',
+    event_templates_delete_error: 'Failed to delete template',
+    ne_use_template_subtext: 'Start from a saved or GridMaster template.',
   },
   colors: {
     brand_navy: '#1B3A5C',
