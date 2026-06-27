@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom'
+import { useOverlay } from '../../components/shared/AppShell'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
 
 interface PostSavePopupProps {
@@ -8,6 +9,7 @@ interface PostSavePopupProps {
 
 export default function PostSavePopup({ eventId, eventName }: PostSavePopupProps) {
   const navigate = useNavigate()
+  const { closeOverlay } = useOverlay()
   const { labels, colors } = useProductConfig()
 
   return (
@@ -57,7 +59,10 @@ export default function PostSavePopup({ eventId, eventName }: PostSavePopupProps
 
         <button
           type="button"
-          onClick={() => navigate('/')}
+          onClick={() => {
+            closeOverlay()
+            navigate('/')
+          }}
           className="mt-4 w-full text-center text-sm text-gray-500 hover:underline"
         >
           {labels.ps_done_go_to_calendar}

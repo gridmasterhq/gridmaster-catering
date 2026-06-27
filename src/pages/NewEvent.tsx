@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { IconArrowLeft } from '@tabler/icons-react'
 import BEOUpload, { type BEOExtractedData } from '../components/catering/BEOUpload'
 import ManualEntryForm from '../components/catering/ManualEntryForm'
@@ -8,6 +7,7 @@ import QuickEventForm from '../components/catering/QuickEventForm'
 import NewEventModeSelect, {
   type NewEventMode,
 } from '../components/catering/NewEventModeSelect'
+import { useOverlay } from '../components/shared/AppShell'
 import { useProductConfig } from '../lib/hooks/useProductConfig'
 
 interface PostSaveState {
@@ -16,7 +16,7 @@ interface PostSaveState {
 }
 
 function NewEvent() {
-  const navigate = useNavigate()
+  const { closeOverlay } = useOverlay()
   const { labels, colors } = useProductConfig()
   const [selectedMode, setSelectedMode] = useState<NewEventMode | null>(null)
   const [postSave, setPostSave] = useState<PostSaveState | null>(null)
@@ -38,7 +38,7 @@ function NewEvent() {
     return (
       <NewEventModeSelect
         onSelect={setSelectedMode}
-        onCancel={() => navigate('/')}
+        onCancel={closeOverlay}
       />
     )
   }
@@ -62,7 +62,7 @@ function NewEvent() {
     return (
       <>
         <div
-          className="flex min-h-screen flex-col px-4 py-6"
+          className="flex flex-col px-4 py-6"
           style={{ backgroundColor: colors.brand_light_blue }}
         >
           <button

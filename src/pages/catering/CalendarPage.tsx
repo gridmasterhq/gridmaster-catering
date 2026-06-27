@@ -3,9 +3,9 @@ import {
   useMemo,
   useState,
 } from 'react'
-import { useNavigate } from 'react-router-dom'
 import type { EventType } from '../../lib/productConfig'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
+import { useOverlay } from '../../components/shared/AppShell'
 import { supabase } from '../../lib/supabase'
 
 const ORGANIZATION_ID = '00000000-0000-0000-0000-000000000001'
@@ -376,10 +376,10 @@ function CalendarPage() {
     setActiveDate(startOfDay(new Date()))
   }
 
-  const navigate = useNavigate()
+  const { openOverlay } = useOverlay()
 
   const handleNewEvent = () => {
-    navigate('/new-event')
+    openOverlay('new-event')
   }
 
   const handleEventClick = (eventId: string) => {

@@ -39,6 +39,7 @@ import OverlayPanel from './OverlayPanel'
 import UniformsPage from '../../pages/settings/UniformsPage'
 import NoteTemplatesPage from '../../pages/settings/NoteTemplatesPage'
 import RolesPage from '../../pages/RolesPage'
+import NewEvent from '../../pages/NewEvent'
 
 type ActiveScreen = 'cc' | 'calendar'
 
@@ -428,7 +429,6 @@ interface SidebarNavItemsProps {
   trainingLabel: string
   onClose: () => void
   openOverlay: (id: string) => void
-  closeOverlay: () => void
 }
 
 function SidebarNavItems({
@@ -439,9 +439,7 @@ function SidebarNavItems({
   trainingLabel,
   onClose,
   openOverlay,
-  closeOverlay,
 }: SidebarNavItemsProps) {
-  const navigate = useNavigate()
   const { isExpert, setExpertMode } = useExpertMode(screen)
 
   return (
@@ -473,8 +471,7 @@ function SidebarNavItems({
                 return
               }
               if (itemId === 'new_event') {
-                closeOverlay()
-                navigate('/new-event')
+                openOverlay('new-event')
               } else if (itemId === 'uniforms') {
                 openOverlay('uniforms')
               } else if (itemId === 'note_templates') {
@@ -609,6 +606,16 @@ function AppShell({ children }: AppShellProps) {
     uniforms: labels.uniforms_heading,
     roles: labels.roles_page_heading,
     'note-templates': labels.note_templates_heading,
+    'new-event':
+      navigation.blue.find((item) => item.id === 'new_event')?.label ??
+      'New Event',
+  }
+
+  const overlayDismissable: Record<string, boolean> = {
+    uniforms: true,
+    roles: true,
+    'note-templates': true,
+    'new-event': false,
   }
 
   const screenLabelStyle = useCallback(
@@ -862,7 +869,6 @@ function AppShell({ children }: AppShellProps) {
               trainingLabel={labels.training}
               onClose={closeSidebars}
               openOverlay={openOverlay}
-              closeOverlay={closeOverlay}
             />
           </SidebarSection>
         ))}
@@ -889,7 +895,6 @@ function AppShell({ children }: AppShellProps) {
               trainingLabel={labels.training}
               onClose={closeSidebars}
               openOverlay={openOverlay}
-              closeOverlay={closeOverlay}
             />
           </SidebarSection>
         ))}
@@ -897,13 +902,16 @@ function AppShell({ children }: AppShellProps) {
 
       {activeOverlay ? (
         <OverlayPanel
+          key={activeOverlay}
           isOpen={activeOverlay !== null}
           title={overlayTitles[activeOverlay] ?? ''}
+          dismissable={overlayDismissable[activeOverlay] ?? true}
           onClose={closeOverlay}
         >
           {activeOverlay === 'uniforms' ? <UniformsPage /> : null}
           {activeOverlay === 'roles' ? <RolesPage /> : null}
           {activeOverlay === 'note-templates' ? <NoteTemplatesPage /> : null}
+          {activeOverlay === 'new-event' ? <NewEvent /> : null}
         </OverlayPanel>
       ) : null}
 

@@ -114,6 +114,9 @@ export interface ProductLabels {
   ne_manual_entry_subtext: string
   ne_cancel: string
   ne_mode_selected: string
+  overlay_discard_confirm: string
+  overlay_keep_editing: string
+  overlay_discard_changes: string
   qe_event_name: string
   qe_event_name_placeholder: string
   qe_client_name: string
