@@ -108,6 +108,46 @@ function getPillStyle(status: string, isInactivePill: boolean): PillStyle {
     }
   }
 
+  if (status === 'needs_attention' || status === 'draft') {
+    return {
+      backgroundColor: '#fee2e2',
+      border: 'none',
+      color: '#991b1b',
+    }
+  }
+
+  if (status === 'in_progress') {
+    return {
+      backgroundColor: '#fef9c3',
+      border: 'none',
+      color: '#854d0e',
+    }
+  }
+
+  if (status === 'fully_staffed') {
+    return {
+      backgroundColor: '#dcf5e7',
+      border: 'none',
+      color: '#166534',
+    }
+  }
+
+  if (status === 'soft_hold') {
+    return {
+      backgroundColor: '#dbeafe',
+      border: 'none',
+      color: '#1e40af',
+    }
+  }
+
+  if (status === 'cancelled') {
+    return {
+      backgroundColor: '#f3f4f6',
+      border: 'none',
+      color: '#6b7280',
+    }
+  }
+
   if (status === 'staffed' || status === 'confirmed') {
     return {
       backgroundColor: 'rgba(220, 245, 231, 0.6)',
@@ -120,21 +160,12 @@ function getPillStyle(status: string, isInactivePill: boolean): PillStyle {
     status === 'outreach_sent' ||
     status === 'round1_complete' ||
     status === 'round2_complete' ||
-    status === 'in_progress' ||
     status === 'grid_built'
   ) {
     return {
       backgroundColor: 'rgba(254, 249, 195, 0.6)',
       border: 'none',
       color: '#854d0e',
-    }
-  }
-
-  if (status === 'needs_attention') {
-    return {
-      backgroundColor: 'rgba(254, 226, 226, 0.6)',
-      border: 'none',
-      color: '#991b1b',
     }
   }
 
