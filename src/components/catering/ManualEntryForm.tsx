@@ -44,6 +44,9 @@ interface NoteTemplate {
 }
 
 const PLACEHOLDER_EVENT_ID = '00000000-0000-0000-0000-000000000000'
+const CUSTOM_OPTION_VALUE = 'custom'
+
+type CustomSelectionFieldName = 'uniform' | 'note_template' | 'bar_service_type'
 
 const inputClassName =
   'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-navy focus:ring-2 focus:ring-brand-navy focus:outline-none'
@@ -472,6 +475,16 @@ export default function ManualEntryForm({
       const trimmedStaffNotes = staffNotes.trim()
       const trimmedBarServiceCustom = barServiceCustom.trim()
 
+      const selectedUniformPreset =
+        selectedUniformId && selectedUniformId !== CUSTOM_OPTION_VALUE
+          ? uniformPresets.find((preset) => preset.id === selectedUniformId)
+          : undefined
+
+      const selectedNoteTemplate =
+        selectedNoteTemplateId && selectedNoteTemplateId !== CUSTOM_OPTION_VALUE
+          ? noteTemplates.find((template) => template.id === selectedNoteTemplateId)
+          : undefined
+
       const { data, error } = await supabase
         .from('events')
         .insert({
@@ -498,19 +511,23 @@ export default function ManualEntryForm({
               : Number.parseInt(totalStaffNeeded, 10),
           buffer_percentage: Number.parseInt(bufferPct, 10),
           staff_notes: trimmedStaffNotes || null,
-          uniform_preset_id: selectedUniformId || null,
-          uniform_custom_text: selectedUniformId ? null : trimmedUniformNotes || null,
-          uniform_notes: selectedUniformId ? trimmedUniformNotes || null : null,
-          note_template_id: selectedNoteTemplateId || null,
-          coordinator_notes_custom: selectedNoteTemplateId
-            ? null
-            : trimmedCoordinatorNotes || null,
-          coordinator_notes: selectedNoteTemplateId
-            ? trimmedCoordinatorNotes || null
-            : null,
+          uniform_preset_id: selectedUniformPreset?.id ?? null,
+          uniform_custom_text:
+            selectedUniformId === CUSTOM_OPTION_VALUE
+              ? trimmedUniformNotes || null
+              : null,
+          uniform_notes: selectedUniformPreset?.description ?? null,
+          note_template_id: selectedNoteTemplate?.id ?? null,
+          coordinator_notes_custom:
+            selectedNoteTemplateId === CUSTOM_OPTION_VALUE
+              ? trimmedCoordinatorNotes || null
+              : null,
+          coordinator_notes: selectedNoteTemplate?.description ?? null,
           bar_service_type: barServiceType || null,
           bar_service_custom:
-            barServiceType === 'custom' ? trimmedBarServiceCustom || null : null,
+            barServiceType === CUSTOM_OPTION_VALUE
+              ? trimmedBarServiceCustom || null
+              : null,
           alcohol_cutoff_enabled: alcoholCutoff,
           vehicle_departure_time: vehicleDepartureTime || null,
           vehicle_load_time: vehicleLoadTime || null,
@@ -527,6 +544,54 @@ export default function ManualEntryForm({
 
       if (!data?.id) {
         throw new Error('Event created but no ID returned')
+      }
+
+      const customSelectionRecords: Array<{
+        organization_id: string
+        field_name: CustomSelectionFieldName
+        selected_value: string
+        custom_text: string
+        created_at: string
+      }> = []
+
+      if (selectedUniformId === CUSTOM_OPTION_VALUE) {
+        customSelectionRecords.push({
+          organization_id: organizationIdTrimmed,
+          field_name: 'uniform',
+          selected_value: CUSTOM_OPTION_VALUE,
+          custom_text: trimmedUniformNotes,
+          created_at: new Date().toISOString(),
+        })
+      }
+
+      if (selectedNoteTemplateId === CUSTOM_OPTION_VALUE) {
+        customSelectionRecords.push({
+          organization_id: organizationIdTrimmed,
+          field_name: 'note_template',
+          selected_value: CUSTOM_OPTION_VALUE,
+          custom_text: trimmedCoordinatorNotes,
+          created_at: new Date().toISOString(),
+        })
+      }
+
+      if (barServiceType === CUSTOM_OPTION_VALUE) {
+        customSelectionRecords.push({
+          organization_id: organizationIdTrimmed,
+          field_name: 'bar_service_type',
+          selected_value: CUSTOM_OPTION_VALUE,
+          custom_text: trimmedBarServiceCustom,
+          created_at: new Date().toISOString(),
+        })
+      }
+
+      if (customSelectionRecords.length > 0) {
+        const { error: trackingError } = await supabase
+          .from('custom_selection_events')
+          .insert(customSelectionRecords)
+
+        if (trackingError) {
+          console.error('Failed to log custom selections:', trackingError)
+        }
       }
 
       setTemplateEventId(data.id)
@@ -1019,11 +1084,10 @@ export default function ManualEntryForm({
               id="me-uniform"
               value={selectedUniformId}
               onChange={(e) => {
-                const id = e.target.value
-                setSelectedUniformId(id)
-                const preset = uniformPresets.find((item) => item.id === id)
-                if (preset) {
-                  setUniformNotes(preset.description)
+                const value = e.target.value
+                setSelectedUniformId(value)
+                if (value !== CUSTOM_OPTION_VALUE) {
+                  setUniformNotes('')
                 }
               }}
               className={inputClassName}
@@ -1035,6 +1099,7 @@ export default function ManualEntryForm({
                   {preset.name}
                 </option>
               ))}
+              <option value={CUSTOM_OPTION_VALUE}>{labels.roles_uniform_custom}</option>
             </select>
             {uniformPresetsLoaded && uniformPresets.length === 0 ? (
               <p
@@ -1053,19 +1118,17 @@ export default function ManualEntryForm({
                 {labels.form_no_uniform_presets_suffix}
               </p>
             ) : null}
-          </div>
-
-          <div>
-            <FieldLabel htmlFor="me-uniform-notes">{labels.me_uniform_notes}</FieldLabel>
-            <textarea
-              id="me-uniform-notes"
-              value={uniformNotes}
-              onChange={(e) => setUniformNotes(e.target.value)}
-              placeholder={labels.me_uniform_notes_placeholder}
-              rows={3}
-              className={inputClassName}
-              disabled={isSubmitting}
-            />
+            {selectedUniformId === CUSTOM_OPTION_VALUE ? (
+              <textarea
+                id="me-uniform-custom"
+                value={uniformNotes}
+                onChange={(e) => setUniformNotes(e.target.value)}
+                placeholder={labels.me_uniform_notes_placeholder}
+                rows={3}
+                className={`${inputClassName} mt-2`}
+                disabled={isSubmitting}
+              />
+            ) : null}
           </div>
 
           <div>
@@ -1076,11 +1139,10 @@ export default function ManualEntryForm({
               id="me-note-template"
               value={selectedNoteTemplateId}
               onChange={(e) => {
-                const id = e.target.value
-                setSelectedNoteTemplateId(id)
-                const template = noteTemplates.find((item) => item.id === id)
-                if (template) {
-                  setCoordinatorNotes(template.description)
+                const value = e.target.value
+                setSelectedNoteTemplateId(value)
+                if (value !== CUSTOM_OPTION_VALUE) {
+                  setCoordinatorNotes('')
                 }
               }}
               className={inputClassName}
@@ -1092,6 +1154,7 @@ export default function ManualEntryForm({
                   {template.name}
                 </option>
               ))}
+              <option value={CUSTOM_OPTION_VALUE}>{labels.roles_uniform_custom}</option>
             </select>
             {noteTemplatesLoaded && noteTemplates.length === 0 ? (
               <p
@@ -1110,21 +1173,17 @@ export default function ManualEntryForm({
                 {labels.form_no_note_templates_suffix}
               </p>
             ) : null}
-          </div>
-
-          <div>
-            <FieldLabel htmlFor="me-coordinator-notes">
-              {labels.me_coordinator_notes}
-            </FieldLabel>
-            <textarea
-              id="me-coordinator-notes"
-              value={coordinatorNotes}
-              onChange={(e) => setCoordinatorNotes(e.target.value)}
-              placeholder={labels.me_coordinator_notes_placeholder}
-              rows={3}
-              className={inputClassName}
-              disabled={isSubmitting}
-            />
+            {selectedNoteTemplateId === CUSTOM_OPTION_VALUE ? (
+              <textarea
+                id="me-coordinator-notes"
+                value={coordinatorNotes}
+                onChange={(e) => setCoordinatorNotes(e.target.value)}
+                placeholder={labels.me_coordinator_notes_placeholder}
+                rows={3}
+                className={`${inputClassName} mt-2`}
+                disabled={isSubmitting}
+              />
+            ) : null}
           </div>
 
           <div>
@@ -1137,7 +1196,7 @@ export default function ManualEntryForm({
               onChange={(e) => {
                 const value = e.target.value
                 setBarServiceType(value)
-                if (value !== 'custom') {
+                if (value !== CUSTOM_OPTION_VALUE) {
                   setBarServiceCustom('')
                 }
               }}
@@ -1145,13 +1204,16 @@ export default function ManualEntryForm({
               disabled={isSubmitting}
             >
               <option value="">{labels.me_select_bar_service_type}</option>
-              {bar_service_types.map((type) => (
-                <option key={type.value} value={type.value}>
-                  {type.label}
-                </option>
-              ))}
+              {bar_service_types
+                .filter((type) => type.value !== CUSTOM_OPTION_VALUE)
+                .map((type) => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
+                  </option>
+                ))}
+              <option value={CUSTOM_OPTION_VALUE}>{labels.roles_uniform_custom}</option>
             </select>
-            {barServiceType === 'custom' ? (
+            {barServiceType === CUSTOM_OPTION_VALUE ? (
               <textarea
                 id="me-bar-service-custom"
                 value={barServiceCustom}
