@@ -150,6 +150,12 @@ export interface ProductLabels {
   form_select_note_template: string
   form_no_note_templates_prefix: string
   form_no_note_templates_suffix: string
+  form_none: string
+  me_event_type_other_label: string
+  me_event_type_other_placeholder: string
+  me_service_style_custom_placeholder: string
+  me_uniform_custom_placeholder: string
+  me_coordinator_notes_custom_placeholder: string
   ps_event_created_heading: string
   ps_add_more_details: string
   ps_build_staff_grid: string

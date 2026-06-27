@@ -45,8 +45,14 @@ interface NoteTemplate {
 
 const PLACEHOLDER_EVENT_ID = '00000000-0000-0000-0000-000000000000'
 const CUSTOM_OPTION_VALUE = 'custom'
+const NONE_OPTION_VALUE = 'none'
 
-type CustomSelectionFieldName = 'uniform' | 'note_template' | 'bar_service_type'
+type CustomSelectionFieldName =
+  | 'event_type'
+  | 'service_style'
+  | 'uniform'
+  | 'note_template'
+  | 'bar_service_type'
 
 const inputClassName =
   'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-navy focus:ring-2 focus:ring-brand-navy focus:outline-none'
@@ -179,6 +185,8 @@ export default function ManualEntryForm({
       ? initialValues.service_style
       : ''
   })
+  const [eventTypeOtherText, setEventTypeOtherText] = useState('')
+  const [serviceStyleCustom, setServiceStyleCustom] = useState('')
 
   const [venue, setVenue] = useState(initialValues?.venue_name ?? '')
   const [linkVenue, setLinkVenue] = useState(false)
@@ -474,14 +482,20 @@ export default function ManualEntryForm({
       const trimmedCoordinatorNotes = coordinatorNotes.trim()
       const trimmedStaffNotes = staffNotes.trim()
       const trimmedBarServiceCustom = barServiceCustom.trim()
+      const trimmedEventTypeOther = eventTypeOtherText.trim()
+      const trimmedServiceStyleCustom = serviceStyleCustom.trim()
 
       const selectedUniformPreset =
-        selectedUniformId && selectedUniformId !== CUSTOM_OPTION_VALUE
+        selectedUniformId &&
+        selectedUniformId !== CUSTOM_OPTION_VALUE &&
+        selectedUniformId !== NONE_OPTION_VALUE
           ? uniformPresets.find((preset) => preset.id === selectedUniformId)
           : undefined
 
       const selectedNoteTemplate =
-        selectedNoteTemplateId && selectedNoteTemplateId !== CUSTOM_OPTION_VALUE
+        selectedNoteTemplateId &&
+        selectedNoteTemplateId !== CUSTOM_OPTION_VALUE &&
+        selectedNoteTemplateId !== NONE_OPTION_VALUE
           ? noteTemplates.find((template) => template.id === selectedNoteTemplateId)
           : undefined
 
@@ -496,7 +510,13 @@ export default function ManualEntryForm({
           event_start_time: startTimeTbd ? null : eventStartTime || null,
           event_end_time: endTimeTbd ? null : eventEndTime || null,
           event_type: eventType,
+          event_type_other_text:
+            eventType === CUSTOM_OPTION_VALUE ? trimmedEventTypeOther || null : null,
           service_style: serviceStyle || null,
+          service_style_custom:
+            serviceStyle === CUSTOM_OPTION_VALUE
+              ? trimmedServiceStyleCustom || null
+              : null,
           venue_name:
             linkVenue && selectedLocationId ? null : venue.trim() || null,
           location_id:
@@ -549,18 +569,34 @@ export default function ManualEntryForm({
       const customSelectionRecords: Array<{
         organization_id: string
         field_name: CustomSelectionFieldName
-        selected_value: string
         custom_text: string
-        created_at: string
+        event_id: string
       }> = []
+
+      if (eventType === CUSTOM_OPTION_VALUE) {
+        customSelectionRecords.push({
+          organization_id: organizationIdTrimmed,
+          field_name: 'event_type',
+          custom_text: trimmedEventTypeOther,
+          event_id: data.id,
+        })
+      }
+
+      if (serviceStyle === CUSTOM_OPTION_VALUE) {
+        customSelectionRecords.push({
+          organization_id: organizationIdTrimmed,
+          field_name: 'service_style',
+          custom_text: trimmedServiceStyleCustom,
+          event_id: data.id,
+        })
+      }
 
       if (selectedUniformId === CUSTOM_OPTION_VALUE) {
         customSelectionRecords.push({
           organization_id: organizationIdTrimmed,
           field_name: 'uniform',
-          selected_value: CUSTOM_OPTION_VALUE,
           custom_text: trimmedUniformNotes,
-          created_at: new Date().toISOString(),
+          event_id: data.id,
         })
       }
 
@@ -568,9 +604,8 @@ export default function ManualEntryForm({
         customSelectionRecords.push({
           organization_id: organizationIdTrimmed,
           field_name: 'note_template',
-          selected_value: CUSTOM_OPTION_VALUE,
           custom_text: trimmedCoordinatorNotes,
-          created_at: new Date().toISOString(),
+          event_id: data.id,
         })
       }
 
@@ -578,9 +613,8 @@ export default function ManualEntryForm({
         customSelectionRecords.push({
           organization_id: organizationIdTrimmed,
           field_name: 'bar_service_type',
-          selected_value: CUSTOM_OPTION_VALUE,
           custom_text: trimmedBarServiceCustom,
-          created_at: new Date().toISOString(),
+          event_id: data.id,
         })
       }
 
@@ -842,17 +876,42 @@ export default function ManualEntryForm({
             <select
               id="me-event-type"
               value={eventType}
-              onChange={(e) => setEventType(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value
+                setEventType(value)
+                if (value !== CUSTOM_OPTION_VALUE) {
+                  setEventTypeOtherText('')
+                }
+              }}
               className={inputClassName}
               disabled={isSubmitting}
             >
               <option value="">{labels.qe_select_event_type}</option>
-              {event_types.map((type) => (
-                <option key={type.value} value={type.value}>
-                  {type.label}
-                </option>
-              ))}
+              {event_types
+                .filter((type) => type.value !== CUSTOM_OPTION_VALUE)
+                .map((type) => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
+                  </option>
+                ))}
+              <option value={CUSTOM_OPTION_VALUE}>{labels.roles_uniform_custom}</option>
             </select>
+            {eventType === CUSTOM_OPTION_VALUE ? (
+              <div className="mt-2">
+                <FieldLabel htmlFor="me-event-type-other">
+                  {labels.me_event_type_other_label}
+                </FieldLabel>
+                <input
+                  id="me-event-type-other"
+                  type="text"
+                  value={eventTypeOtherText}
+                  onChange={(e) => setEventTypeOtherText(e.target.value)}
+                  placeholder={labels.me_event_type_other_placeholder}
+                  className={inputClassName}
+                  disabled={isSubmitting}
+                />
+              </div>
+            ) : null}
             {fieldErrors.eventType ? (
               <p className="mt-1 text-xs text-red-500">{fieldErrors.eventType}</p>
             ) : null}
@@ -863,17 +922,37 @@ export default function ManualEntryForm({
             <select
               id="me-service-style"
               value={serviceStyle}
-              onChange={(e) => setServiceStyle(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value
+                setServiceStyle(value)
+                if (value !== CUSTOM_OPTION_VALUE) {
+                  setServiceStyleCustom('')
+                }
+              }}
               className={inputClassName}
               disabled={isSubmitting}
             >
               <option value="">{labels.qe_select_service_style}</option>
-              {service_styles.map((style) => (
-                <option key={style.value} value={style.value}>
-                  {style.label}
-                </option>
-              ))}
+              {service_styles
+                .filter((style) => style.value !== CUSTOM_OPTION_VALUE)
+                .map((style) => (
+                  <option key={style.value} value={style.value}>
+                    {style.label}
+                  </option>
+                ))}
+              <option value={CUSTOM_OPTION_VALUE}>{labels.roles_uniform_custom}</option>
             </select>
+            {serviceStyle === CUSTOM_OPTION_VALUE ? (
+              <textarea
+                id="me-service-style-custom"
+                value={serviceStyleCustom}
+                onChange={(e) => setServiceStyleCustom(e.target.value)}
+                placeholder={labels.me_service_style_custom_placeholder}
+                rows={3}
+                className={`${inputClassName} mt-2`}
+                disabled={isSubmitting}
+              />
+            ) : null}
           </div>
         </div>
       </section>
@@ -1099,6 +1178,7 @@ export default function ManualEntryForm({
                   {preset.name}
                 </option>
               ))}
+              <option value={NONE_OPTION_VALUE}>{labels.form_none}</option>
               <option value={CUSTOM_OPTION_VALUE}>{labels.roles_uniform_custom}</option>
             </select>
             {uniformPresetsLoaded && uniformPresets.length === 0 ? (
@@ -1123,7 +1203,7 @@ export default function ManualEntryForm({
                 id="me-uniform-custom"
                 value={uniformNotes}
                 onChange={(e) => setUniformNotes(e.target.value)}
-                placeholder={labels.me_uniform_notes_placeholder}
+                placeholder={labels.me_uniform_custom_placeholder}
                 rows={3}
                 className={`${inputClassName} mt-2`}
                 disabled={isSubmitting}
@@ -1154,6 +1234,7 @@ export default function ManualEntryForm({
                   {template.name}
                 </option>
               ))}
+              <option value={NONE_OPTION_VALUE}>{labels.form_none}</option>
               <option value={CUSTOM_OPTION_VALUE}>{labels.roles_uniform_custom}</option>
             </select>
             {noteTemplatesLoaded && noteTemplates.length === 0 ? (
@@ -1178,7 +1259,7 @@ export default function ManualEntryForm({
                 id="me-coordinator-notes"
                 value={coordinatorNotes}
                 onChange={(e) => setCoordinatorNotes(e.target.value)}
-                placeholder={labels.me_coordinator_notes_placeholder}
+                placeholder={labels.me_coordinator_notes_custom_placeholder}
                 rows={3}
                 className={`${inputClassName} mt-2`}
                 disabled={isSubmitting}

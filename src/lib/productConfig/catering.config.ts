@@ -288,6 +288,15 @@ const cateringConfig: ProductConfig = {
     form_no_note_templates_prefix:
       'No note templates saved yet — set them up in ',
     form_no_note_templates_suffix: '.',
+    form_none: 'None',
+    me_event_type_other_label: 'Describe event type',
+    me_event_type_other_placeholder: 'e.g. Film shoot wrap party',
+    me_service_style_custom_placeholder:
+      'e.g. Food truck style stations with passed appetizers',
+    me_uniform_custom_placeholder:
+      'e.g. Black polo shirt, dark jeans (no rips), clean sneakers',
+    me_coordinator_notes_custom_placeholder:
+      'e.g. Remind captain to confirm bar closing time 30 min before cutoff',
     ps_event_created_heading: 'Event Created!',
     ps_add_more_details: 'Add More Details',
     ps_build_staff_grid: 'Build My Staff Grid',
