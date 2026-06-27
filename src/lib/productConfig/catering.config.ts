@@ -338,9 +338,9 @@ const cateringConfig: ProductConfig = {
     uniforms_subtext:
       'Save your standard uniforms here to reuse them across events.',
     uniforms_roles_subtext_prefix:
-      'Default uniforms are attached to specific roles in the staffing grid. You can change or edit those uniforms using the dropdowns in ',
+      'Default uniforms are attached to specific roles in the staffing grid. You can change or edit the default uniform for each role in ',
     uniforms_roles_subtext_suffix:
-      ' or the edit button on any uniform below.',
+      ', or override it per role and shift directly inside the event grid when building your staffing.',
     uniforms_add: 'Add Uniform',
     uniforms_name: 'Name',
     uniforms_name_placeholder: 'e.g. Black Tie',
