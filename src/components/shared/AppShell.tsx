@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, createContext, useContext, type CSSProperties, type ReactNode } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import {
   IconBell,
   IconBolt,
@@ -472,6 +472,8 @@ interface AppShellProps {
 }
 
 function AppShell({ children }: AppShellProps) {
+  const navigate = useNavigate()
+  const location = useLocation()
   const { brand_name, product_name, navigation, labels, colors } =
     useProductConfig()
 
@@ -559,6 +561,16 @@ function AppShell({ children }: AppShellProps) {
     window.location.reload()
   }, [])
 
+  const handleScreenSelect = useCallback(
+    (screen: ActiveScreen) => {
+      setActiveScreen(screen)
+      if (location.pathname !== '/') {
+        navigate('/')
+      }
+    },
+    [location.pathname, navigate],
+  )
+
   const screenLabelStyle = useCallback(
     (screen: ActiveScreen): CSSProperties => {
       const isActive = activeScreen === screen
@@ -613,7 +625,7 @@ function AppShell({ children }: AppShellProps) {
             type="button"
             className="text-sm tracking-wide text-white uppercase"
             style={screenLabelStyle('cc')}
-            onClick={() => setActiveScreen('cc')}
+            onClick={() => handleScreenSelect('cc')}
           >
             {labels.command_center}
           </button>
@@ -755,7 +767,7 @@ function AppShell({ children }: AppShellProps) {
             type="button"
             className="text-sm tracking-wide text-white uppercase"
             style={screenLabelStyle('calendar')}
-            onClick={() => setActiveScreen('calendar')}
+            onClick={() => handleScreenSelect('calendar')}
           >
             {labels.calendar}
           </button>
