@@ -61,6 +61,40 @@ function getDraftActionSubtext(event: DraftActionEvent): string {
   return `Draft for ${draftDays} days — needs review`
 }
 
+function formatActionItemEventDate(
+  eventDate: string | null | undefined,
+): string | null {
+  if (!eventDate?.trim()) {
+    return null
+  }
+
+  const parsed = new Date(`${eventDate.trim()}T12:00:00`)
+  if (Number.isNaN(parsed.getTime())) {
+    return null
+  }
+
+  return parsed
+    .toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    })
+    .replace(', ', ' ')
+}
+
+function getDraftActionTitle(event: DraftActionEvent): string {
+  const formattedDate = formatActionItemEventDate(event.event_date)
+  return formattedDate
+    ? `${event.event_name} (${formattedDate})`
+    : event.event_name
+}
+
+function getRetentionUntilTwelveMonths(): string {
+  const retentionUntil = new Date()
+  retentionUntil.setMonth(retentionUntil.getMonth() + 12)
+  return retentionUntil.toISOString()
+}
+
 const boxStyle: CSSProperties = {
   backgroundColor: '#ffffff',
   border: '0.5px solid #e5e7eb',
@@ -220,6 +254,48 @@ function CommandCenterPage() {
   const { setActiveScreen } = useActiveScreen()
   const [eventCount, setEventCount] = useState<number | null>(null)
   const [draftActionItems, setDraftActionItems] = useState<DraftActionEvent[]>([])
+  const [archivedEventIds, setArchivedEventIds] = useState<Set<string>>(new Set())
+  const [dismissedEventIds, setDismissedEventIds] = useState<Set<string>>(new Set())
+  const [archiveErrors, setArchiveErrors] = useState<Record<string, string>>({})
+
+  const fetchArchivedEventIds = useCallback(async () => {
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser()
+
+      if (userError) {
+        console.error('[CommandCenter] archived actions: getUser failed', userError)
+        return
+      }
+
+      const organizationId = user?.user_metadata?.organization_id
+      if (typeof organizationId !== 'string' || !organizationId.trim()) {
+        return
+      }
+
+      const { data, error } = await supabase
+        .from('action_item_archives')
+        .select('event_id')
+        .eq('organization_id', organizationId.trim())
+
+      if (error) {
+        console.error('[CommandCenter] archived actions query failed', error)
+        return
+      }
+
+      const ids = new Set<string>()
+      for (const row of data ?? []) {
+        if (typeof row.event_id === 'string' && row.event_id.length > 0) {
+          ids.add(row.event_id)
+        }
+      }
+      setArchivedEventIds(ids)
+    } catch (error) {
+      console.error('[CommandCenter] archived actions unexpected error', error)
+    }
+  }, [])
 
   const fetchDraftActionItems = useCallback(async () => {
     try {
@@ -276,6 +352,7 @@ function CommandCenterPage() {
 
   useEffect(() => {
     void fetchDraftActionItems()
+    void fetchArchivedEventIds()
 
     const intervalId = window.setInterval(() => {
       void fetchDraftActionItems()
@@ -284,7 +361,7 @@ function CommandCenterPage() {
     return () => {
       window.clearInterval(intervalId)
     }
-  }, [fetchDraftActionItems])
+  }, [fetchDraftActionItems, fetchArchivedEventIds])
 
   useEffect(() => {
     async function fetchEventCount() {
@@ -337,7 +414,86 @@ function CommandCenterPage() {
   const competingEventsLabel =
     navigation.red.find((item) => item.id === 'competing_events')?.label ?? ''
 
-  const actionItemCount = draftActionItems.length
+  const visibleDraftActionItems = draftActionItems.filter(
+    (event) => !archivedEventIds.has(event.id) && !dismissedEventIds.has(event.id),
+  )
+
+  const actionItemCount = visibleDraftActionItems.length
+
+  const handleDismissActionItem = (eventId: string) => {
+    setDismissedEventIds((previous) => new Set(previous).add(eventId))
+    setArchiveErrors((previous) => {
+      const next = { ...previous }
+      delete next[eventId]
+      return next
+    })
+  }
+
+  const handleArchiveActionItem = async (event: DraftActionEvent) => {
+    const reason = getDraftActionSubtext(event)
+
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser()
+
+      if (userError) {
+        console.error('[CommandCenter] archive action: getUser failed', userError)
+        setArchiveErrors((previous) => ({
+          ...previous,
+          [event.id]: 'Archive failed — try again',
+        }))
+        return
+      }
+
+      const organizationId = user?.user_metadata?.organization_id
+      if (typeof organizationId !== 'string' || !organizationId.trim()) {
+        setArchiveErrors((previous) => ({
+          ...previous,
+          [event.id]: 'Archive failed — try again',
+        }))
+        return
+      }
+
+      const archivedBy =
+        (typeof user?.phone === 'string' && user.phone.trim()) ||
+        user?.id ||
+        null
+
+      const { error } = await supabase.from('action_item_archives').insert({
+        organization_id: organizationId.trim(),
+        event_id: event.id,
+        event_name: event.event_name,
+        event_date: event.event_date || null,
+        reason,
+        archived_by: archivedBy,
+        retention_until: getRetentionUntilTwelveMonths(),
+      })
+
+      if (error) {
+        console.error('[CommandCenter] archive action insert failed', error)
+        setArchiveErrors((previous) => ({
+          ...previous,
+          [event.id]: 'Archive failed — try again',
+        }))
+        return
+      }
+
+      setArchivedEventIds((previous) => new Set(previous).add(event.id))
+      setArchiveErrors((previous) => {
+        const next = { ...previous }
+        delete next[event.id]
+        return next
+      })
+    } catch (error) {
+      console.error('[CommandCenter] archive action unexpected error', error)
+      setArchiveErrors((previous) => ({
+        ...previous,
+        [event.id]: 'Archive failed — try again',
+      }))
+    }
+  }
   const vendorAlertCount = 0
   const highlightCount = 0
   const competingEventCount = 0
@@ -451,7 +607,7 @@ function CommandCenterPage() {
             color="#991b1b"
             right={<span style={countBadgeStyle}>{actionItemCount}</span>}
           />
-          {draftActionItems.length === 0 ? (
+          {visibleDraftActionItems.length === 0 ? (
             <BoxItemRow>
               <div
                 className="flex w-full items-center justify-center text-gray-400"
@@ -473,7 +629,7 @@ function CommandCenterPage() {
               </div>
             </BoxItemRow>
           ) : (
-            draftActionItems.map((event) => (
+            visibleDraftActionItems.map((event) => (
               <div
                 key={event.id}
                 style={{
@@ -503,7 +659,7 @@ function CommandCenterPage() {
                       lineHeight: 1.3,
                     }}
                   >
-                    {event.event_name}
+                    {getDraftActionTitle(event)}
                   </p>
                   <p
                     style={{
@@ -515,22 +671,69 @@ function CommandCenterPage() {
                   >
                     {getDraftActionSubtext(event)}
                   </p>
+                  {archiveErrors[event.id] ? (
+                    <p
+                      style={{
+                        fontSize: '12px',
+                        color: '#ef4444',
+                        marginTop: '4px',
+                        lineHeight: 1.3,
+                      }}
+                    >
+                      {archiveErrors[event.id]}
+                    </p>
+                  ) : null}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => window.open(`/event/${event.id}`, '_blank')}
-                  className="shrink-0 hover:underline"
-                  style={{
-                    fontSize: '12px',
-                    color: '#1B3A5C',
-                    cursor: 'pointer',
-                    background: 'none',
-                    border: 'none',
-                    padding: 0,
-                  }}
+                <div
+                  className="flex shrink-0 items-center"
+                  style={{ gap: '12px' }}
                 >
-                  Review
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => window.open(`/event/${event.id}`, '_blank')}
+                    className="hover:underline"
+                    style={{
+                      fontSize: '12px',
+                      color: '#1B3A5C',
+                      cursor: 'pointer',
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                    }}
+                  >
+                    Review
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDismissActionItem(event.id)}
+                    className="hover:underline"
+                    style={{
+                      fontSize: '12px',
+                      color: '#6B7280',
+                      cursor: 'pointer',
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                    }}
+                  >
+                    Dismiss
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleArchiveActionItem(event)}
+                    className="hover:underline"
+                    style={{
+                      fontSize: '12px',
+                      color: '#6B7280',
+                      cursor: 'pointer',
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                    }}
+                  >
+                    Archive
+                  </button>
+                </div>
               </div>
             ))
           )}
