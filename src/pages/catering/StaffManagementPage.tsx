@@ -26,6 +26,7 @@ const ROLE_OPTIONS = [
   'Bar Back',
   'Food Runner',
   'Captain',
+  'CIT',
   'Setup Crew',
   'Breakdown Crew',
   'Line Cook',
@@ -42,15 +43,9 @@ const ROLE_OPTIONS = [
 type ExperienceRatingColumn = 'experience_rating' | 'starting_designation'
 type StaffRolesPhoneColumn = 'staff_phone' | 'phone'
 
-type StaffStatus = 'active' | 'alumni' | 'dnr' | 'archived'
-type FilterPill =
-  | 'all'
-  | 'active'
-  | 'captain_priority'
-  | 'archived'
-  | 'alumni'
-  | 'dnr'
-type SortOption = 'seniority' | 'rating' | 'name' | 'joined'
+type StaffStatus = 'active' | 'alumni' | 'not_active' | 'archived'
+type FilterPill = 'all' | 'active' | 'priority' | 'archived' | 'not_active'
+type SortOption = 'name' | 'phone' | 'joined' | 'rating'
 type ProfileTab =
   | 'history'
   | 'certifications'
@@ -74,7 +69,7 @@ interface StaffMember {
   rating_count: number
   starting_designation: string | null
   status: StaffStatus
-  captain_priority: boolean
+  is_priority: boolean
   created_at: string
   staff_roles: StaffRoleRow[] | null
 }
@@ -251,7 +246,39 @@ async function resolveExperienceRatingColumn(): Promise<ExperienceRatingColumn> 
   return 'experience_rating'
 }
 
+async function fetchStaffRolesColumnNames(): Promise<string[]> {
+  const { data, error } = await supabase
+    .schema('information_schema')
+    .from('columns')
+    .select('column_name')
+    .eq('table_schema', 'public')
+    .eq('table_name', 'staff_roles')
+
+  if (!error && data) {
+    return data
+      .map((row) =>
+        typeof row.column_name === 'string' ? row.column_name : '',
+      )
+      .filter(Boolean)
+  }
+
+  console.error(
+    '[StaffManagement] staff_roles schema lookup failed',
+    error,
+  )
+  return []
+}
+
 async function resolveStaffRolesPhoneColumn(): Promise<StaffRolesPhoneColumn> {
+  const columnNames = await fetchStaffRolesColumnNames()
+
+  if (columnNames.includes('staff_phone')) {
+    return 'staff_phone'
+  }
+  if (columnNames.includes('phone')) {
+    return 'phone'
+  }
+
   const { error } = await supabase
     .from('staff_roles')
     .select('staff_phone')
@@ -356,8 +383,8 @@ function statusDotColor(status: StaffStatus): string {
       return '#22C55E'
     case 'alumni':
       return '#9CA3AF'
-    case 'dnr':
-      return '#EF4444'
+    case 'not_active':
+      return '#9CA3AF'
     case 'archived':
       return '#374151'
     default:
@@ -371,8 +398,8 @@ function statusBadgeStyle(status: StaffStatus): CSSProperties {
       return { backgroundColor: '#DCFCE7', color: '#166534' }
     case 'alumni':
       return { backgroundColor: '#F3F4F6', color: '#6B7280' }
-    case 'dnr':
-      return { backgroundColor: '#FEE2E2', color: '#991B1B' }
+    case 'not_active':
+      return { backgroundColor: '#F3F4F6', color: '#6B7280' }
     case 'archived':
       return { backgroundColor: '#E5E7EB', color: '#374151' }
     default:
@@ -381,8 +408,11 @@ function statusBadgeStyle(status: StaffStatus): CSSProperties {
 }
 
 function formatStatusLabel(status: StaffStatus): string {
-  if (status === 'dnr') {
-    return 'DNR'
+  if (status === 'not_active') {
+    return 'Not Active'
+  }
+  if (status === 'alumni') {
+    return 'Alumni'
   }
   return status.charAt(0).toUpperCase() + status.slice(1)
 }
@@ -465,12 +495,12 @@ function sortStaffMembers(
 
   sorted.sort((a, b) => {
     switch (sortBy) {
-      case 'seniority':
-        return b.seniority_level - a.seniority_level
       case 'rating':
         return (b.average_rating ?? 0) - (a.average_rating ?? 0)
       case 'name':
         return getStaffDisplayName(a).localeCompare(getStaffDisplayName(b))
+      case 'phone':
+        return a.phone.localeCompare(b.phone)
       case 'joined':
         return (
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
@@ -489,7 +519,7 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterPill, setFilterPill] = useState<FilterPill>('all')
-  const [sortBy, setSortBy] = useState<SortOption>('seniority')
+  const [sortBy, setSortBy] = useState<SortOption>('name')
   const [selectedStaff, setSelectedStaff] = useState<StaffMember | null>(null)
   const [profileTab, setProfileTab] = useState<ProfileTab>('history')
   const [showAddForm, setShowAddForm] = useState(false)
@@ -525,7 +555,7 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
         rating_count,
         starting_designation,
         status,
-        captain_priority,
+        is_priority,
         created_at,
         staff_roles (
           role,
@@ -616,12 +646,10 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
           return staff.status === 'active'
         case 'archived':
           return staff.status === 'archived'
-        case 'alumni':
-          return staff.status === 'alumni'
-        case 'dnr':
-          return staff.status === 'dnr'
-        case 'captain_priority':
-          return staff.captain_priority
+        case 'not_active':
+          return staff.status === 'not_active'
+        case 'priority':
+          return staff.is_priority
         default:
           return true
       }
@@ -735,7 +763,7 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
         legal_name: trimmedLegalName,
         phone: e164Phone,
         status: 'active',
-        captain_priority: false,
+        is_priority: false,
         rating_count: 0,
         created_at: nowIso,
         updated_at: nowIso,
@@ -804,10 +832,9 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
   const filterPills: { id: FilterPill; label: string }[] = [
     { id: 'all', label: 'All' },
     { id: 'active', label: 'Active' },
-    { id: 'captain_priority', label: 'Captain Priority' },
+    { id: 'priority', label: 'Priority' },
     { id: 'archived', label: 'Archived' },
-    { id: 'alumni', label: 'Alumni' },
-    { id: 'dnr', label: 'DNR' },
+    { id: 'not_active', label: 'Not Active' },
   ]
 
   const profileTabs: { id: ProfileTab; label: string }[] = [
@@ -938,10 +965,10 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
                 backgroundColor: '#ffffff',
               }}
             >
-              <option value="seniority">Sort: Seniority</option>
-              <option value="rating">Sort: Rating</option>
               <option value="name">Sort: Name</option>
+              <option value="phone">Sort: Phone</option>
               <option value="joined">Sort: Joined</option>
+              <option value="rating">Sort: Rating</option>
             </select>
           </div>
         </div>
@@ -1027,7 +1054,7 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
                       >
                         {displayName}
                       </span>
-                      {staff.captain_priority ? (
+                      {staff.is_priority ? (
                         <span
                           style={{
                             fontSize: '10px',
