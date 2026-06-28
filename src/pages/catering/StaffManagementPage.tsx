@@ -265,6 +265,61 @@ function ReadOnlyStars({
   )
 }
 
+function ExperienceRatingStars({
+  rating,
+  size = 12,
+}: {
+  rating: number
+  size?: number
+}) {
+  const filled = Math.min(Math.max(Math.round(rating), 1), 6)
+
+  return (
+    <span
+      className="inline-flex items-center"
+      style={{ fontSize: `${size}px`, lineHeight: 1, gap: '2px' }}
+    >
+      <span style={{ fontWeight: 700, color: '#C0392B' }}>E</span>
+      {[1, 2, 3, 4, 5, 6].map((star) => (
+        <span
+          key={star}
+          style={{ color: star <= filled ? GOLD : '#D1D5DB' }}
+        >
+          {star <= filled ? '★' : '☆'}
+        </span>
+      ))}
+    </span>
+  )
+}
+
+function StaffListCardRating({ staff }: { staff: StaffMember }) {
+  if (staff.rating_count >= 6 && staff.average_rating != null) {
+    return <ReadOnlyStars rating={staff.average_rating} />
+  }
+
+  const experienceRating = staff.experience_rating
+  if (
+    experienceRating != null &&
+    experienceRating >= 1 &&
+    experienceRating <= 6 &&
+    staff.rating_count < 6
+  ) {
+    return <ExperienceRatingStars rating={experienceRating} />
+  }
+
+  return (
+    <span
+      style={{
+        fontSize: '11px',
+        color: '#6B7280',
+        fontStyle: 'italic',
+      }}
+    >
+      {formatStartingDesignation(staff.starting_designation)}
+    </span>
+  )
+}
+
 function StaffPhoto({
   photoUrl,
   name,
@@ -1221,33 +1276,8 @@ function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
                       {primaryRoleLabel}
                     </p>
                   </div>
-                  <div
-                    className="flex shrink-0 flex-col items-end"
-                    style={{ gap: '4px' }}
-                  >
-                    <span
-                      style={{
-                        fontSize: '11px',
-                        fontWeight: 500,
-                        color: '#6B7280',
-                      }}
-                    >
-                      S{staff.experience_rating ?? 0}
-                    </span>
-                    {staff.rating_count > 0 &&
-                    staff.average_rating != null ? (
-                      <ReadOnlyStars rating={staff.average_rating} />
-                    ) : (
-                      <span
-                        style={{
-                          fontSize: '11px',
-                          color: '#6B7280',
-                          fontStyle: 'italic',
-                        }}
-                      >
-                        {formatStartingDesignation(staff.starting_designation)}
-                      </span>
-                    )}
+                  <div className="flex shrink-0 items-end">
+                    <StaffListCardRating staff={staff} />
                   </div>
                 </button>
               )
