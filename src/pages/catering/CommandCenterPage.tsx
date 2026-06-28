@@ -915,7 +915,7 @@ function CommandCenterPage() {
   }, [])
 
   const fetchSnoozedEventIds = useCallback(async () => {
-    const generation = ++snoozedFetchGenerationRef.current
+    const fetchGenerationAtStart = snoozedFetchGenerationRef.current
 
     try {
       const {
@@ -940,7 +940,7 @@ function CommandCenterPage() {
         .eq('organization_id', organizationId.trim())
         .gt('snooze_until', nowIso)
 
-      if (generation !== snoozedFetchGenerationRef.current) {
+      if (fetchGenerationAtStart !== snoozedFetchGenerationRef.current) {
         return
       }
 
