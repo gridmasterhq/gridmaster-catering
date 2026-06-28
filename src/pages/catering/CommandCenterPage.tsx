@@ -8,6 +8,8 @@ import {
   IconMapPin,
   IconSearch,
   IconSpeakerphone,
+  IconX,
+  IconZzz,
 } from '@tabler/icons-react'
 import type { Icon } from '@tabler/icons-react'
 import { useActiveScreen } from '../../components/shared/AppShell'
@@ -113,13 +115,32 @@ function isSnoozeFiltered(
   return true
 }
 
+function getSnoozeWakeUpLabel(snoozeUntil: string): string {
+  const msRemaining = new Date(snoozeUntil).getTime() - Date.now()
+  const daysRemaining = Math.floor(msRemaining / (1000 * 60 * 60 * 24))
+
+  if (daysRemaining <= 0) {
+    return 'Wakes up today'
+  }
+  if (daysRemaining === 1) {
+    return 'Wakes up tomorrow'
+  }
+  return `Wakes up in ${daysRemaining} days`
+}
+
 interface SnoozePopoverProps {
   anchorEl: HTMLElement
   onClose: () => void
   onSelect: (days: number) => void
+  zIndex?: number
 }
 
-function SnoozePopover({ anchorEl, onClose, onSelect }: SnoozePopoverProps) {
+function SnoozePopover({
+  anchorEl,
+  onClose,
+  onSelect,
+  zIndex = 200,
+}: SnoozePopoverProps) {
   const popoverRef = useRef<HTMLDivElement>(null)
 
   useLayoutEffect(() => {
@@ -165,7 +186,7 @@ function SnoozePopover({ anchorEl, onClose, onSelect }: SnoozePopoverProps) {
       ref={popoverRef}
       style={{
         position: 'fixed',
-        zIndex: 200,
+        zIndex,
         display: 'flex',
         alignItems: 'center',
         backgroundColor: '#ffffff',
@@ -195,6 +216,464 @@ function SnoozePopover({ anchorEl, onClose, onSelect }: SnoozePopoverProps) {
       ))}
     </div>,
     document.body,
+  )
+}
+
+interface SnoozedItemRow {
+  id: string
+  event_id: string | null
+  item_type: string
+  snooze_until: string
+  events: {
+    id: string
+    event_name: string
+    event_date: string
+    created_at: string
+    status: string
+  } | null
+}
+
+interface ActionItemsSnoozedPanelProps {
+  isOpen: boolean
+  onClose: () => void
+  onRestored: (eventId: string | null) => void
+  onRestoreUndone: (eventId: string | null) => void
+}
+
+function ActionItemsSnoozedPanel({
+  isOpen,
+  onClose,
+  onRestored,
+  onRestoreUndone,
+}: ActionItemsSnoozedPanelProps) {
+  const [slideIn, setSlideIn] = useState(false)
+  const [snoozedItems, setSnoozedItems] = useState<SnoozedItemRow[]>([])
+  const [loading, setLoading] = useState(false)
+  const [restoreErrors, setRestoreErrors] = useState<Record<string, string>>({})
+  const [updateErrors, setUpdateErrors] = useState<Record<string, string>>({})
+  const [panelSnoozePopover, setPanelSnoozePopover] = useState<{
+    snoozeId: string
+    anchorEl: HTMLElement
+  } | null>(null)
+
+  useEffect(() => {
+    if (!isOpen) {
+      setSlideIn(false)
+      setPanelSnoozePopover(null)
+      return
+    }
+
+    const frame = requestAnimationFrame(() => {
+      setSlideIn(true)
+    })
+
+    return () => {
+      cancelAnimationFrame(frame)
+    }
+  }, [isOpen])
+
+  useEffect(() => {
+    if (!isOpen) {
+      return
+    }
+
+    let cancelled = false
+
+    async function loadSnoozedItems() {
+      setLoading(true)
+
+      try {
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser()
+
+        if (cancelled || userError) {
+          if (userError) {
+            console.error('[CommandCenter] snoozed panel: getUser failed', userError)
+          }
+          setSnoozedItems([])
+          setLoading(false)
+          return
+        }
+
+        const organizationId = user?.user_metadata?.organization_id
+        if (typeof organizationId !== 'string' || !organizationId.trim()) {
+          setSnoozedItems([])
+          setLoading(false)
+          return
+        }
+
+        const nowIso = new Date().toISOString()
+        const { data, error } = await supabase
+          .from('action_item_snoozes')
+          .select(
+            'id, event_id, item_type, snooze_until, events(id, event_name, event_date, created_at, status)',
+          )
+          .eq('organization_id', organizationId.trim())
+          .gt('snooze_until', nowIso)
+          .order('snooze_until', { ascending: true })
+
+        if (cancelled) {
+          return
+        }
+
+        if (error) {
+          console.error('[CommandCenter] snoozed panel load failed', error)
+          setSnoozedItems([])
+        } else {
+          setSnoozedItems((data ?? []) as SnoozedItemRow[])
+        }
+      } catch (error) {
+        console.error('[CommandCenter] snoozed panel unexpected error', error)
+        if (!cancelled) {
+          setSnoozedItems([])
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+        }
+      }
+    }
+
+    void loadSnoozedItems()
+
+    return () => {
+      cancelled = true
+    }
+  }, [isOpen])
+
+  const handleRestore = async (row: SnoozedItemRow) => {
+    setRestoreErrors((previous) => {
+      const next = { ...previous }
+      delete next[row.id]
+      return next
+    })
+
+    onRestored(row.event_id)
+    setSnoozedItems((previous) => previous.filter((item) => item.id !== row.id))
+
+    const { error } = await supabase
+      .from('action_item_snoozes')
+      .delete()
+      .eq('id', row.id)
+
+    if (error) {
+      console.error('[CommandCenter] snooze restore failed', error)
+      onRestoreUndone(row.event_id)
+      setSnoozedItems((previous) => {
+        const restored = [...previous, row]
+        restored.sort(
+          (a, b) =>
+            new Date(a.snooze_until).getTime() - new Date(b.snooze_until).getTime(),
+        )
+        return restored
+      })
+      setRestoreErrors((previous) => ({
+        ...previous,
+        [row.id]: 'Restore failed — try again',
+      }))
+    }
+  }
+
+  const handleSnoozeLonger = async (row: SnoozedItemRow, days: number) => {
+    setPanelSnoozePopover(null)
+    setUpdateErrors((previous) => {
+      const next = { ...previous }
+      delete next[row.id]
+      return next
+    })
+
+    const previousUntil = row.snooze_until
+    const snoozeUntil = new Date()
+    snoozeUntil.setDate(snoozeUntil.getDate() + days)
+    const snoozeUntilIso = snoozeUntil.toISOString()
+
+    setSnoozedItems((previous) =>
+      previous.map((item) =>
+        item.id === row.id ? { ...item, snooze_until: snoozeUntilIso } : item,
+      ),
+    )
+
+    const { error } = await supabase
+      .from('action_item_snoozes')
+      .update({ snooze_until: snoozeUntilIso })
+      .eq('id', row.id)
+
+    if (error) {
+      console.error('[CommandCenter] snooze longer update failed', error)
+      setSnoozedItems((previous) =>
+        previous.map((item) =>
+          item.id === row.id ? { ...item, snooze_until: previousUntil } : item,
+        ),
+      )
+      setUpdateErrors((previous) => ({
+        ...previous,
+        [row.id]: 'Update failed — try again',
+      }))
+    }
+  }
+
+  if (!isOpen) {
+    return null
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        aria-label="Close snoozed items panel"
+        onClick={onClose}
+        className="fixed inset-0 border-none"
+        style={{
+          backgroundColor: 'rgba(0, 0, 0, 0.3)',
+          zIndex: 300,
+          cursor: 'default',
+        }}
+      />
+
+      <div
+        className="fixed top-0 right-0 bottom-0 flex flex-col bg-white shadow-xl"
+        style={{
+          width: '100vw',
+          maxWidth: '480px',
+          height: '100vh',
+          zIndex: 301,
+          transform: slideIn ? 'translateX(0)' : 'translateX(100%)',
+          transition: 'transform 0.2s ease',
+        }}
+      >
+        <header
+          className="shrink-0"
+          style={{
+            backgroundColor: '#fee2e2',
+            padding: '12px 16px',
+            borderBottom: '0.5px solid #fecaca',
+          }}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <h2
+                style={{
+                  fontSize: '16px',
+                  fontWeight: 600,
+                  color: '#991b1b',
+                }}
+              >
+                Action Items — Snoozed
+              </h2>
+              <p
+                style={{
+                  fontSize: '11px',
+                  color: '#991b1b',
+                  opacity: 0.75,
+                  marginTop: '4px',
+                }}
+              >
+                Snoozed items wake up automatically. Restore to return an item to
+                your Action Items list.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="rounded p-1 hover:bg-[#fecaca]"
+              style={{ color: '#991b1b', border: 'none', background: 'none' }}
+            >
+              <IconX size={20} stroke={2} />
+            </button>
+          </div>
+        </header>
+
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {loading ? (
+            <div
+              className="flex items-center justify-center py-12"
+              style={{ color: '#9ca3af', fontSize: '12px' }}
+            >
+              Loading...
+            </div>
+          ) : snoozedItems.length === 0 ? (
+            <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
+              <IconZzz size={32} color="#D1D5DB" stroke={1.5} />
+              <p
+                className="mt-4"
+                style={{ fontSize: '14px', color: '#6B7280' }}
+              >
+                No snoozed items
+              </p>
+              <p
+                className="mt-2"
+                style={{ fontSize: '12px', color: '#9CA3AF' }}
+              >
+                Items you snooze from Action Items will appear here.
+              </p>
+            </div>
+          ) : (
+            snoozedItems.map((row) => {
+              const event = row.events
+              const title = event
+                ? getDraftActionTitle(event)
+                : 'Unknown event'
+              const reasonSubtext = event
+                ? getDraftActionSubtext(event)
+                : null
+
+              return (
+                <div
+                  key={row.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '12px',
+                    padding: '12px 16px',
+                    borderBottom: '1px solid #F3F4F6',
+                  }}
+                >
+                  <div className="min-w-0 flex-1">
+                    {row.event_id ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          window.open(`/event/${row.event_id}`, '_blank')
+                        }
+                        className="text-left hover:underline"
+                        style={{
+                          fontSize: '14px',
+                          fontWeight: 700,
+                          color: '#1B3A5C',
+                          background: 'none',
+                          border: 'none',
+                          padding: 0,
+                          cursor: 'pointer',
+                          lineHeight: 1.3,
+                        }}
+                      >
+                        {title}
+                      </button>
+                    ) : (
+                      <p
+                        style={{
+                          fontSize: '14px',
+                          fontWeight: 700,
+                          color: '#1B3A5C',
+                          lineHeight: 1.3,
+                        }}
+                      >
+                        {title}
+                      </p>
+                    )}
+                    {reasonSubtext ? (
+                      <p
+                        style={{
+                          fontSize: '12px',
+                          color: '#6B7280',
+                          marginTop: '4px',
+                          lineHeight: 1.3,
+                        }}
+                      >
+                        {reasonSubtext}
+                      </p>
+                    ) : null}
+                    <p
+                      style={{
+                        fontSize: '12px',
+                        color: '#6B7280',
+                        marginTop: '2px',
+                        lineHeight: 1.3,
+                      }}
+                    >
+                      {getSnoozeWakeUpLabel(row.snooze_until)}
+                    </p>
+                    {restoreErrors[row.id] ? (
+                      <p
+                        style={{
+                          fontSize: '12px',
+                          color: '#ef4444',
+                          marginTop: '4px',
+                          lineHeight: 1.3,
+                        }}
+                      >
+                        {restoreErrors[row.id]}
+                      </p>
+                    ) : null}
+                    {updateErrors[row.id] ? (
+                      <p
+                        style={{
+                          fontSize: '12px',
+                          color: '#ef4444',
+                          marginTop: '4px',
+                          lineHeight: 1.3,
+                        }}
+                      >
+                        {updateErrors[row.id]}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div
+                    className="flex shrink-0 items-center"
+                    style={{ gap: '12px' }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => void handleRestore(row)}
+                      className="hover:underline"
+                      style={{
+                        fontSize: '12px',
+                        color: '#1B3A5C',
+                        cursor: 'pointer',
+                        background: 'none',
+                        border: 'none',
+                        padding: 0,
+                      }}
+                    >
+                      Restore
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(clickEvent) => {
+                        setPanelSnoozePopover({
+                          snoozeId: row.id,
+                          anchorEl: clickEvent.currentTarget,
+                        })
+                      }}
+                      className="hover:underline"
+                      style={{
+                        fontSize: '12px',
+                        color: '#6B7280',
+                        cursor: 'pointer',
+                        background: 'none',
+                        border: 'none',
+                        padding: 0,
+                      }}
+                    >
+                      Snooze longer
+                    </button>
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
+      </div>
+
+      {panelSnoozePopover ? (
+        <SnoozePopover
+          anchorEl={panelSnoozePopover.anchorEl}
+          zIndex={302}
+          onClose={() => setPanelSnoozePopover(null)}
+          onSelect={(days) => {
+            const snoozeId = panelSnoozePopover.snoozeId
+            setPanelSnoozePopover(null)
+            const row = snoozedItems.find((item) => item.id === snoozeId)
+            if (row) {
+              void handleSnoozeLonger(row, days)
+            }
+          }}
+        />
+      ) : null}
+    </>
   )
 }
 
@@ -365,6 +844,7 @@ function CommandCenterPage() {
     eventId: string
     anchorEl: HTMLElement
   } | null>(null)
+  const [snoozedPanelOpen, setSnoozedPanelOpen] = useState(false)
   const snoozedFetchGenerationRef = useRef(0)
 
   const fetchArchivedEventIds = useCallback(async () => {
@@ -769,6 +1249,27 @@ function CommandCenterPage() {
       }))
     }
   }
+
+  const handleSnoozedItemRestored = (eventId: string | null) => {
+    snoozedFetchGenerationRef.current += 1
+    if (!eventId) {
+      return
+    }
+    setSnoozedEventIds((previous) => {
+      const next = new Set(previous)
+      next.delete(eventId)
+      return next
+    })
+  }
+
+  const handleSnoozedItemRestoreUndone = (eventId: string | null) => {
+    snoozedFetchGenerationRef.current += 1
+    if (!eventId) {
+      return
+    }
+    setSnoozedEventIds((previous) => new Set(previous).add(eventId))
+  }
+
   const vendorAlertCount = 0
   const highlightCount = 0
   const competingEventCount = 0
@@ -880,7 +1381,27 @@ function CommandCenterPage() {
             label={labels.cc_action_items}
             backgroundColor="#fee2e2"
             color="#991b1b"
-            right={<span style={countBadgeStyle}>{actionItemCount}</span>}
+            right={
+              <div className="flex items-center" style={{ gap: '12px' }}>
+                <button
+                  type="button"
+                  onClick={() => setSnoozedPanelOpen(true)}
+                  className="hover:underline"
+                  style={{
+                    fontSize: '11px',
+                    color: '#991b1b',
+                    cursor: 'pointer',
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    textDecoration: 'none',
+                  }}
+                >
+                  Snoozed
+                </button>
+                <span style={countBadgeStyle}>{actionItemCount}</span>
+              </div>
+            }
           />
           {visibleDraftActionItems.length === 0 ? (
             <BoxItemRow>
@@ -1269,6 +1790,13 @@ function CommandCenterPage() {
           }}
         />
       ) : null}
+
+      <ActionItemsSnoozedPanel
+        isOpen={snoozedPanelOpen}
+        onClose={() => setSnoozedPanelOpen(false)}
+        onRestored={handleSnoozedItemRestored}
+        onRestoreUndone={handleSnoozedItemRestoreUndone}
+      />
     </div>
   )
 }
