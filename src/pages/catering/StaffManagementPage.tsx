@@ -527,6 +527,8 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
   const [showAddForm, setShowAddForm] = useState(false)
   const [addFormMinimized, setAddFormMinimized] = useState(false)
   const [addFormSlideIn, setAddFormSlideIn] = useState(false)
+  const [staffPanelSlideIn, setStaffPanelSlideIn] = useState(false)
+  const [staffPanelMinimized, setStaffPanelMinimized] = useState(false)
   const [successToast, setSuccessToast] = useState<string | null>(null)
 
   const [legalName, setLegalName] = useState('')
@@ -612,6 +614,44 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
 
     void init()
   }, [loadStaff])
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      setStaffPanelSlideIn(true)
+    })
+
+    return () => {
+      cancelAnimationFrame(frame)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (staffPanelMinimized) {
+      return
+    }
+
+    const staffListHiddenByAddForm = showAddForm && !addFormMinimized
+    if (staffListHiddenByAddForm || selectedStaff !== null) {
+      return
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        onClose()
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [
+    staffPanelMinimized,
+    showAddForm,
+    addFormMinimized,
+    selectedStaff,
+    onClose,
+  ])
 
   useEffect(() => {
     if (!successToast) {
@@ -886,9 +926,49 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
     { id: 'personal_note', label: 'Personal Note' },
   ]
 
+  const staffListHiddenByAddForm = showAddForm && !addFormMinimized
+  const showStaffBackdrop =
+    staffPanelSlideIn &&
+    !staffPanelMinimized &&
+    !staffListHiddenByAddForm &&
+    selectedStaff === null
+  const staffPanelTransform = staffPanelMinimized
+    ? 'translateX(100%)'
+    : staffListHiddenByAddForm
+      ? 'translateX(-100%)'
+      : staffPanelSlideIn
+        ? 'translateX(0)'
+        : 'translateX(100%)'
+
   return (
     <>
-      <SlidePanel isOpen onClose={onClose} width={680} zIndex={300}>
+      {showStaffBackdrop ? (
+        <button
+          type="button"
+          aria-label="Close staff management"
+          onClick={onClose}
+          className="fixed inset-0 border-none"
+          style={{
+            backgroundColor: 'rgba(0, 0, 0, 0.3)',
+            zIndex: 300,
+            cursor: 'default',
+          }}
+        />
+      ) : null}
+
+      <div
+        className="fixed top-0 right-0 bottom-0 flex flex-col bg-white shadow-xl"
+        style={{
+          width: '100vw',
+          maxWidth: '680px',
+          height: '100vh',
+          zIndex: 301,
+          transform: staffPanelTransform,
+          transition: 'transform 0.2s ease',
+          pointerEvents:
+            staffPanelMinimized || staffListHiddenByAddForm ? 'none' : 'auto',
+        }}
+      >
         <header
           className="flex shrink-0 items-center justify-between gap-3"
           style={{
@@ -922,15 +1002,26 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
             >
               Add New Staff
             </button>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Close"
-              className="rounded p-1 hover:bg-white/10"
-              style={{ color: '#ffffff', border: 'none', background: 'none' }}
-            >
-              <IconX size={20} stroke={2} />
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setStaffPanelMinimized(true)}
+                aria-label="Minimize"
+                className="rounded p-1 hover:bg-white/10"
+                style={{ color: '#ffffff', border: 'none', background: 'none' }}
+              >
+                <IconChevronRight size={20} stroke={2} />
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close"
+                className="rounded p-1 hover:bg-white/10"
+                style={{ color: '#ffffff', border: 'none', background: 'none' }}
+              >
+                <IconX size={20} stroke={2} />
+              </button>
+            </div>
           </div>
         </header>
 
@@ -1171,7 +1262,44 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
             {successToast}
           </div>
         ) : null}
-      </SlidePanel>
+      </div>
+
+      {staffPanelMinimized ? (
+        <button
+          type="button"
+          onClick={() => setStaffPanelMinimized(false)}
+          aria-label="Expand Staff Management"
+          className="fixed flex flex-col items-center border-none"
+          style={{
+            top: '30%',
+            right: 0,
+            transform: 'translateY(-50%)',
+            width: '28px',
+            padding: '10px 4px',
+            backgroundColor: NAVY,
+            borderTopLeftRadius: '6px',
+            borderBottomLeftRadius: '6px',
+            zIndex: 301,
+            cursor: 'pointer',
+            gap: '6px',
+          }}
+        >
+          <IconChevronLeft size={16} color="#ffffff" stroke={2} />
+          <span
+            style={{
+              writingMode: 'vertical-rl',
+              transform: 'rotate(180deg)',
+              color: '#ffffff',
+              fontSize: '12px',
+              fontWeight: 500,
+              whiteSpace: 'nowrap',
+              letterSpacing: '0.02em',
+            }}
+          >
+            Staff
+          </span>
+        </button>
+      ) : null}
 
       <SlidePanel
         isOpen={selectedStaff !== null}
