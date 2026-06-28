@@ -365,6 +365,7 @@ function CommandCenterPage() {
     eventId: string
     anchorEl: HTMLElement
   } | null>(null)
+  const snoozedFetchGenerationRef = useRef(0)
 
   const fetchArchivedEventIds = useCallback(async () => {
     try {
@@ -406,6 +407,8 @@ function CommandCenterPage() {
   }, [])
 
   const fetchSnoozedEventIds = useCallback(async () => {
+    const generation = ++snoozedFetchGenerationRef.current
+
     try {
       const {
         data: { user },
@@ -428,6 +431,10 @@ function CommandCenterPage() {
         .select('event_id')
         .eq('organization_id', organizationId.trim())
         .gt('snooze_until', nowIso)
+
+      if (generation !== snoozedFetchGenerationRef.current) {
+        return
+      }
 
       if (error) {
         console.error('[CommandCenter] snoozed actions query failed', error)
@@ -627,7 +634,16 @@ function CommandCenterPage() {
   const actionItemCount = visibleDraftActionItems.length
 
   const handleSnoozeActionItem = async (event: DraftActionEvent, days: number) => {
-    setSnoozePopover(null)
+    snoozedFetchGenerationRef.current += 1
+    setSnoozedEventIds((previous) => new Set(previous).add(event.id))
+
+    const revertSnooze = () => {
+      setSnoozedEventIds((previous) => {
+        const next = new Set(previous)
+        next.delete(event.id)
+        return next
+      })
+    }
 
     try {
       const {
@@ -637,6 +653,7 @@ function CommandCenterPage() {
 
       if (userError) {
         console.error('[CommandCenter] snooze action: getUser failed', userError)
+        revertSnooze()
         setActionItemErrors((previous) => ({
           ...previous,
           [event.id]: 'Snooze failed — try again',
@@ -646,6 +663,7 @@ function CommandCenterPage() {
 
       const organizationId = user?.user_metadata?.organization_id
       if (typeof organizationId !== 'string' || !organizationId.trim()) {
+        revertSnooze()
         setActionItemErrors((previous) => ({
           ...previous,
           [event.id]: 'Snooze failed — try again',
@@ -665,6 +683,7 @@ function CommandCenterPage() {
 
       if (error) {
         console.error('[CommandCenter] snooze action insert failed', error)
+        revertSnooze()
         setActionItemErrors((previous) => ({
           ...previous,
           [event.id]: 'Snooze failed — try again',
@@ -672,7 +691,6 @@ function CommandCenterPage() {
         return
       }
 
-      setSnoozedEventIds((previous) => new Set(previous).add(event.id))
       setActionItemErrors((previous) => {
         const next = { ...previous }
         delete next[event.id]
@@ -680,6 +698,7 @@ function CommandCenterPage() {
       })
     } catch (error) {
       console.error('[CommandCenter] snooze action unexpected error', error)
+      revertSnooze()
       setActionItemErrors((previous) => ({
         ...previous,
         [event.id]: 'Snooze failed — try again',
@@ -1240,13 +1259,12 @@ function CommandCenterPage() {
           anchorEl={snoozePopover.anchorEl}
           onClose={() => setSnoozePopover(null)}
           onSelect={(days) => {
+            setSnoozePopover(null)
             const event = draftActionItems.find(
               (item) => item.id === snoozePopover.eventId,
             )
             if (event) {
               void handleSnoozeActionItem(event, days)
-            } else {
-              setSnoozePopover(null)
             }
           }}
         />
