@@ -230,7 +230,7 @@ interface SnoozedItemRow {
     event_date: string
     created_at: string
     status: string
-  } | null
+  }[] | null
 }
 
 interface ActionItemsSnoozedPanelProps {
@@ -512,7 +512,7 @@ function ActionItemsSnoozedPanel({
             </div>
           ) : (
             snoozedItems.map((row) => {
-              const event = row.events
+              const event = row.events?.[0]
               const title = event
                 ? getDraftActionTitle(event)
                 : 'Unknown event'
