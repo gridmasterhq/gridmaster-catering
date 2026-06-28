@@ -914,7 +914,7 @@ function CommandCenterPage() {
     }
   }, [])
 
-  const fetchSnoozedEventIds = useCallback(async () => {
+  const fetchDraftActionItems = useCallback(async () => {
     const fetchGenerationAtStart = snoozedFetchGenerationRef.current
 
     try {
@@ -924,40 +924,81 @@ function CommandCenterPage() {
       } = await supabase.auth.getUser()
 
       if (userError) {
-        console.error('[CommandCenter] snoozed actions: getUser failed', userError)
+        console.error('[CommandCenter] draft actions: getUser failed', userError)
+        setDraftActionItems([])
         return
       }
 
       const organizationId = user?.user_metadata?.organization_id
       if (typeof organizationId !== 'string' || !organizationId.trim()) {
+        console.error(
+          '[CommandCenter] draft actions: missing organization_id in user_metadata',
+          user?.user_metadata,
+        )
+        setDraftActionItems([])
         return
       }
 
+      const orgId = organizationId.trim()
       const nowIso = new Date().toISOString()
-      const { data, error } = await supabase
+      const { data: snoozeData, error: snoozeError } = await supabase
         .from('action_item_snoozes')
         .select('event_id')
-        .eq('organization_id', organizationId.trim())
+        .eq('organization_id', orgId)
         .gt('snooze_until', nowIso)
 
       if (fetchGenerationAtStart !== snoozedFetchGenerationRef.current) {
         return
       }
 
-      if (error) {
-        console.error('[CommandCenter] snoozed actions query failed', error)
+      const localSnoozedEventIds = new Set<string>()
+      if (snoozeError) {
+        console.error('[CommandCenter] snoozed actions query failed', snoozeError)
+      } else {
+        for (const row of snoozeData ?? []) {
+          if (typeof row.event_id === 'string' && row.event_id.length > 0) {
+            localSnoozedEventIds.add(row.event_id)
+          }
+        }
+      }
+
+      setSnoozedEventIds(localSnoozedEventIds)
+
+      const fortyEightHoursAgo = new Date(
+        Date.now() - 48 * 60 * 60 * 1000,
+      ).toISOString()
+      const twoDaysFromNow = new Date(
+        Date.now() + 2 * 24 * 60 * 60 * 1000,
+      )
+        .toISOString()
+        .split('T')[0]
+
+      const { data, error } = await supabase
+        .from('events')
+        .select('id, event_name, event_date, created_at, status')
+        .eq('organization_id', orgId)
+        .eq('status', 'draft')
+        .or(`created_at.lte.${fortyEightHoursAgo},event_date.lte.${twoDaysFromNow}`)
+        .order('event_date', { ascending: true })
+
+      if (fetchGenerationAtStart !== snoozedFetchGenerationRef.current) {
         return
       }
 
-      const ids = new Set<string>()
-      for (const row of data ?? []) {
-        if (typeof row.event_id === 'string' && row.event_id.length > 0) {
-          ids.add(row.event_id)
-        }
+      if (error) {
+        console.error('[CommandCenter] draft actions query failed', error)
+        setDraftActionItems([])
+        return
       }
-      setSnoozedEventIds(ids)
+
+      const drafts = (data ?? []) as DraftActionEvent[]
+      const activeDrafts = drafts.filter(
+        (event) => !isSnoozeFiltered(event, localSnoozedEventIds),
+      )
+      setDraftActionItems(activeDrafts)
     } catch (error) {
-      console.error('[CommandCenter] snoozed actions unexpected error', error)
+      console.error('[CommandCenter] draft actions unexpected error', error)
+      setDraftActionItems([])
     }
   }, [])
 
@@ -1000,80 +1041,20 @@ function CommandCenterPage() {
     }
   }, [])
 
-  const fetchDraftActionItems = useCallback(async () => {
-    try {
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser()
-
-      if (userError) {
-        console.error('[CommandCenter] draft actions: getUser failed', userError)
-        setDraftActionItems([])
-        return
-      }
-
-      const organizationId = user?.user_metadata?.organization_id
-      if (typeof organizationId !== 'string' || !organizationId.trim()) {
-        console.error(
-          '[CommandCenter] draft actions: missing organization_id in user_metadata',
-          user?.user_metadata,
-        )
-        setDraftActionItems([])
-        return
-      }
-
-      const fortyEightHoursAgo = new Date(
-        Date.now() - 48 * 60 * 60 * 1000,
-      ).toISOString()
-      const twoDaysFromNow = new Date(
-        Date.now() + 2 * 24 * 60 * 60 * 1000,
-      )
-        .toISOString()
-        .split('T')[0]
-
-      const { data, error } = await supabase
-        .from('events')
-        .select('id, event_name, event_date, created_at, status')
-        .eq('organization_id', organizationId.trim())
-        .eq('status', 'draft')
-        .or(`created_at.lte.${fortyEightHoursAgo},event_date.lte.${twoDaysFromNow}`)
-        .order('event_date', { ascending: true })
-
-      if (error) {
-        console.error('[CommandCenter] draft actions query failed', error)
-        setDraftActionItems([])
-        return
-      }
-
-      setDraftActionItems((data ?? []) as DraftActionEvent[])
-    } catch (error) {
-      console.error('[CommandCenter] draft actions unexpected error', error)
-      setDraftActionItems([])
-    }
-  }, [])
-
   useEffect(() => {
     void fetchDraftActionItems()
     void fetchArchivedEventIds()
-    void fetchSnoozedEventIds()
     void fetchDismissedEventIds()
 
     const intervalId = window.setInterval(() => {
       void fetchDraftActionItems()
-      void fetchSnoozedEventIds()
       void fetchDismissedEventIds()
     }, DRAFT_ACTION_REFRESH_MS)
 
     return () => {
       window.clearInterval(intervalId)
     }
-  }, [
-    fetchDraftActionItems,
-    fetchArchivedEventIds,
-    fetchSnoozedEventIds,
-    fetchDismissedEventIds,
-  ])
+  }, [fetchDraftActionItems, fetchArchivedEventIds, fetchDismissedEventIds])
 
   useEffect(() => {
     async function fetchEventCount() {
