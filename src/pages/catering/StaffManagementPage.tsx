@@ -1,23 +1,31 @@
 import {
   type CSSProperties,
   type FormEvent,
-  type ReactNode,
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react'
 import {
   IconChevronRight,
-  IconClock,
   IconSearch,
   IconUser,
   IconUsers,
   IconX,
 } from '@tabler/icons-react'
+import StaffProfilePanel, {
+  type StaffProfileSessionState,
+} from '../../components/catering/StaffProfilePanel'
 import { formatCoordinatorStaffName } from '../../lib/staffDisplayName'
+import {
+  formatStaffProfileTabLabel,
+  getStaffProfileTabId,
+} from '../../lib/staffProfileTabs'
 import { useMinimizablePanel } from '../../hooks/useMinimizablePanel'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
+import { useTabManager } from '../../components/TabManager'
+import { useOverlay } from '../../components/shared/AppShell'
 import { supabase } from '../../lib/supabase'
 
 const NAVY = '#1B3A5C'
@@ -80,14 +88,6 @@ interface StaffManagementPageProps {
   onFocus?: () => void
 }
 
-interface SlidePanelProps {
-  isOpen: boolean
-  onClose: () => void
-  width: number
-  zIndex: number
-  children: ReactNode
-}
-
 const fieldInputStyle: CSSProperties = {
   width: '100%',
   border: '1px solid #E5E7EB',
@@ -102,81 +102,6 @@ const fieldLabelStyle: CSSProperties = {
   fontWeight: 500,
   color: NAVY,
   marginBottom: '6px',
-}
-
-function SlidePanel({
-  isOpen,
-  onClose,
-  width,
-  zIndex,
-  children,
-}: SlidePanelProps) {
-  const [slideIn, setSlideIn] = useState(false)
-
-  useEffect(() => {
-    if (!isOpen) {
-      setSlideIn(false)
-      return
-    }
-
-    const frame = requestAnimationFrame(() => {
-      setSlideIn(true)
-    })
-
-    return () => {
-      cancelAnimationFrame(frame)
-    }
-  }, [isOpen])
-
-  useEffect(() => {
-    if (!isOpen) {
-      return
-    }
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        onClose()
-      }
-    }
-
-    document.addEventListener('keydown', handleKeyDown)
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [isOpen, onClose])
-
-  if (!isOpen) {
-    return null
-  }
-
-  return (
-    <>
-      <button
-        type="button"
-        aria-label="Close panel"
-        onClick={onClose}
-        className="fixed inset-0 border-none"
-        style={{
-          backgroundColor: 'rgba(0, 0, 0, 0.3)',
-          zIndex,
-          cursor: 'default',
-        }}
-      />
-      <div
-        className="fixed top-0 right-0 bottom-0 flex flex-col bg-white shadow-xl"
-        style={{
-          width: '100vw',
-          maxWidth: `${width}px`,
-          height: '100vh',
-          zIndex: zIndex + 1,
-          transform: slideIn ? 'translateX(0)' : 'translateX(100%)',
-          transition: 'transform 0.2s ease',
-        }}
-      >
-        {children}
-      </div>
-    </>
-  )
 }
 
 function normalizeStaffRoles(
@@ -314,31 +239,6 @@ function statusDotColor(status: StaffStatus): string {
   }
 }
 
-function statusBadgeStyle(status: StaffStatus): CSSProperties {
-  switch (status) {
-    case 'active':
-      return { backgroundColor: '#DCFCE7', color: '#166534' }
-    case 'alumni':
-      return { backgroundColor: '#F3F4F6', color: '#6B7280' }
-    case 'not_active':
-      return { backgroundColor: '#F3F4F6', color: '#6B7280' }
-    case 'archived':
-      return { backgroundColor: '#E5E7EB', color: '#374151' }
-    default:
-      return { backgroundColor: '#F3F4F6', color: '#6B7280' }
-  }
-}
-
-function formatStatusLabel(status: StaffStatus): string {
-  if (status === 'not_active') {
-    return 'Not Active'
-  }
-  if (status === 'alumni') {
-    return 'Alumni'
-  }
-  return status.charAt(0).toUpperCase() + status.slice(1)
-}
-
 function ReadOnlyStars({
   rating,
   size = 12,
@@ -436,14 +336,27 @@ function sortStaffMembers(
 }
 
 function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
+  const { activeOverlay } = useOverlay()
+  const { hasTab, restoreTab, canOpenNew, showMaxTabsNotice } = useTabManager()
+  const profilePanelActionsRef = useRef(
+    new Map<string, { minimize: () => void; dismiss: () => void }>(),
+  )
+
   const [organizationId, setOrganizationId] = useState<string | null>(null)
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterPill, setFilterPill] = useState<FilterPill>('all')
   const [sortBy, setSortBy] = useState<SortOption>('name')
-  const [selectedStaff, setSelectedStaff] = useState<StaffMember | null>(null)
-  const [profileTab, setProfileTab] = useState<ProfileTab>('history')
+  const [profileSessions, setProfileSessions] = useState<
+    StaffProfileSessionState[]
+  >([])
+  const [foregroundProfileSessionId, setForegroundProfileSessionId] = useState<
+    string | null
+  >(null)
+  const [duplicateNoticePhone, setDuplicateNoticePhone] = useState<
+    string | null
+  >(null)
   const [showAddForm, setShowAddForm] = useState(false)
   const [addFormSlideIn, setAddFormSlideIn] = useState(false)
   const [showAddFormConfirmClose, setShowAddFormConfirmClose] = useState(false)
@@ -469,9 +382,131 @@ function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
     onClose()
   }, [addFormPanel, onClose, staffPanel])
 
-  const handleProfileBackdrop = useCallback(() => {
-    staffPanel.minimize()
-  }, [staffPanel])
+  const isProfileInProgress = useCallback(
+    (phone: string) => {
+      const tabId = getStaffProfileTabId(phone)
+      return (
+        profileSessions.some((session) => session.phone === phone) ||
+        hasTab(tabId)
+      )
+    },
+    [hasTab, profileSessions],
+  )
+
+  const focusProfileSession = useCallback(
+    (sessionId: string) => {
+      setDuplicateNoticePhone(null)
+      setForegroundProfileSessionId(sessionId)
+      onFocus?.()
+    },
+    [onFocus],
+  )
+
+  const closeProfileSession = useCallback((sessionId: string) => {
+    profilePanelActionsRef.current.get(sessionId)?.dismiss()
+    profilePanelActionsRef.current.delete(sessionId)
+    setProfileSessions((previous) =>
+      previous.filter((session) => session.id !== sessionId),
+    )
+    setForegroundProfileSessionId((current) =>
+      current === sessionId ? null : current,
+    )
+  }, [])
+
+  const registerProfilePanelActions = useCallback(
+    (
+      sessionId: string,
+      actions: { minimize: () => void; dismiss: () => void },
+    ) => {
+      profilePanelActionsRef.current.set(sessionId, actions)
+      return () => {
+        profilePanelActionsRef.current.delete(sessionId)
+      }
+    },
+    [],
+  )
+
+  const openStaffProfile = useCallback(
+    (staff: StaffMember) => {
+      if (isProfileInProgress(staff.phone)) {
+        setDuplicateNoticePhone(staff.phone)
+        return
+      }
+
+      if (!canOpenNew()) {
+        showMaxTabsNotice()
+        return
+      }
+
+      if (foregroundProfileSessionId) {
+        profilePanelActionsRef.current
+          .get(foregroundProfileSessionId)
+          ?.minimize()
+      }
+
+      const session: StaffProfileSessionState = {
+        id: crypto.randomUUID(),
+        phone: staff.phone,
+        tabId: getStaffProfileTabId(staff.phone),
+        tabLabel: formatStaffProfileTabLabel(staff.display_name, staff.legal_name),
+        staff,
+        profileTab: 'history',
+      }
+
+      setProfileSessions((previous) => [...previous, session])
+      setForegroundProfileSessionId(session.id)
+      setDuplicateNoticePhone(null)
+      onFocus?.()
+    },
+    [
+      canOpenNew,
+      foregroundProfileSessionId,
+      isProfileInProgress,
+      onFocus,
+      showMaxTabsNotice,
+    ],
+  )
+
+  const handleDuplicateProfileRestore = useCallback(() => {
+    if (!duplicateNoticePhone) {
+      return
+    }
+
+    const tabId = getStaffProfileTabId(duplicateNoticePhone)
+    const existingSession = profileSessions.find(
+      (session) => session.phone === duplicateNoticePhone,
+    )
+
+    if (hasTab(tabId)) {
+      restoreTab(tabId)
+    }
+
+    if (existingSession) {
+      focusProfileSession(existingSession.id)
+      return
+    }
+
+    onFocus?.()
+    setDuplicateNoticePhone(null)
+  }, [
+    duplicateNoticePhone,
+    focusProfileSession,
+    hasTab,
+    onFocus,
+    profileSessions,
+    restoreTab,
+  ])
+
+  const handleProfileTabChange = useCallback(
+    (sessionId: string, tab: ProfileTab) => {
+      setProfileSessions((previous) =>
+        previous.map((session) =>
+          session.id === sessionId ? { ...session, profileTab: tab } : session,
+        ),
+      )
+    },
+    [],
+  )
 
   const [legalName, setLegalName] = useState('')
   const [phone, setPhone] = useState('')
@@ -590,6 +625,20 @@ function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
   }, [])
 
   useEffect(() => {
+    if (!duplicateNoticePhone) {
+      return
+    }
+
+    const timer = window.setTimeout(() => {
+      setDuplicateNoticePhone(null)
+    }, 5000)
+
+    return () => {
+      window.clearTimeout(timer)
+    }
+  }, [duplicateNoticePhone])
+
+  useEffect(() => {
     if (staffPanel.isMinimized) {
       return
     }
@@ -598,7 +647,7 @@ function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
     if (
       staffHiddenByAddForm ||
       staffPanel.isMinimized ||
-      selectedStaff !== null
+      foregroundProfileSessionId !== null
     ) {
       return
     }
@@ -617,7 +666,7 @@ function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
     staffPanel.isMinimized,
     showAddForm,
     addFormPanel.isMinimized,
-    selectedStaff,
+    foregroundProfileSessionId,
     handleStaffClose,
   ])
 
@@ -879,23 +928,39 @@ function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
     { id: 'not_active', label: 'Not Active' },
   ]
 
-  const profileTabs: { id: ProfileTab; label: string }[] = [
-    { id: 'history', label: 'History' },
-    { id: 'certifications', label: 'Certifications' },
-    { id: 'availability', label: 'Availability' },
-    { id: 'ai_summary', label: 'AI Summary' },
-    { id: 'development', label: 'Development' },
-    { id: 'personal_note', label: 'Personal Note' },
-  ]
+  const duplicateNoticeLabel = useMemo(() => {
+    if (!duplicateNoticePhone) {
+      return null
+    }
+
+    const staff =
+      profileSessions.find(
+        (session) => session.phone === duplicateNoticePhone,
+      )?.staff ??
+      staffMembers.find((member) => member.phone === duplicateNoticePhone)
+
+    if (!staff) {
+      return duplicateNoticePhone
+    }
+
+    return formatStaffProfileTabLabel(staff.display_name, staff.legal_name)
+  }, [duplicateNoticePhone, profileSessions, staffMembers])
 
   const staffHiddenByAddForm = showAddForm && !addFormPanel.isMinimized
+  const showStaffListPanel =
+    activeOverlay === 'staff' ||
+    staffPanel.isMinimized ||
+    hasTab('staff-mgmt')
   const showStaffBackdrop =
+    showStaffListPanel &&
     staffPanelSlideIn &&
     !staffPanel.isMinimized &&
     !staffHiddenByAddForm &&
-    selectedStaff === null
+    foregroundProfileSessionId === null
   const staffPanelTransform =
-    staffPanel.isMinimized || staffHiddenByAddForm
+    !showStaffListPanel ||
+    staffPanel.isMinimized ||
+    staffHiddenByAddForm
       ? 'translateX(100%)'
       : staffPanelSlideIn
         ? 'translateX(0)'
@@ -927,7 +992,11 @@ function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
           transform: staffPanelTransform,
           transition: 'transform 0.2s ease',
           pointerEvents:
-            staffPanel.isMinimized || staffHiddenByAddForm ? 'none' : 'auto',
+            !showStaffListPanel ||
+            staffPanel.isMinimized ||
+            staffHiddenByAddForm
+              ? 'none'
+              : 'auto',
         }}
       >
         <header
@@ -1105,10 +1174,7 @@ function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
                 <button
                   key={staff.phone}
                   type="button"
-                  onClick={() => {
-                    setSelectedStaff(staff)
-                    setProfileTab('history')
-                  }}
+                  onClick={() => openStaffProfile(staff)}
                   className="flex w-full items-center hover:bg-[#F9FAFB]"
                   style={{
                     gap: '8px',
@@ -1225,150 +1291,30 @@ function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
         ) : null}
       </div>
 
-      <SlidePanel
-        isOpen={selectedStaff !== null && !staffPanel.isMinimized}
-        onClose={handleProfileBackdrop}
-        width={600}
-        zIndex={302}
-      >
-        {selectedStaff ? (
-          <>
-            <header style={{ backgroundColor: NAVY, padding: '16px' }}>
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex min-w-0 flex-1 items-start gap-3">
-                  <div
-                    style={{
-                      border: '2px solid #ffffff',
-                      borderRadius: '50%',
-                      padding: 0,
-                    }}
-                  >
-                    <StaffPhoto
-                      photoUrl={selectedStaff.photo_url}
-                      name={getStaffDisplayName(selectedStaff)}
-                      size={64}
-                    />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p
-                      style={{
-                        fontSize: '18px',
-                        fontWeight: 700,
-                        color: '#ffffff',
-                      }}
-                    >
-                      {getStaffDisplayName(selectedStaff)}
-                    </p>
-                    <p
-                      style={{
-                        fontSize: '13px',
-                        color: 'rgba(255,255,255,0.8)',
-                        marginTop: '2px',
-                      }}
-                    >
-                      {getPrimaryRole(selectedStaff)}
-                    </p>
-                    <p
-                      style={{
-                        fontSize: '11px',
-                        color: 'rgba(255,255,255,0.7)',
-                        marginTop: '2px',
-                      }}
-                    >
-                      S{selectedStaff.experience_rating ?? 0}
-                    </p>
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      {selectedStaff.rating_count > 0 &&
-                      selectedStaff.average_rating != null ? (
-                        <ReadOnlyStars
-                          rating={selectedStaff.average_rating}
-                          size={14}
-                        />
-                      ) : (
-                        <span
-                          style={{
-                            fontSize: '11px',
-                            color: 'rgba(255,255,255,0.8)',
-                            fontStyle: 'italic',
-                          }}
-                        >
-                          {formatStartingDesignation(
-                            selectedStaff.starting_designation,
-                          )}
-                        </span>
-                      )}
-                      <span
-                        style={{
-                          ...statusBadgeStyle(selectedStaff.status),
-                          fontSize: '11px',
-                          fontWeight: 500,
-                          borderRadius: '4px',
-                          padding: '2px 8px',
-                        }}
-                      >
-                        {formatStatusLabel(selectedStaff.status)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setSelectedStaff(null)}
-                  aria-label="Close profile"
-                  className="rounded p-1 hover:bg-white/10"
-                  style={{ color: '#ffffff', border: 'none', background: 'none' }}
-                >
-                  <IconX size={20} stroke={2} />
-                </button>
-              </div>
-            </header>
+      {profileSessions.map((session) => (
+        <StaffProfilePanel
+          key={session.id}
+          session={session}
+          isForeground={foregroundProfileSessionId === session.id}
+          onBack={() => closeProfileSession(session.id)}
+          onCloseSession={() => closeProfileSession(session.id)}
+          onFocus={() => focusProfileSession(session.id)}
+          onMinimized={() => {
+            setForegroundProfileSessionId((current) =>
+              current === session.id ? null : current,
+            )
+          }}
+          onProfileTabChange={(tab) => handleProfileTabChange(session.id, tab)}
+          onRegisterActions={registerProfilePanelActions}
+        />
+      ))}
 
-            <div
-              className="flex shrink-0 overflow-x-auto"
-              style={{
-                backgroundColor: '#ffffff',
-                borderBottom: '1px solid #E5E7EB',
-              }}
-            >
-              {profileTabs.map((tab) => {
-                const isActive = profileTab === tab.id
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setProfileTab(tab.id)}
-                    style={{
-                      fontSize: '12px',
-                      fontWeight: 500,
-                      padding: '10px 14px',
-                      border: 'none',
-                      background: 'none',
-                      cursor: 'pointer',
-                      color: isActive ? NAVY : '#6B7280',
-                      borderBottom: isActive
-                        ? `2px solid ${NAVY}`
-                        : '2px solid transparent',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {tab.label}
-                  </button>
-                )
-              })}
-            </div>
-
-            <div className="flex flex-1 flex-col items-center justify-center py-16">
-              <IconClock size={32} color="#D1D5DB" stroke={1.5} />
-              <p
-                className="mt-3"
-                style={{ fontSize: '13px', color: '#6B7280' }}
-              >
-                Coming soon
-              </p>
-            </div>
-          </>
-        ) : null}
-      </SlidePanel>
+      {duplicateNoticeLabel ? (
+        <StaffProfileDuplicateNotice
+          label={duplicateNoticeLabel}
+          onRestore={handleDuplicateProfileRestore}
+        />
+      ) : null}
 
       {showAddForm ? (
         <>
@@ -1658,6 +1604,53 @@ function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
         </>
       ) : null}
     </>
+  )
+}
+
+function StaffProfileDuplicateNotice({
+  label,
+  onRestore,
+}: {
+  label: string
+  onRestore: () => void
+}) {
+  return (
+    <div
+      role="status"
+      style={{
+        position: 'fixed',
+        top: '16px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        zIndex: 2000,
+        backgroundColor: NAVY,
+        color: '#ffffff',
+        fontSize: '13px',
+        fontWeight: 500,
+        padding: '10px 16px',
+        borderRadius: '6px',
+        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      <span>{label} is already open.</span>
+      <button
+        type="button"
+        onClick={onRestore}
+        className="border-none bg-transparent p-0 underline"
+        style={{
+          color: '#ffffff',
+          fontSize: '13px',
+          fontWeight: 600,
+          cursor: 'pointer',
+        }}
+      >
+        Restore
+      </button>
+    </div>
   )
 }
 

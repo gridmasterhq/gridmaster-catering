@@ -42,6 +42,7 @@ import NoteTemplatesPage from '../../pages/settings/NoteTemplatesPage'
 import RolesPage from '../../pages/RolesPage'
 import StaffManagementPage from '../../pages/catering/StaffManagementPage'
 import NewEventOrchestrator from '../catering/NewEventOrchestrator'
+import { isStaffProfileTabId } from '../../lib/staffProfileTabs'
 import MyTemplatesOverlay from '../overlays/MyTemplatesOverlay'
 import GridMasterTemplatesOverlay from '../overlays/GridMasterTemplatesOverlay'
 import AITemplateBuilderOverlay from '../overlays/AITemplateBuilderOverlay'
@@ -528,7 +529,8 @@ interface AppShellProps {
 function AppShell({ children }: AppShellProps) {
   const navigate = useNavigate()
   const location = useLocation()
-  const { canOpenNew, showMaxTabsNotice, hasTab } = useTabManager()
+  const { canOpenNew, showMaxTabsNotice, hasTab, hasMatchingTab } =
+    useTabManager()
   const { brand_name, product_name, navigation, labels, colors } =
     useProductConfig()
 
@@ -708,7 +710,8 @@ function AppShell({ children }: AppShellProps) {
   const showStaffPage =
     activeOverlay === 'staff' ||
     hasTab('staff-mgmt') ||
-    hasTab('new-staff')
+    hasTab('new-staff') ||
+    hasMatchingTab(isStaffProfileTabId)
 
   const showGenericOverlay =
     activeOverlay !== null &&

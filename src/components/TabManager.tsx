@@ -29,6 +29,7 @@ interface TabManagerContextValue {
   ) => void
   unregisterTab: (id: string) => void
   hasTab: (id: string) => boolean
+  hasMatchingTab: (predicate: (id: string) => boolean) => boolean
   restoreTab: (id: string) => void
   canOpenNew: () => boolean
   showMaxTabsNotice: () => void
@@ -78,6 +79,12 @@ export function TabManagerProvider({ children }: TabManagerProviderProps) {
     [tabs],
   )
 
+  const hasMatchingTab = useCallback(
+    (predicate: (id: string) => boolean) =>
+      tabs.some((tab) => predicate(tab.id)),
+    [tabs],
+  )
+
   const tabsRef = useRef(tabs)
   tabsRef.current = tabs
 
@@ -111,11 +118,20 @@ export function TabManagerProvider({ children }: TabManagerProviderProps) {
       registerTab,
       unregisterTab,
       hasTab,
+      hasMatchingTab,
       restoreTab,
       canOpenNew,
       showMaxTabsNotice,
     }),
-    [registerTab, unregisterTab, hasTab, restoreTab, canOpenNew, showMaxTabsNotice],
+    [
+      registerTab,
+      unregisterTab,
+      hasTab,
+      hasMatchingTab,
+      restoreTab,
+      canOpenNew,
+      showMaxTabsNotice,
+    ],
   )
 
   return (
