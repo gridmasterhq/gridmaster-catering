@@ -469,6 +469,10 @@ function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
     onClose()
   }, [addFormPanel, onClose, staffPanel])
 
+  const handleProfileBackdrop = useCallback(() => {
+    staffPanel.minimize()
+  }, [staffPanel])
+
   const [legalName, setLegalName] = useState('')
   const [phone, setPhone] = useState('')
   const [primaryRole, setPrimaryRole] = useState<string>(ROLE_OPTIONS[0])
@@ -1222,8 +1226,8 @@ function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
       </div>
 
       <SlidePanel
-        isOpen={selectedStaff !== null}
-        onClose={() => setSelectedStaff(null)}
+        isOpen={selectedStaff !== null && !staffPanel.isMinimized}
+        onClose={handleProfileBackdrop}
         width={600}
         zIndex={302}
       >

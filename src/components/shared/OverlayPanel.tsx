@@ -4,6 +4,11 @@ import { useMinimizablePanel } from '../../hooks/useMinimizablePanel'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
 import { FormPanelContext } from './FormPanelContext'
 
+const FORM_PANEL_HEADER_PADDING_PX = 16
+const FORM_PANEL_BUTTON_RIGHT_OFFSET_PX = FORM_PANEL_HEADER_PADDING_PX * 2.5
+const FORM_PANEL_BUTTON_EXTRA_MARGIN_PX =
+  FORM_PANEL_BUTTON_RIGHT_OFFSET_PX - FORM_PANEL_HEADER_PADDING_PX
+
 interface OverlayPanelProps {
   isOpen: boolean
   title: string
@@ -193,7 +198,10 @@ export default function OverlayPanel({
                   </button>
                 </div>
               ) : (
-                <>
+                <div
+                  className="flex items-center gap-1"
+                  style={{ marginRight: `${FORM_PANEL_BUTTON_EXTRA_MARGIN_PX}px` }}
+                >
                   <button
                     type="button"
                     onClick={minimize}
@@ -212,7 +220,7 @@ export default function OverlayPanel({
                   >
                     <IconX size={20} stroke={2} />
                   </button>
-                </>
+                </div>
               )
             ) : (
               <button
