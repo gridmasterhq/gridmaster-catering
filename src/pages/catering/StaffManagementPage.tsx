@@ -8,6 +8,8 @@ import {
   useState,
 } from 'react'
 import {
+  IconChevronLeft,
+  IconChevronRight,
   IconClock,
   IconSearch,
   IconUser,
@@ -523,6 +525,8 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
   const [selectedStaff, setSelectedStaff] = useState<StaffMember | null>(null)
   const [profileTab, setProfileTab] = useState<ProfileTab>('history')
   const [showAddForm, setShowAddForm] = useState(false)
+  const [addFormMinimized, setAddFormMinimized] = useState(false)
+  const [addFormSlideIn, setAddFormSlideIn] = useState(false)
   const [successToast, setSuccessToast] = useState<string | null>(null)
 
   const [legalName, setLegalName] = useState('')
@@ -623,6 +627,22 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
     }
   }, [successToast])
 
+  useEffect(() => {
+    if (!showAddForm) {
+      setAddFormSlideIn(false)
+      setAddFormMinimized(false)
+      return
+    }
+
+    const frame = requestAnimationFrame(() => {
+      setAddFormSlideIn(true)
+    })
+
+    return () => {
+      cancelAnimationFrame(frame)
+    }
+  }, [showAddForm])
+
   const filteredStaff = useMemo(() => {
     const term = searchTerm.trim().toLowerCase()
 
@@ -685,8 +705,28 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
 
   const handleCloseAddForm = () => {
     setShowAddForm(false)
+    setAddFormMinimized(false)
     resetAddForm()
   }
+
+  useEffect(() => {
+    if (!showAddForm || addFormMinimized) {
+      return
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setShowAddForm(false)
+        setAddFormMinimized(false)
+        resetAddForm()
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [showAddForm, addFormMinimized])
 
   const handleToggleSecondaryRole = (role: string) => {
     setSecondaryRoles((previous) =>
@@ -1278,44 +1318,88 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
         ) : null}
       </SlidePanel>
 
-      <SlidePanel
-        isOpen={showAddForm}
-        onClose={handleCloseAddForm}
-        width={600}
-        zIndex={304}
-      >
-        <header
-          className="flex shrink-0 items-center justify-between"
-          style={{
-            backgroundColor: NAVY,
-            padding: '12px 16px',
-          }}
-        >
-          <h2
+      {showAddForm ? (
+        <>
+          {!addFormMinimized ? (
+            <button
+              type="button"
+              aria-label="Close add staff form"
+              onClick={handleCloseAddForm}
+              className="fixed inset-0 border-none"
+              style={{
+                backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                zIndex: 304,
+                cursor: 'default',
+              }}
+            />
+          ) : null}
+
+          <div
+            className="fixed top-0 right-0 bottom-0 flex flex-col bg-white shadow-xl"
             style={{
-              fontSize: '16px',
-              fontWeight: 600,
-              color: '#ffffff',
+              width: '100vw',
+              maxWidth: '600px',
+              height: '100vh',
+              zIndex: 305,
+              transform:
+                addFormSlideIn && !addFormMinimized
+                  ? 'translateX(0)'
+                  : 'translateX(100%)',
+              transition: 'transform 0.2s ease',
+              pointerEvents: addFormMinimized ? 'none' : 'auto',
             }}
           >
-            Add New Staff
-          </h2>
-          <button
-            type="button"
-            onClick={handleCloseAddForm}
-            aria-label="Close"
-            className="rounded p-1 hover:bg-white/10"
-            style={{ color: '#ffffff', border: 'none', background: 'none' }}
-          >
-            <IconX size={20} stroke={2} />
-          </button>
-        </header>
+            <header
+              className="flex shrink-0 items-center justify-between"
+              style={{
+                backgroundColor: NAVY,
+                padding: '12px 16px',
+              }}
+            >
+              <h2
+                style={{
+                  fontSize: '16px',
+                  fontWeight: 600,
+                  color: '#ffffff',
+                }}
+              >
+                Add New Staff
+              </h2>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setAddFormMinimized(true)}
+                  aria-label="Minimize"
+                  className="rounded p-1 hover:bg-white/10"
+                  style={{
+                    color: '#ffffff',
+                    border: 'none',
+                    background: 'none',
+                  }}
+                >
+                  <IconChevronRight size={20} stroke={2} />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCloseAddForm}
+                  aria-label="Close"
+                  className="rounded p-1 hover:bg-white/10"
+                  style={{
+                    color: '#ffffff',
+                    border: 'none',
+                    background: 'none',
+                  }}
+                >
+                  <IconX size={20} stroke={2} />
+                </button>
+              </div>
+            </header>
 
-        <form
-          onSubmit={(event) => void handleAddStaff(event)}
-          className="min-h-0 flex-1 overflow-y-auto"
-          style={{ padding: '16px' }}
-        >
+            <form
+              onSubmit={(event) => void handleAddStaff(event)}
+              className="min-h-0 flex-1 overflow-y-auto"
+              style={{ padding: '16px' }}
+            >
           <div style={{ marginBottom: '16px' }}>
             <label htmlFor="staff-legal-name" style={fieldLabelStyle}>
               Legal Name (required)
@@ -1464,8 +1548,47 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
           >
             Cancel
           </button>
-        </form>
-      </SlidePanel>
+            </form>
+          </div>
+
+          {addFormMinimized ? (
+            <button
+              type="button"
+              onClick={() => setAddFormMinimized(false)}
+              aria-label="Expand New Staff form"
+              className="fixed flex flex-col items-center border-none"
+              style={{
+                top: '40%',
+                right: 0,
+                transform: 'translateY(-50%)',
+                width: '28px',
+                padding: '10px 4px',
+                backgroundColor: NAVY,
+                borderTopLeftRadius: '6px',
+                borderBottomLeftRadius: '6px',
+                zIndex: 305,
+                cursor: 'pointer',
+                gap: '6px',
+              }}
+            >
+              <IconChevronLeft size={16} color="#ffffff" stroke={2} />
+              <span
+                style={{
+                  writingMode: 'vertical-rl',
+                  transform: 'rotate(180deg)',
+                  color: '#ffffff',
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  whiteSpace: 'nowrap',
+                  letterSpacing: '0.02em',
+                }}
+              >
+                New Staff
+              </span>
+            </button>
+          ) : null}
+        </>
+      ) : null}
     </>
   )
 }
