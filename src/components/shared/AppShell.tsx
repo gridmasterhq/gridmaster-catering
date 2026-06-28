@@ -526,7 +526,7 @@ interface AppShellProps {
 function AppShell({ children }: AppShellProps) {
   const navigate = useNavigate()
   const location = useLocation()
-  const { canOpenNew, showMaxTabsNotice } = useTabManager()
+  const { canOpenNew, showMaxTabsNotice, hasTab } = useTabManager()
   const { brand_name, product_name, navigation, labels, colors } =
     useProductConfig()
 
@@ -689,6 +689,27 @@ function AppShell({ children }: AppShellProps) {
     'ai-template-builder': true,
     'new-event': false,
   }
+
+  const focusStaffOverlay = useCallback(() => {
+    setActiveOverlay('staff')
+  }, [])
+
+  const focusNewEventOverlay = useCallback(() => {
+    setActiveOverlay('new-event')
+  }, [])
+
+  const showStaffPage =
+    activeOverlay === 'staff' ||
+    hasTab('staff-mgmt') ||
+    hasTab('new-staff')
+
+  const showNewEventPanel =
+    activeOverlay === 'new-event' || hasTab('new-event')
+
+  const showGenericOverlay =
+    activeOverlay !== null &&
+    activeOverlay !== 'staff' &&
+    activeOverlay !== 'new-event'
 
   const screenLabelStyle = useCallback(
     (screen: ActiveScreen): CSSProperties => {
@@ -979,22 +1000,35 @@ function AppShell({ children }: AppShellProps) {
         ))}
       </AppSidebar>
 
-      {activeOverlay === 'staff' ? (
-        <StaffManagementPage onClose={closeOverlay} />
-      ) : activeOverlay ? (
+      {showStaffPage ? (
+        <StaffManagementPage
+          onClose={closeOverlay}
+          onFocus={focusStaffOverlay}
+        />
+      ) : null}
+
+      {showNewEventPanel ? (
+        <OverlayPanel
+          isOpen={activeOverlay === 'new-event' || hasTab('new-event')}
+          title={overlayTitles['new-event'] ?? 'New Event'}
+          dismissable={false}
+          onClose={closeOverlay}
+          onPanelRestore={focusNewEventOverlay}
+          tabId="new-event"
+          tabLabel={overlayTitles['new-event'] ?? 'New Event'}
+          tabColor="#1B3A5C"
+        >
+          <NewEvent />
+        </OverlayPanel>
+      ) : null}
+
+      {showGenericOverlay ? (
         <OverlayPanel
           key={activeOverlay}
-          isOpen={activeOverlay !== null}
-          title={overlayTitles[activeOverlay] ?? ''}
-          dismissable={overlayDismissable[activeOverlay] ?? true}
+          isOpen
+          title={overlayTitles[activeOverlay!] ?? ''}
+          dismissable={overlayDismissable[activeOverlay!] ?? true}
           onClose={closeOverlay}
-          tabId={activeOverlay === 'new-event' ? 'new-event' : undefined}
-          tabLabel={
-            activeOverlay === 'new-event'
-              ? (overlayTitles['new-event'] ?? 'New Event')
-              : undefined
-          }
-          tabColor={activeOverlay === 'new-event' ? '#1B3A5C' : undefined}
         >
           {activeOverlay === 'uniforms' ? <UniformsPage /> : null}
           {activeOverlay === 'roles' ? <RolesPage /> : null}
@@ -1006,7 +1040,6 @@ function AppShell({ children }: AppShellProps) {
           {activeOverlay === 'ai-template-builder' ? (
             <AITemplateBuilderOverlay />
           ) : null}
-          {activeOverlay === 'new-event' ? <NewEvent /> : null}
         </OverlayPanel>
       ) : null}
 

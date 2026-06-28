@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { useTabManager } from '../components/TabManager'
 
 interface UseMinimizablePanelOptions {
@@ -42,6 +42,15 @@ export function useMinimizablePanel({
     setIsMinimized(true)
   }, [color, enabled, id, label, registerTab, restore])
 
+  const dismiss = useCallback(() => {
+    if (!enabled) {
+      return
+    }
+
+    unregisterTab(id)
+    setIsMinimized(false)
+  }, [enabled, id, unregisterTab])
+
   const canOpen = useCallback(() => {
     if (!enabled) {
       return true
@@ -55,20 +64,11 @@ export function useMinimizablePanel({
     return false
   }, [canOpenNew, enabled, showMaxTabsNotice])
 
-  useEffect(() => {
-    if (!enabled) {
-      return
-    }
-
-    return () => {
-      unregisterTab(id)
-    }
-  }, [enabled, id, unregisterTab])
-
   return {
     isMinimized: enabled ? isMinimized : false,
     minimize,
     restore,
+    dismiss,
     canOpen,
   }
 }

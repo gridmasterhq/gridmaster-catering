@@ -1,13 +1,15 @@
-import { type ReactNode, useEffect, useState } from 'react'
+import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import { IconChevronRight, IconX } from '@tabler/icons-react'
 import { useMinimizablePanel } from '../../hooks/useMinimizablePanel'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
+import { FormPanelContext } from './FormPanelContext'
 
 interface OverlayPanelProps {
   isOpen: boolean
   title: string
   dismissable?: boolean
   onClose: () => void
+  onPanelRestore?: () => void
   children: ReactNode
   tabId?: string
   tabLabel?: string
@@ -19,6 +21,7 @@ export default function OverlayPanel({
   title,
   dismissable = true,
   onClose,
+  onPanelRestore,
   children,
   tabId,
   tabLabel,
@@ -29,12 +32,18 @@ export default function OverlayPanel({
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const isFormPanel = !dismissable && tabId != null
 
-  const { isMinimized, minimize, restore } = useMinimizablePanel({
+  const { isMinimized, minimize, dismiss } = useMinimizablePanel({
     id: tabId ?? title,
     label: tabLabel ?? title,
     color: tabColor,
     enabled: isFormPanel,
+    onRestore: onPanelRestore,
   })
+
+  const formPanelContextValue = useMemo(
+    () => (isFormPanel ? { minimize } : null),
+    [isFormPanel, minimize],
+  )
 
   useEffect(() => {
     if (!isOpen) {
@@ -90,15 +99,13 @@ export default function OverlayPanel({
 
   const handleDiscard = () => {
     setShowConfirmDialog(false)
-    if (isMinimized) {
-      restore()
-    }
+    dismiss()
     onClose()
   }
 
   const panelVisible = slideIn && !isMinimized
 
-  if (!isOpen) {
+  if (!isOpen && !isMinimized) {
     return null
   }
 
@@ -218,7 +225,9 @@ export default function OverlayPanel({
             )}
           </div>
         </header>
-        <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
+        <FormPanelContext.Provider value={formPanelContextValue}>
+          <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
+        </FormPanelContext.Provider>
       </div>
     </>
   )

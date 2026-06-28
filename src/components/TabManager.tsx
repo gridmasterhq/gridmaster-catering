@@ -27,6 +27,7 @@ interface TabManagerContextValue {
     onRestore: () => void,
   ) => void
   unregisterTab: (id: string) => void
+  hasTab: (id: string) => boolean
   canOpenNew: () => boolean
   showMaxTabsNotice: () => void
 }
@@ -70,6 +71,11 @@ export function TabManagerProvider({ children }: TabManagerProviderProps) {
     setTabs((previous) => previous.filter((tab) => tab.id !== id))
   }, [])
 
+  const hasTab = useCallback(
+    (id: string) => tabs.some((tab) => tab.id === id),
+    [tabs],
+  )
+
   const canOpenNew = useCallback(() => tabs.length < MAX_TABS, [tabs.length])
 
   const showMaxTabsNotice = useCallback(() => {
@@ -94,10 +100,11 @@ export function TabManagerProvider({ children }: TabManagerProviderProps) {
     () => ({
       registerTab,
       unregisterTab,
+      hasTab,
       canOpenNew,
       showMaxTabsNotice,
     }),
-    [registerTab, unregisterTab, canOpenNew, showMaxTabsNotice],
+    [registerTab, unregisterTab, hasTab, canOpenNew, showMaxTabsNotice],
   )
 
   return (

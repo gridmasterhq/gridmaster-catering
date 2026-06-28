@@ -76,6 +76,7 @@ interface StaffMember {
 
 interface StaffManagementPageProps {
   onClose: () => void
+  onFocus?: () => void
 }
 
 interface SlidePanelProps {
@@ -437,7 +438,7 @@ function sortStaffMembers(
   return sorted
 }
 
-function StaffManagementPage({ onClose }: StaffManagementPageProps) {
+function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
   const [organizationId, setOrganizationId] = useState<string | null>(null)
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([])
   const [loading, setLoading] = useState(true)
@@ -456,12 +457,20 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
     id: 'staff-mgmt',
     label: 'Staff Mgmt',
     color: NAVY,
+    onRestore: onFocus,
   })
   const addFormPanel = useMinimizablePanel({
     id: 'new-staff',
     label: 'New Staff',
     color: NAVY,
+    onRestore: onFocus,
   })
+
+  const handleStaffClose = useCallback(() => {
+    staffPanel.dismiss()
+    addFormPanel.dismiss()
+    onClose()
+  }, [addFormPanel, onClose, staffPanel])
 
   const [legalName, setLegalName] = useState('')
   const [phone, setPhone] = useState('')
@@ -595,7 +604,7 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
-        onClose()
+        handleStaffClose()
       }
     }
 
@@ -608,7 +617,7 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
     showAddForm,
     addFormPanel.isMinimized,
     selectedStaff,
-    onClose,
+    handleStaffClose,
   ])
 
   useEffect(() => {
@@ -712,9 +721,7 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
 
   const handleCloseAddForm = () => {
     setShowAddFormConfirmClose(false)
-    if (addFormPanel.isMinimized) {
-      addFormPanel.restore()
-    }
+    addFormPanel.dismiss()
     setShowAddForm(false)
     resetAddForm()
   }
@@ -848,11 +855,9 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
       }
 
       await loadStaff(organizationId)
+      addFormPanel.dismiss()
       setShowAddForm(false)
       setShowAddFormConfirmClose(false)
-      if (addFormPanel.isMinimized) {
-        addFormPanel.restore()
-      }
       resetAddForm()
       setSuccessToast(
         'Staff member added. Onboarding SMS will be sent when messaging is enabled.',
@@ -901,7 +906,7 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
         <button
           type="button"
           aria-label="Close staff management"
-          onClick={onClose}
+          onClick={handleStaffClose}
           className="fixed inset-0 border-none"
           style={{
             backgroundColor: 'rgba(0, 0, 0, 0.3)',
@@ -969,7 +974,7 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
               </button>
               <button
                 type="button"
-                onClick={onClose}
+                onClick={handleStaffClose}
                 aria-label="Close"
                 className="rounded p-1 hover:bg-white/10"
                 style={{ color: '#ffffff', border: 'none', background: 'none' }}

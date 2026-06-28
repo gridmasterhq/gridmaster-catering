@@ -7,6 +7,7 @@ import QuickEventForm from '../components/catering/QuickEventForm'
 import NewEventModeSelect, {
   type NewEventMode,
 } from '../components/catering/NewEventModeSelect'
+import { useFormPanel } from '../components/shared/FormPanelContext'
 import { useOverlay, type NewEventOpenMode } from '../components/shared/AppShell'
 import { useProductConfig } from '../lib/hooks/useProductConfig'
 import type { EventSaveResult } from '../lib/types/eventTemplate'
@@ -43,6 +44,7 @@ function NewEvent() {
     newEventInitialTemplate,
     openOverlay,
   } = useOverlay()
+  const formPanel = useFormPanel()
   const { labels, colors } = useProductConfig()
   const [selectedMode, setSelectedMode] = useState<NewEventMode | null>(() =>
     resolveInitialMode(
@@ -78,7 +80,10 @@ function NewEvent() {
       <NewEventModeSelect
         onSelect={setSelectedMode}
         onCancel={closeOverlay}
-        onUseTemplate={() => openOverlay('my-templates')}
+        onUseTemplate={() => {
+          formPanel?.minimize()
+          openOverlay('my-templates')
+        }}
         highlightTemplate={highlightTemplate}
       />
     )
