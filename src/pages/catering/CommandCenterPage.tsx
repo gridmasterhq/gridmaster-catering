@@ -1,14 +1,13 @@
 import type { CSSProperties, ReactNode } from 'react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   IconActivity,
-  IconArchive,
   IconCloud,
   IconHeartRateMonitor,
   IconMapPin,
   IconSearch,
   IconSpeakerphone,
-  IconX,
 } from '@tabler/icons-react'
 import type { Icon } from '@tabler/icons-react'
 import { useActiveScreen } from '../../components/shared/AppShell'
@@ -26,14 +25,7 @@ interface DraftActionEvent {
   status: string
 }
 
-interface ActionItemArchiveRow {
-  id: string
-  event_id: string | null
-  event_name: string
-  event_date: string | null
-  reason: string | null
-  archived_at: string
-}
+const DRAFT_EVENT_ITEM_TYPE = 'draft_event'
 
 function getTwoDaysFromTodayDate(): string {
   const date = new Date()
@@ -100,362 +92,109 @@ function getDraftActionTitle(event: DraftActionEvent): string {
     : event.event_name
 }
 
-function getArchivedItemTitle(
-  eventName: string,
-  eventDate: string | null,
-): string {
-  const formattedDate = formatActionItemEventDate(eventDate)
-  return formattedDate ? `${eventName} (${formattedDate})` : eventName
+function isSystemResolvableItemType(itemType: string): boolean {
+  return itemType === DRAFT_EVENT_ITEM_TYPE
 }
 
-function formatArchivedAtLabel(archivedAt: string): string {
-  const parsed = new Date(archivedAt)
-  if (Number.isNaN(parsed.getTime())) {
-    return 'Archived'
+function isSnoozeFiltered(
+  event: DraftActionEvent,
+  snoozedEventIds: Set<string>,
+): boolean {
+  if (!snoozedEventIds.has(event.id)) {
+    return false
   }
 
-  const formatted = parsed.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
-  return `Archived ${formatted}`
+  if (
+    isEventDateWithinTwoDays(event.event_date)
+  ) {
+    return false
+  }
+
+  return true
 }
 
-function getRetentionUntilTwelveMonths(): string {
-  const retentionUntil = new Date()
-  retentionUntil.setMonth(retentionUntil.getMonth() + 12)
-  return retentionUntil.toISOString()
-}
-
-interface ActionItemsArchivesPanelProps {
-  isOpen: boolean
+interface SnoozePopoverProps {
+  anchorEl: HTMLElement
   onClose: () => void
-  onArchiveDeleted: (eventId: string | null) => void
+  onSelect: (days: number) => void
 }
 
-function ActionItemsArchivesPanel({
-  isOpen,
-  onClose,
-  onArchiveDeleted,
-}: ActionItemsArchivesPanelProps) {
-  const [slideIn, setSlideIn] = useState(false)
-  const [archivedItems, setArchivedItems] = useState<ActionItemArchiveRow[]>([])
-  const [loading, setLoading] = useState(false)
-  const [deleteErrors, setDeleteErrors] = useState<Record<string, string>>({})
+function SnoozePopover({ anchorEl, onClose, onSelect }: SnoozePopoverProps) {
+  const popoverRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    if (!isOpen) {
-      setSlideIn(false)
+  useLayoutEffect(() => {
+    if (!popoverRef.current) {
       return
     }
 
-    const frame = requestAnimationFrame(() => {
-      setSlideIn(true)
-    })
-
-    return () => {
-      cancelAnimationFrame(frame)
-    }
-  }, [isOpen])
+    const rect = anchorEl.getBoundingClientRect()
+    const popoverEl = popoverRef.current
+    popoverEl.style.top = `${rect.bottom + 4}px`
+    popoverEl.style.left = `${rect.right}px`
+    popoverEl.style.transform = 'translateX(-100%)'
+  }, [anchorEl])
 
   useEffect(() => {
-    if (!isOpen) {
-      return
+    function handleMouseDown(event: MouseEvent) {
+      if (
+        popoverRef.current?.contains(event.target as Node) ||
+        anchorEl.contains(event.target as Node)
+      ) {
+        return
+      }
+      onClose()
     }
 
-    let cancelled = false
-
-    async function loadArchives() {
-      setLoading(true)
-
-      try {
-        const {
-          data: { user },
-          error: userError,
-        } = await supabase.auth.getUser()
-
-        if (cancelled || userError) {
-          if (userError) {
-            console.error('[CommandCenter] archives panel: getUser failed', userError)
-          }
-          setArchivedItems([])
-          setLoading(false)
-          return
-        }
-
-        const organizationId = user?.user_metadata?.organization_id
-        if (typeof organizationId !== 'string' || !organizationId.trim()) {
-          setArchivedItems([])
-          setLoading(false)
-          return
-        }
-
-        const orgId = organizationId.trim()
-        const nowIso = new Date().toISOString()
-
-        const { error: purgeError } = await supabase
-          .from('action_item_archives')
-          .delete()
-          .eq('organization_id', orgId)
-          .lte('retention_until', nowIso)
-
-        if (purgeError) {
-          console.error('[CommandCenter] archives purge failed', purgeError)
-        }
-
-        const { data, error } = await supabase
-          .from('action_item_archives')
-          .select('id, event_id, event_name, event_date, reason, archived_at')
-          .eq('organization_id', orgId)
-          .gt('retention_until', nowIso)
-          .order('archived_at', { ascending: false })
-
-        if (cancelled) {
-          return
-        }
-
-        if (error) {
-          console.error('[CommandCenter] archives panel load failed', error)
-          setArchivedItems([])
-        } else {
-          setArchivedItems((data ?? []) as ActionItemArchiveRow[])
-        }
-      } catch (error) {
-        console.error('[CommandCenter] archives panel unexpected error', error)
-        if (!cancelled) {
-          setArchivedItems([])
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false)
-        }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        onClose()
       }
     }
 
-    void loadArchives()
+    document.addEventListener('mousedown', handleMouseDown)
+    document.addEventListener('keydown', handleKeyDown)
 
     return () => {
-      cancelled = true
+      document.removeEventListener('mousedown', handleMouseDown)
+      document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [isOpen])
+  }, [anchorEl, onClose])
 
-  const handleDeleteArchive = async (row: ActionItemArchiveRow) => {
-    setDeleteErrors((previous) => {
-      const next = { ...previous }
-      delete next[row.id]
-      return next
-    })
-
-    const { error } = await supabase
-      .from('action_item_archives')
-      .delete()
-      .eq('id', row.id)
-
-    if (error) {
-      console.error('[CommandCenter] archive delete failed', error)
-      setDeleteErrors((previous) => ({
-        ...previous,
-        [row.id]: 'Delete failed',
-      }))
-      return
-    }
-
-    setArchivedItems((previous) => previous.filter((item) => item.id !== row.id))
-    onArchiveDeleted(row.event_id)
-  }
-
-  if (!isOpen) {
-    return null
-  }
-
-  return (
-    <>
-      <button
-        type="button"
-        aria-label="Close archives panel"
-        onClick={onClose}
-        className="fixed inset-0 border-none"
-        style={{
-          backgroundColor: 'rgba(0, 0, 0, 0.3)',
-          zIndex: 300,
-          cursor: 'default',
-        }}
-      />
-
-      <div
-        className="fixed top-0 right-0 bottom-0 flex flex-col bg-white shadow-xl"
-        style={{
-          width: '100vw',
-          maxWidth: '480px',
-          height: '100vh',
-          zIndex: 301,
-          transform: slideIn ? 'translateX(0)' : 'translateX(100%)',
-          transition: 'transform 0.2s ease',
-        }}
-      >
-        <header
-          className="shrink-0"
+  return createPortal(
+    <div
+      ref={popoverRef}
+      style={{
+        position: 'fixed',
+        zIndex: 200,
+        display: 'flex',
+        alignItems: 'center',
+        backgroundColor: '#ffffff',
+        border: '1px solid #E5E7EB',
+        borderRadius: '6px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+      }}
+    >
+      {[3, 7, 14].map((days) => (
+        <button
+          key={days}
+          type="button"
+          onClick={() => onSelect(days)}
+          className="hover:bg-[#F3F4F6]"
           style={{
-            backgroundColor: '#fee2e2',
-            padding: '12px 16px',
-            borderBottom: '0.5px solid #fecaca',
+            fontSize: '12px',
+            fontWeight: 500,
+            color: '#1B3A5C',
+            padding: '6px 12px',
+            border: 'none',
+            background: 'none',
+            cursor: 'pointer',
           }}
         >
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <h2
-                style={{
-                  fontSize: '16px',
-                  fontWeight: 600,
-                  color: '#991b1b',
-                }}
-              >
-                Action Items — Archives
-              </h2>
-              <p
-                style={{
-                  fontSize: '11px',
-                  color: '#991b1b',
-                  opacity: 0.75,
-                  marginTop: '4px',
-                }}
-              >
-                Archived items are kept for 13 months, then automatically removed.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Close"
-              className="rounded p-1 hover:bg-[#fecaca]"
-              style={{ color: '#991b1b', border: 'none', background: 'none' }}
-            >
-              <IconX size={20} stroke={2} />
-            </button>
-          </div>
-        </header>
-
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          {loading ? (
-            <div
-              className="flex items-center justify-center py-12"
-              style={{ color: '#9ca3af', fontSize: '12px' }}
-            >
-              Loading...
-            </div>
-          ) : archivedItems.length === 0 ? (
-            <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-              <IconArchive size={32} color="#D1D5DB" stroke={1.5} />
-              <p
-                className="mt-4"
-                style={{ fontSize: '14px', color: '#6B7280' }}
-              >
-                No archived items
-              </p>
-              <p
-                className="mt-2"
-                style={{ fontSize: '12px', color: '#9CA3AF' }}
-              >
-                Items you archive from Action Items will appear here.
-              </p>
-            </div>
-          ) : (
-            archivedItems.map((row) => (
-              <div
-                key={row.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: '12px',
-                  padding: '12px 16px',
-                  borderBottom: '1px solid #F3F4F6',
-                }}
-              >
-                <div className="min-w-0 flex-1">
-                  {row.event_id ? (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        window.open(`/event/${row.event_id}`, '_blank')
-                      }
-                      className="text-left hover:underline"
-                      style={{
-                        fontSize: '14px',
-                        fontWeight: 700,
-                        color: '#1B3A5C',
-                        background: 'none',
-                        border: 'none',
-                        padding: 0,
-                        cursor: 'pointer',
-                        lineHeight: 1.3,
-                      }}
-                    >
-                      {getArchivedItemTitle(row.event_name, row.event_date)}
-                    </button>
-                  ) : (
-                    <p
-                      style={{
-                        fontSize: '14px',
-                        fontWeight: 700,
-                        color: '#1B3A5C',
-                        lineHeight: 1.3,
-                      }}
-                    >
-                      {getArchivedItemTitle(row.event_name, row.event_date)}
-                    </p>
-                  )}
-                  {row.reason ? (
-                    <p
-                      style={{
-                        fontSize: '12px',
-                        color: '#6B7280',
-                        marginTop: '4px',
-                        lineHeight: 1.3,
-                      }}
-                    >
-                      {row.reason}
-                    </p>
-                  ) : null}
-                  <p
-                    style={{
-                      fontSize: '12px',
-                      color: '#6B7280',
-                      marginTop: '2px',
-                      lineHeight: 1.3,
-                    }}
-                  >
-                    {formatArchivedAtLabel(row.archived_at)}
-                  </p>
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => void handleDeleteArchive(row)}
-                    className="hover:underline"
-                    style={{
-                      fontSize: '12px',
-                      color: '#991b1b',
-                      cursor: 'pointer',
-                      background: 'none',
-                      border: 'none',
-                      padding: 0,
-                    }}
-                  >
-                    Delete
-                  </button>
-                  {deleteErrors[row.id] ? (
-                    <span style={{ fontSize: '12px', color: '#ef4444' }}>
-                      {deleteErrors[row.id]}
-                    </span>
-                  ) : null}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-    </>
+          {days} days
+        </button>
+      ))}
+    </div>,
+    document.body,
   )
 }
 
@@ -619,9 +358,13 @@ function CommandCenterPage() {
   const [eventCount, setEventCount] = useState<number | null>(null)
   const [draftActionItems, setDraftActionItems] = useState<DraftActionEvent[]>([])
   const [archivedEventIds, setArchivedEventIds] = useState<Set<string>>(new Set())
+  const [snoozedEventIds, setSnoozedEventIds] = useState<Set<string>>(new Set())
   const [dismissedEventIds, setDismissedEventIds] = useState<Set<string>>(new Set())
-  const [archiveErrors, setArchiveErrors] = useState<Record<string, string>>({})
-  const [archivesPanelOpen, setArchivesPanelOpen] = useState(false)
+  const [actionItemErrors, setActionItemErrors] = useState<Record<string, string>>({})
+  const [snoozePopover, setSnoozePopover] = useState<{
+    eventId: string
+    anchorEl: HTMLElement
+  } | null>(null)
 
   const fetchArchivedEventIds = useCallback(async () => {
     try {
@@ -659,6 +402,86 @@ function CommandCenterPage() {
       setArchivedEventIds(ids)
     } catch (error) {
       console.error('[CommandCenter] archived actions unexpected error', error)
+    }
+  }, [])
+
+  const fetchSnoozedEventIds = useCallback(async () => {
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser()
+
+      if (userError) {
+        console.error('[CommandCenter] snoozed actions: getUser failed', userError)
+        return
+      }
+
+      const organizationId = user?.user_metadata?.organization_id
+      if (typeof organizationId !== 'string' || !organizationId.trim()) {
+        return
+      }
+
+      const nowIso = new Date().toISOString()
+      const { data, error } = await supabase
+        .from('action_item_snoozes')
+        .select('event_id')
+        .eq('organization_id', organizationId.trim())
+        .gt('snooze_until', nowIso)
+
+      if (error) {
+        console.error('[CommandCenter] snoozed actions query failed', error)
+        return
+      }
+
+      const ids = new Set<string>()
+      for (const row of data ?? []) {
+        if (typeof row.event_id === 'string' && row.event_id.length > 0) {
+          ids.add(row.event_id)
+        }
+      }
+      setSnoozedEventIds(ids)
+    } catch (error) {
+      console.error('[CommandCenter] snoozed actions unexpected error', error)
+    }
+  }, [])
+
+  const fetchDismissedEventIds = useCallback(async () => {
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser()
+
+      if (userError) {
+        console.error('[CommandCenter] dismissed actions: getUser failed', userError)
+        return
+      }
+
+      const organizationId = user?.user_metadata?.organization_id
+      if (typeof organizationId !== 'string' || !organizationId.trim()) {
+        return
+      }
+
+      const { data, error } = await supabase
+        .from('action_item_dismissals')
+        .select('event_id')
+        .eq('organization_id', organizationId.trim())
+
+      if (error) {
+        console.error('[CommandCenter] dismissed actions query failed', error)
+        return
+      }
+
+      const ids = new Set<string>()
+      for (const row of data ?? []) {
+        if (typeof row.event_id === 'string' && row.event_id.length > 0) {
+          ids.add(row.event_id)
+        }
+      }
+      setDismissedEventIds(ids)
+    } catch (error) {
+      console.error('[CommandCenter] dismissed actions unexpected error', error)
     }
   }, [])
 
@@ -718,15 +541,24 @@ function CommandCenterPage() {
   useEffect(() => {
     void fetchDraftActionItems()
     void fetchArchivedEventIds()
+    void fetchSnoozedEventIds()
+    void fetchDismissedEventIds()
 
     const intervalId = window.setInterval(() => {
       void fetchDraftActionItems()
+      void fetchSnoozedEventIds()
+      void fetchDismissedEventIds()
     }, DRAFT_ACTION_REFRESH_MS)
 
     return () => {
       window.clearInterval(intervalId)
     }
-  }, [fetchDraftActionItems, fetchArchivedEventIds])
+  }, [
+    fetchDraftActionItems,
+    fetchArchivedEventIds,
+    fetchSnoozedEventIds,
+    fetchDismissedEventIds,
+  ])
 
   useEffect(() => {
     async function fetchEventCount() {
@@ -779,23 +611,23 @@ function CommandCenterPage() {
   const competingEventsLabel =
     navigation.red.find((item) => item.id === 'competing_events')?.label ?? ''
 
-  const visibleDraftActionItems = draftActionItems.filter(
-    (event) => !archivedEventIds.has(event.id) && !dismissedEventIds.has(event.id),
-  )
+  const visibleDraftActionItems = draftActionItems.filter((event) => {
+    if (archivedEventIds.has(event.id)) {
+      return false
+    }
+    if (dismissedEventIds.has(event.id)) {
+      return false
+    }
+    if (isSnoozeFiltered(event, snoozedEventIds)) {
+      return false
+    }
+    return true
+  })
 
   const actionItemCount = visibleDraftActionItems.length
 
-  const handleDismissActionItem = (eventId: string) => {
-    setDismissedEventIds((previous) => new Set(previous).add(eventId))
-    setArchiveErrors((previous) => {
-      const next = { ...previous }
-      delete next[eventId]
-      return next
-    })
-  }
-
-  const handleArchiveActionItem = async (event: DraftActionEvent) => {
-    const reason = getDraftActionSubtext(event)
+  const handleSnoozeActionItem = async (event: DraftActionEvent, days: number) => {
+    setSnoozePopover(null)
 
     try {
       const {
@@ -804,73 +636,119 @@ function CommandCenterPage() {
       } = await supabase.auth.getUser()
 
       if (userError) {
-        console.error('[CommandCenter] archive action: getUser failed', userError)
-        setArchiveErrors((previous) => ({
+        console.error('[CommandCenter] snooze action: getUser failed', userError)
+        setActionItemErrors((previous) => ({
           ...previous,
-          [event.id]: 'Archive failed — try again',
+          [event.id]: 'Snooze failed — try again',
         }))
         return
       }
 
       const organizationId = user?.user_metadata?.organization_id
       if (typeof organizationId !== 'string' || !organizationId.trim()) {
-        setArchiveErrors((previous) => ({
+        setActionItemErrors((previous) => ({
           ...previous,
-          [event.id]: 'Archive failed — try again',
+          [event.id]: 'Snooze failed — try again',
         }))
         return
       }
 
-      const archivedBy =
-        (typeof user?.phone === 'string' && user.phone.trim()) ||
-        user?.id ||
-        null
+      const snoozeUntil = new Date()
+      snoozeUntil.setDate(snoozeUntil.getDate() + days)
 
-      const { error } = await supabase.from('action_item_archives').insert({
+      const { error } = await supabase.from('action_item_snoozes').insert({
         organization_id: organizationId.trim(),
+        item_type: DRAFT_EVENT_ITEM_TYPE,
         event_id: event.id,
-        event_name: event.event_name,
-        event_date: event.event_date || null,
-        reason,
-        archived_by: archivedBy,
-        retention_until: getRetentionUntilTwelveMonths(),
+        snooze_until: snoozeUntil.toISOString(),
       })
 
       if (error) {
-        console.error('[CommandCenter] archive action insert failed', error)
-        setArchiveErrors((previous) => ({
+        console.error('[CommandCenter] snooze action insert failed', error)
+        setActionItemErrors((previous) => ({
           ...previous,
-          [event.id]: 'Archive failed — try again',
+          [event.id]: 'Snooze failed — try again',
         }))
         return
       }
 
-      setArchivedEventIds((previous) => new Set(previous).add(event.id))
-      setArchiveErrors((previous) => {
+      setSnoozedEventIds((previous) => new Set(previous).add(event.id))
+      setActionItemErrors((previous) => {
         const next = { ...previous }
         delete next[event.id]
         return next
       })
     } catch (error) {
-      console.error('[CommandCenter] archive action unexpected error', error)
-      setArchiveErrors((previous) => ({
+      console.error('[CommandCenter] snooze action unexpected error', error)
+      setActionItemErrors((previous) => ({
         ...previous,
-        [event.id]: 'Archive failed — try again',
+        [event.id]: 'Snooze failed — try again',
       }))
     }
   }
 
-  const handleArchiveRecordDeleted = (eventId: string | null) => {
-    if (!eventId) {
-      void fetchArchivedEventIds()
-      return
-    }
+  const handleDismissActionItem = async (
+    event: DraftActionEvent,
+    itemType: string,
+  ) => {
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser()
 
-    setArchivedEventIds((previous) => {
-      const next = new Set(previous)
-      next.delete(eventId)
-      return next
-    })
+      if (userError) {
+        console.error('[CommandCenter] dismiss action: getUser failed', userError)
+        setActionItemErrors((previous) => ({
+          ...previous,
+          [event.id]: 'Dismiss failed — try again',
+        }))
+        return
+      }
+
+      const organizationId = user?.user_metadata?.organization_id
+      if (typeof organizationId !== 'string' || !organizationId.trim()) {
+        setActionItemErrors((previous) => ({
+          ...previous,
+          [event.id]: 'Dismiss failed — try again',
+        }))
+        return
+      }
+
+      const dismissedBy =
+        (typeof user?.phone === 'string' && user.phone.trim()) ||
+        user?.id ||
+        null
+
+      const { error } = await supabase.from('action_item_dismissals').insert({
+        organization_id: organizationId.trim(),
+        item_type: itemType,
+        event_id: event.id,
+        dismissed_by: dismissedBy,
+      })
+
+      if (error) {
+        console.error('[CommandCenter] dismiss action insert failed', error)
+        setActionItemErrors((previous) => ({
+          ...previous,
+          [event.id]: 'Dismiss failed — try again',
+        }))
+        return
+      }
+
+      setDismissedEventIds((previous) => new Set(previous).add(event.id))
+      setActionItemErrors((previous) => {
+        const next = { ...previous }
+        delete next[event.id]
+        return next
+      })
+    } catch (error) {
+      console.error('[CommandCenter] dismiss action unexpected error', error)
+      setActionItemErrors((previous) => ({
+        ...previous,
+        [event.id]: 'Dismiss failed — try again',
+      }))
+    }
   }
   const vendorAlertCount = 0
   const highlightCount = 0
@@ -983,27 +861,7 @@ function CommandCenterPage() {
             label={labels.cc_action_items}
             backgroundColor="#fee2e2"
             color="#991b1b"
-            right={
-              <div className="flex items-center" style={{ gap: '12px' }}>
-                <button
-                  type="button"
-                  onClick={() => setArchivesPanelOpen(true)}
-                  className="hover:underline"
-                  style={{
-                    fontSize: '11px',
-                    color: '#991b1b',
-                    cursor: 'pointer',
-                    background: 'none',
-                    border: 'none',
-                    padding: 0,
-                    textDecoration: 'none',
-                  }}
-                >
-                  Archives
-                </button>
-                <span style={countBadgeStyle}>{actionItemCount}</span>
-              </div>
-            }
+            right={<span style={countBadgeStyle}>{actionItemCount}</span>}
           />
           {visibleDraftActionItems.length === 0 ? (
             <BoxItemRow>
@@ -1027,7 +885,11 @@ function CommandCenterPage() {
               </div>
             </BoxItemRow>
           ) : (
-            visibleDraftActionItems.map((event) => (
+            visibleDraftActionItems.map((event) => {
+              const itemType = DRAFT_EVENT_ITEM_TYPE
+              const showDismiss = !isSystemResolvableItemType(itemType)
+
+              return (
               <div
                 key={event.id}
                 style={{
@@ -1069,7 +931,7 @@ function CommandCenterPage() {
                   >
                     {getDraftActionSubtext(event)}
                   </p>
-                  {archiveErrors[event.id] ? (
+                  {actionItemErrors[event.id] ? (
                     <p
                       style={{
                         fontSize: '12px',
@@ -1078,7 +940,7 @@ function CommandCenterPage() {
                         lineHeight: 1.3,
                       }}
                     >
-                      {archiveErrors[event.id]}
+                      {actionItemErrors[event.id]}
                     </p>
                   ) : null}
                 </div>
@@ -1103,8 +965,12 @@ function CommandCenterPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleDismissActionItem(event.id)}
-                    className="hover:underline"
+                    onClick={(clickEvent) => {
+                      setSnoozePopover({
+                        eventId: event.id,
+                        anchorEl: clickEvent.currentTarget,
+                      })
+                    }}
                     style={{
                       fontSize: '12px',
                       color: '#6B7280',
@@ -1114,26 +980,30 @@ function CommandCenterPage() {
                       padding: 0,
                     }}
                   >
-                    Dismiss
+                    Snooze
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => void handleArchiveActionItem(event)}
-                    className="hover:underline"
-                    style={{
-                      fontSize: '12px',
-                      color: '#6B7280',
-                      cursor: 'pointer',
-                      background: 'none',
-                      border: 'none',
-                      padding: 0,
-                    }}
-                  >
-                    Archive
-                  </button>
+                  {showDismiss ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void handleDismissActionItem(event, itemType)
+                      }
+                      style={{
+                        fontSize: '12px',
+                        color: '#6B7280',
+                        cursor: 'pointer',
+                        background: 'none',
+                        border: 'none',
+                        padding: 0,
+                      }}
+                    >
+                      Dismiss
+                    </button>
+                  ) : null}
                 </div>
               </div>
-            ))
+              )
+            })
           )}
         </CommandCenterBox>
 
@@ -1365,11 +1235,22 @@ function CommandCenterPage() {
         </CommandCenterBox>
       </div>
 
-      <ActionItemsArchivesPanel
-        isOpen={archivesPanelOpen}
-        onClose={() => setArchivesPanelOpen(false)}
-        onArchiveDeleted={handleArchiveRecordDeleted}
-      />
+      {snoozePopover ? (
+        <SnoozePopover
+          anchorEl={snoozePopover.anchorEl}
+          onClose={() => setSnoozePopover(null)}
+          onSelect={(days) => {
+            const event = draftActionItems.find(
+              (item) => item.id === snoozePopover.eventId,
+            )
+            if (event) {
+              void handleSnoozeActionItem(event, days)
+            } else {
+              setSnoozePopover(null)
+            }
+          }}
+        />
+      ) : null}
     </div>
   )
 }
