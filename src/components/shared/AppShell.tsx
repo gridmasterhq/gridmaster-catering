@@ -39,6 +39,7 @@ import OverlayPanel from './OverlayPanel'
 import UniformsPage from '../../pages/settings/UniformsPage'
 import NoteTemplatesPage from '../../pages/settings/NoteTemplatesPage'
 import RolesPage from '../../pages/RolesPage'
+import StaffManagementPage from '../../pages/catering/StaffManagementPage'
 import NewEvent from '../../pages/NewEvent'
 import MyTemplatesOverlay from '../overlays/MyTemplatesOverlay'
 import GridMasterTemplatesOverlay from '../overlays/GridMasterTemplatesOverlay'
@@ -499,6 +500,8 @@ function SidebarNavItems({
                 openOverlay('note-templates')
               } else if (itemId === 'roles') {
                 openOverlay('roles')
+              } else if (itemId === 'staff') {
+                openOverlay('staff')
               } else if (itemId === 'my_templates') {
                 openOverlay('my-templates')
               } else if (itemId === 'gridmaster_templates') {
@@ -969,7 +972,9 @@ function AppShell({ children }: AppShellProps) {
         ))}
       </AppSidebar>
 
-      {activeOverlay ? (
+      {activeOverlay === 'staff' ? (
+        <StaffManagementPage onClose={closeOverlay} />
+      ) : activeOverlay ? (
         <OverlayPanel
           key={activeOverlay}
           isOpen={activeOverlay !== null}
