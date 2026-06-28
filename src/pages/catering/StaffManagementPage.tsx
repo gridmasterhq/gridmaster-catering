@@ -42,9 +42,6 @@ const ROLE_OPTIONS = [
   'Custom',
 ] as const
 
-type ExperienceRatingColumn = 'experience_rating' | 'starting_designation'
-type StaffRolesPhoneColumn = 'staff_phone' | 'phone'
-
 type StaffStatus = 'active' | 'alumni' | 'not_active' | 'archived'
 type FilterPill = 'all' | 'active' | 'priority' | 'archived' | 'not_active'
 type SortOption = 'name' | 'phone' | 'joined' | 'rating'
@@ -66,11 +63,12 @@ interface StaffMember {
   legal_name: string
   display_name: string | null
   photo_url: string | null
-  seniority_level: number
+  status: StaffStatus
+  captain_priority: boolean
   average_rating: number | null
   rating_count: number
   starting_designation: string | null
-  status: StaffStatus
+  experience_rating: number | null
   is_priority: boolean
   created_at: string
   staff_roles: StaffRoleRow[] | null
@@ -233,79 +231,6 @@ function formatPhoneToE164(raw: string): string {
     return `+${digits}`
   }
   return digits.length > 0 ? `+${digits}` : ''
-}
-
-async function resolveExperienceRatingColumn(): Promise<ExperienceRatingColumn> {
-  const { error } = await supabase
-    .from('staff')
-    .select('experience_rating')
-    .limit(0)
-
-  if (error?.message?.includes('experience_rating')) {
-    return 'starting_designation'
-  }
-
-  return 'experience_rating'
-}
-
-async function fetchStaffRolesColumnNames(): Promise<string[]> {
-  const { data, error } = await supabase
-    .schema('information_schema')
-    .from('columns')
-    .select('column_name')
-    .eq('table_schema', 'public')
-    .eq('table_name', 'staff_roles')
-
-  if (!error && data) {
-    return data
-      .map((row) =>
-        typeof row.column_name === 'string' ? row.column_name : '',
-      )
-      .filter(Boolean)
-  }
-
-  console.error(
-    '[StaffManagement] staff_roles schema lookup failed',
-    error,
-  )
-  return []
-}
-
-async function resolveStaffRolesPhoneColumn(): Promise<StaffRolesPhoneColumn> {
-  const columnNames = await fetchStaffRolesColumnNames()
-
-  if (columnNames.includes('staff_phone')) {
-    return 'staff_phone'
-  }
-  if (columnNames.includes('phone')) {
-    return 'phone'
-  }
-
-  const { error } = await supabase
-    .from('staff_roles')
-    .select('staff_phone')
-    .limit(0)
-
-  if (error?.message?.includes('staff_phone')) {
-    return 'phone'
-  }
-
-  return 'staff_phone'
-}
-
-function buildStaffRoleInsertRow(
-  organizationId: string,
-  staffPhone: string,
-  role: string,
-  isPrimary: boolean,
-  phoneColumn: StaffRolesPhoneColumn,
-) {
-  return {
-    organization_id: organizationId,
-    role,
-    is_primary: isPrimary,
-    [phoneColumn]: staffPhone,
-  }
 }
 
 function ExperienceRatingSelector({
@@ -537,10 +462,6 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
   const [customPrimaryRole, setCustomPrimaryRole] = useState('')
   const [secondaryRoles, setSecondaryRoles] = useState<string[]>([])
   const [experienceRating, setExperienceRating] = useState(0)
-  const [experienceRatingColumn, setExperienceRatingColumn] =
-    useState<ExperienceRatingColumn>('starting_designation')
-  const [staffRolesPhoneColumn, setStaffRolesPhoneColumn] =
-    useState<StaffRolesPhoneColumn>('staff_phone')
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
   const [formSubmitError, setFormSubmitError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -548,36 +469,69 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
   const loadStaff = useCallback(async (orgId: string) => {
     setLoading(true)
 
-    const { data, error } = await supabase
+    const { data: staffData, error } = await supabase
       .from('staff')
       .select(
-        `
-        phone,
-        legal_name,
-        display_name,
-        photo_url,
-        seniority_level,
-        average_rating,
-        rating_count,
-        starting_designation,
-        status,
-        is_priority,
-        created_at,
-        staff_roles (
-          role,
-          is_primary
-        )
-      `,
+        'phone, legal_name, display_name, photo_url, status, captain_priority, average_rating, rating_count, starting_designation, experience_rating, is_priority, created_at',
       )
       .eq('organization_id', orgId)
 
     if (error) {
       console.error('[StaffManagement] load staff failed', error)
       setStaffMembers([])
-    } else {
-      setStaffMembers((data ?? []) as StaffMember[])
+      setLoading(false)
+      return
     }
 
+    const phones = (staffData ?? []).map((row) => row.phone as string)
+    const rolesByPhone = new Map<string, StaffRoleRow[]>()
+
+    if (phones.length > 0) {
+      const { data: rolesData, error: rolesError } = await supabase
+        .from('staff_roles')
+        .select('staff_phone, role_name, is_primary')
+        .eq('organization_id', orgId)
+        .in('staff_phone', phones)
+
+      if (rolesError) {
+        console.error('[StaffManagement] load staff_roles failed', rolesError)
+      } else {
+        for (const row of rolesData ?? []) {
+          const staffPhone =
+            typeof row.staff_phone === 'string' ? row.staff_phone : ''
+          const roleName =
+            typeof row.role_name === 'string' ? row.role_name : ''
+          if (!staffPhone || !roleName) {
+            continue
+          }
+
+          const existing = rolesByPhone.get(staffPhone) ?? []
+          existing.push({
+            role: roleName,
+            is_primary: Boolean(row.is_primary),
+          })
+          rolesByPhone.set(staffPhone, existing)
+        }
+      }
+    }
+
+    const merged: StaffMember[] = (staffData ?? []).map((row) => ({
+      phone: row.phone as string,
+      legal_name: row.legal_name as string,
+      display_name: (row.display_name as string | null) ?? null,
+      photo_url: (row.photo_url as string | null) ?? null,
+      status: row.status as StaffStatus,
+      captain_priority: Boolean(row.captain_priority),
+      average_rating: (row.average_rating as number | null) ?? null,
+      rating_count: (row.rating_count as number) ?? 0,
+      starting_designation: (row.starting_designation as string | null) ?? null,
+      experience_rating: (row.experience_rating as number | null) ?? null,
+      is_priority: Boolean(row.is_priority),
+      created_at: row.created_at as string,
+      staff_roles: rolesByPhone.get(row.phone as string) ?? [],
+    }))
+
+    setStaffMembers(merged)
     setLoading(false)
   }, [])
 
@@ -601,13 +555,6 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
         return
       }
 
-      const [experienceColumn, rolesPhoneColumn] = await Promise.all([
-        resolveExperienceRatingColumn(),
-        resolveStaffRolesPhoneColumn(),
-      ])
-      setExperienceRatingColumn(experienceColumn)
-      setStaffRolesPhoneColumn(rolesPhoneColumn)
-
       setOrganizationId(orgId.trim())
       await loadStaff(orgId.trim())
     }
@@ -630,8 +577,12 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
       return
     }
 
-    const staffListHiddenByAddForm = showAddForm && !addFormMinimized
-    if (staffListHiddenByAddForm || selectedStaff !== null) {
+    const staffHiddenByAddForm = showAddForm && !addFormMinimized
+    if (
+      staffHiddenByAddForm ||
+      staffPanelMinimized ||
+      selectedStaff !== null
+    ) {
       return
     }
 
@@ -837,27 +788,16 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
         return
       }
 
-      const nowIso = new Date().toISOString()
-      const staffInsertPayload: Record<string, unknown> = {
+      const { error: staffError } = await supabase.from('staff').insert({
+        phone: e164Phone,
         organization_id: organizationId,
         legal_name: trimmedLegalName,
-        phone: e164Phone,
         status: 'active',
-        is_priority: false,
+        captain_priority: false,
         rating_count: 0,
-        created_at: nowIso,
-        updated_at: nowIso,
-      }
-
-      if (experienceRatingColumn === 'experience_rating') {
-        staffInsertPayload.experience_rating = experienceRating
-      } else {
-        staffInsertPayload.starting_designation = String(experienceRating)
-      }
-
-      const { error: staffError } = await supabase
-        .from('staff')
-        .insert(staffInsertPayload)
+        experience_rating: experienceRating,
+        is_priority: false,
+      })
 
       if (staffError) {
         console.error('[StaffManagement] staff insert failed', staffError)
@@ -866,22 +806,18 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
       }
 
       const roleRows = [
-        buildStaffRoleInsertRow(
-          organizationId,
-          e164Phone,
-          resolvedPrimary,
-          true,
-          staffRolesPhoneColumn,
-        ),
-        ...secondaryRoles.map((role) =>
-          buildStaffRoleInsertRow(
-            organizationId,
-            e164Phone,
-            role,
-            false,
-            staffRolesPhoneColumn,
-          ),
-        ),
+        {
+          staff_phone: e164Phone,
+          organization_id: organizationId,
+          role_name: resolvedPrimary,
+          is_primary: true,
+        },
+        ...secondaryRoles.map((role) => ({
+          staff_phone: e164Phone,
+          organization_id: organizationId,
+          role_name: role,
+          is_primary: false,
+        })),
       ]
 
       const { error: rolesError } = await supabase
@@ -894,11 +830,11 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
         return
       }
 
-      console.log(`TODO: Send onboarding SMS to ${e164Phone} when Twilio is wired.`)
       setShowAddForm(false)
+      setAddFormMinimized(false)
       resetAddForm()
       setSuccessToast(
-        'Staff member added. SMS onboarding link will be sent when messaging is enabled.',
+        'Staff member added. Onboarding SMS will be sent when messaging is enabled.',
       )
       await loadStaff(organizationId)
     } catch (error) {
@@ -926,16 +862,15 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
     { id: 'personal_note', label: 'Personal Note' },
   ]
 
-  const staffListHiddenByAddForm = showAddForm && !addFormMinimized
+  const staffHiddenByAddForm = showAddForm && !addFormMinimized
   const showStaffBackdrop =
     staffPanelSlideIn &&
     !staffPanelMinimized &&
-    !staffListHiddenByAddForm &&
+    !staffHiddenByAddForm &&
     selectedStaff === null
-  const staffPanelTransform = staffPanelMinimized
-    ? 'translateX(100%)'
-    : staffListHiddenByAddForm
-      ? 'translateX(-100%)'
+  const staffPanelTransform =
+    staffPanelMinimized || staffHiddenByAddForm
+      ? 'translateX(100%)'
       : staffPanelSlideIn
         ? 'translateX(0)'
         : 'translateX(100%)'
@@ -966,7 +901,7 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
           transform: staffPanelTransform,
           transition: 'transform 0.2s ease',
           pointerEvents:
-            staffPanelMinimized || staffListHiddenByAddForm ? 'none' : 'auto',
+            staffPanelMinimized || staffHiddenByAddForm ? 'none' : 'auto',
         }}
       >
         <header
@@ -1221,7 +1156,7 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
                         color: '#6B7280',
                       }}
                     >
-                      S{staff.seniority_level}
+                      S{staff.experience_rating ?? 0}
                     </span>
                     {staff.rating_count > 0 &&
                     staff.average_rating != null ? (
@@ -1351,7 +1286,7 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
                         marginTop: '2px',
                       }}
                     >
-                      S{selectedStaff.seniority_level}
+                      S{selectedStaff.experience_rating ?? 0}
                     </p>
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                       {selectedStaff.rating_count > 0 &&
