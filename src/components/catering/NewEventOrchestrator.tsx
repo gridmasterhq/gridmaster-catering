@@ -53,6 +53,7 @@ export default function NewEventOrchestrator() {
   const { hasTab, restoreTab, unregisterTab, canOpenNew, showMaxTabsNotice } =
     useTabManager()
   const launchHandledRef = useRef<string | null>(null)
+  const modeSelectRequestHandledRef = useRef(0)
 
   const [sessions, setSessions] = useState<NewEventSession[]>([])
   const [foregroundSessionId, setForegroundSessionId] = useState<string | null>(
@@ -234,6 +235,11 @@ export default function NewEventOrchestrator() {
       return
     }
 
+    if (modeSelectRequestHandledRef.current === newEventModeSelectRequestId) {
+      return
+    }
+
+    modeSelectRequestHandledRef.current = newEventModeSelectRequestId
     setForegroundSessionId(null)
     setDuplicateNoticeMode(null)
     setShowModeSelect(true)
