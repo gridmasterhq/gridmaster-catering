@@ -8,7 +8,6 @@ import {
   useState,
 } from 'react'
 import {
-  IconChevronLeft,
   IconChevronRight,
   IconClock,
   IconSearch,
@@ -16,6 +15,7 @@ import {
   IconUsers,
   IconX,
 } from '@tabler/icons-react'
+import { useMinimizablePanel } from '../../hooks/useMinimizablePanel'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
 import { supabase } from '../../lib/supabase'
 
@@ -197,10 +197,7 @@ function getStaffDisplayName(staff: StaffMember): string {
     return staff.display_name.trim()
   }
   const legal = staff.legal_name.trim()
-  if (!legal) {
-    return 'Unknown'
-  }
-  return legal.split(/\s+/)[0] ?? legal
+  return legal || 'Unknown'
 }
 
 function formatStartingDesignation(value: string | null | undefined): string {
@@ -450,11 +447,21 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
   const [selectedStaff, setSelectedStaff] = useState<StaffMember | null>(null)
   const [profileTab, setProfileTab] = useState<ProfileTab>('history')
   const [showAddForm, setShowAddForm] = useState(false)
-  const [addFormMinimized, setAddFormMinimized] = useState(false)
   const [addFormSlideIn, setAddFormSlideIn] = useState(false)
+  const [showAddFormConfirmClose, setShowAddFormConfirmClose] = useState(false)
   const [staffPanelSlideIn, setStaffPanelSlideIn] = useState(false)
-  const [staffPanelMinimized, setStaffPanelMinimized] = useState(false)
   const [successToast, setSuccessToast] = useState<string | null>(null)
+
+  const staffPanel = useMinimizablePanel({
+    id: 'staff-mgmt',
+    label: 'Staff Mgmt',
+    color: NAVY,
+  })
+  const addFormPanel = useMinimizablePanel({
+    id: 'new-staff',
+    label: 'New Staff',
+    color: NAVY,
+  })
 
   const [legalName, setLegalName] = useState('')
   const [phone, setPhone] = useState('')
@@ -573,14 +580,14 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
   }, [])
 
   useEffect(() => {
-    if (staffPanelMinimized) {
+    if (staffPanel.isMinimized) {
       return
     }
 
-    const staffHiddenByAddForm = showAddForm && !addFormMinimized
+    const staffHiddenByAddForm = showAddForm && !addFormPanel.isMinimized
     if (
       staffHiddenByAddForm ||
-      staffPanelMinimized ||
+      staffPanel.isMinimized ||
       selectedStaff !== null
     ) {
       return
@@ -597,9 +604,9 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
       document.removeEventListener('keydown', handleKeyDown)
     }
   }, [
-    staffPanelMinimized,
+    staffPanel.isMinimized,
     showAddForm,
-    addFormMinimized,
+    addFormPanel.isMinimized,
     selectedStaff,
     onClose,
   ])
@@ -621,7 +628,7 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
   useEffect(() => {
     if (!showAddForm) {
       setAddFormSlideIn(false)
-      setAddFormMinimized(false)
+      setShowAddFormConfirmClose(false)
       return
     }
 
@@ -690,26 +697,36 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
   }
 
   const handleOpenAddForm = () => {
+    if (showAddForm && addFormPanel.isMinimized) {
+      addFormPanel.restore()
+      return
+    }
+
+    if (!addFormPanel.canOpen()) {
+      return
+    }
+
     resetAddForm()
     setShowAddForm(true)
   }
 
   const handleCloseAddForm = () => {
+    setShowAddFormConfirmClose(false)
+    if (addFormPanel.isMinimized) {
+      addFormPanel.restore()
+    }
     setShowAddForm(false)
-    setAddFormMinimized(false)
     resetAddForm()
   }
 
   useEffect(() => {
-    if (!showAddForm || addFormMinimized) {
+    if (!showAddForm || addFormPanel.isMinimized) {
       return
     }
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
-        setShowAddForm(false)
-        setAddFormMinimized(false)
-        resetAddForm()
+        setShowAddFormConfirmClose(true)
       }
     }
 
@@ -717,7 +734,7 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [showAddForm, addFormMinimized])
+  }, [showAddForm, addFormPanel.isMinimized])
 
   const handleToggleSecondaryRole = (role: string) => {
     setSecondaryRoles((previous) =>
@@ -830,13 +847,16 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
         return
       }
 
+      await loadStaff(organizationId)
       setShowAddForm(false)
-      setAddFormMinimized(false)
+      setShowAddFormConfirmClose(false)
+      if (addFormPanel.isMinimized) {
+        addFormPanel.restore()
+      }
       resetAddForm()
       setSuccessToast(
         'Staff member added. Onboarding SMS will be sent when messaging is enabled.',
       )
-      await loadStaff(organizationId)
     } catch (error) {
       console.error('[StaffManagement] add staff unexpected error', error)
       setFormSubmitError('Failed to add staff member — please try again.')
@@ -862,14 +882,14 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
     { id: 'personal_note', label: 'Personal Note' },
   ]
 
-  const staffHiddenByAddForm = showAddForm && !addFormMinimized
+  const staffHiddenByAddForm = showAddForm && !addFormPanel.isMinimized
   const showStaffBackdrop =
     staffPanelSlideIn &&
-    !staffPanelMinimized &&
+    !staffPanel.isMinimized &&
     !staffHiddenByAddForm &&
     selectedStaff === null
   const staffPanelTransform =
-    staffPanelMinimized || staffHiddenByAddForm
+    staffPanel.isMinimized || staffHiddenByAddForm
       ? 'translateX(100%)'
       : staffPanelSlideIn
         ? 'translateX(0)'
@@ -901,7 +921,7 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
           transform: staffPanelTransform,
           transition: 'transform 0.2s ease',
           pointerEvents:
-            staffPanelMinimized || staffHiddenByAddForm ? 'none' : 'auto',
+            staffPanel.isMinimized || staffHiddenByAddForm ? 'none' : 'auto',
         }}
       >
         <header
@@ -940,7 +960,7 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
             <div className="flex items-center gap-1">
               <button
                 type="button"
-                onClick={() => setStaffPanelMinimized(true)}
+                onClick={() => staffPanel.minimize()}
                 aria-label="Minimize"
                 className="rounded p-1 hover:bg-white/10"
                 style={{ color: '#ffffff', border: 'none', background: 'none' }}
@@ -1199,43 +1219,6 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
         ) : null}
       </div>
 
-      {staffPanelMinimized ? (
-        <button
-          type="button"
-          onClick={() => setStaffPanelMinimized(false)}
-          aria-label="Expand Staff Management"
-          className="fixed flex flex-col items-center border-none"
-          style={{
-            top: '30%',
-            right: 0,
-            transform: 'translateY(-50%)',
-            width: '28px',
-            padding: '10px 4px',
-            backgroundColor: NAVY,
-            borderTopLeftRadius: '6px',
-            borderBottomLeftRadius: '6px',
-            zIndex: 301,
-            cursor: 'pointer',
-            gap: '6px',
-          }}
-        >
-          <IconChevronLeft size={16} color="#ffffff" stroke={2} />
-          <span
-            style={{
-              writingMode: 'vertical-rl',
-              transform: 'rotate(180deg)',
-              color: '#ffffff',
-              fontSize: '12px',
-              fontWeight: 500,
-              whiteSpace: 'nowrap',
-              letterSpacing: '0.02em',
-            }}
-          >
-            Staff
-          </span>
-        </button>
-      ) : null}
-
       <SlidePanel
         isOpen={selectedStaff !== null}
         onClose={() => setSelectedStaff(null)}
@@ -1383,11 +1366,11 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
 
       {showAddForm ? (
         <>
-          {!addFormMinimized ? (
+          {!addFormPanel.isMinimized ? (
             <button
               type="button"
-              aria-label="Close add staff form"
-              onClick={handleCloseAddForm}
+              aria-label="Minimize add staff form"
+              onClick={() => addFormPanel.minimize()}
               className="fixed inset-0 border-none"
               style={{
                 backgroundColor: 'rgba(0, 0, 0, 0.3)',
@@ -1405,11 +1388,11 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
               height: '100vh',
               zIndex: 305,
               transform:
-                addFormSlideIn && !addFormMinimized
+                addFormSlideIn && !addFormPanel.isMinimized
                   ? 'translateX(0)'
                   : 'translateX(100%)',
               transition: 'transform 0.2s ease',
-              pointerEvents: addFormMinimized ? 'none' : 'auto',
+              pointerEvents: addFormPanel.isMinimized ? 'none' : 'auto',
             }}
           >
             <header
@@ -1429,32 +1412,65 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
                 Add New Staff
               </h2>
               <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => setAddFormMinimized(true)}
-                  aria-label="Minimize"
-                  className="rounded p-1 hover:bg-white/10"
-                  style={{
-                    color: '#ffffff',
-                    border: 'none',
-                    background: 'none',
-                  }}
-                >
-                  <IconChevronRight size={20} stroke={2} />
-                </button>
-                <button
-                  type="button"
-                  onClick={handleCloseAddForm}
-                  aria-label="Close"
-                  className="rounded p-1 hover:bg-white/10"
-                  style={{
-                    color: '#ffffff',
-                    border: 'none',
-                    background: 'none',
-                  }}
-                >
-                  <IconX size={20} stroke={2} />
-                </button>
+                {showAddFormConfirmClose ? (
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={handleCloseAddForm}
+                      className="border-none bg-transparent p-0"
+                      style={{
+                        fontSize: '12px',
+                        fontWeight: 500,
+                        color: '#EF4444',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Discard
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddFormConfirmClose(false)}
+                      className="border-none bg-transparent p-0"
+                      style={{
+                        fontSize: '12px',
+                        fontWeight: 500,
+                        color: '#9CA3AF',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Keep editing
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => addFormPanel.minimize()}
+                      aria-label="Minimize"
+                      className="rounded p-1 hover:bg-white/10"
+                      style={{
+                        color: '#ffffff',
+                        border: 'none',
+                        background: 'none',
+                      }}
+                    >
+                      <IconChevronRight size={20} stroke={2} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddFormConfirmClose(true)}
+                      aria-label="Close"
+                      className="rounded p-1 hover:bg-white/10"
+                      style={{
+                        color: '#ffffff',
+                        border: 'none',
+                        background: 'none',
+                      }}
+                    >
+                      <IconX size={20} stroke={2} />
+                    </button>
+                  </>
+                )}
               </div>
             </header>
 
@@ -1463,193 +1479,176 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
               className="min-h-0 flex-1 overflow-y-auto"
               style={{ padding: '16px' }}
             >
-          <div style={{ marginBottom: '16px' }}>
-            <label htmlFor="staff-legal-name" style={fieldLabelStyle}>
-              Legal Name (required)
-            </label>
-            <input
-              id="staff-legal-name"
-              type="text"
-              value={legalName}
-              onChange={(event) => setLegalName(event.target.value)}
-              placeholder="Full legal name"
-              style={fieldInputStyle}
-            />
-            {formErrors.legalName ? (
-              <p style={{ fontSize: '12px', color: '#EF4444', marginTop: '4px' }}>
-                {formErrors.legalName}
-              </p>
-            ) : null}
-          </div>
-
-          <div style={{ marginBottom: '16px' }}>
-            <label htmlFor="staff-phone" style={fieldLabelStyle}>
-              Phone Number (required)
-            </label>
-            <input
-              id="staff-phone"
-              type="tel"
-              value={phone}
-              onChange={(event) => setPhone(event.target.value)}
-              placeholder="+1 (XXX) XXX-XXXX"
-              style={fieldInputStyle}
-            />
-            {formErrors.phone ? (
-              <p style={{ fontSize: '12px', color: '#EF4444', marginTop: '4px' }}>
-                {formErrors.phone}
-              </p>
-            ) : null}
-          </div>
-
-          <div style={{ marginBottom: '16px' }}>
-            <label htmlFor="staff-primary-role" style={fieldLabelStyle}>
-              Primary Role (required)
-            </label>
-            <select
-              id="staff-primary-role"
-              value={primaryRole}
-              onChange={(event) => {
-                setPrimaryRole(event.target.value)
-                setSecondaryRoles((previous) =>
-                  previous.filter((role) => role !== event.target.value),
-                )
-              }}
-              style={fieldInputStyle}
-            >
-              {ROLE_OPTIONS.map((role) => (
-                <option key={role} value={role}>
-                  {role}
-                </option>
-              ))}
-            </select>
-            {primaryRole === 'Custom' ? (
-              <input
-                type="text"
-                value={customPrimaryRole}
-                onChange={(event) => setCustomPrimaryRole(event.target.value)}
-                placeholder="Custom role name"
-                style={{ ...fieldInputStyle, marginTop: '8px' }}
-              />
-            ) : null}
-            {formErrors.primaryRole ? (
-              <p style={{ fontSize: '12px', color: '#EF4444', marginTop: '4px' }}>
-                {formErrors.primaryRole}
-              </p>
-            ) : null}
-          </div>
-
-          <div style={{ marginBottom: '16px' }}>
-            <span style={fieldLabelStyle}>Secondary Role(s)</span>
-            <div
-              className="flex flex-col"
-              style={{ gap: '8px', marginTop: '4px' }}
-            >
-              {availableSecondaryRoles.map((role) => (
-                <label
-                  key={role}
-                  className="flex items-center gap-2"
-                  style={{ fontSize: '13px', color: '#374151' }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={secondaryRoles.includes(role)}
-                    onChange={() => handleToggleSecondaryRole(role)}
-                  />
-                  {role}
+              <div style={{ marginBottom: '16px' }}>
+                <label htmlFor="staff-legal-name" style={fieldLabelStyle}>
+                  Legal Name (required)
                 </label>
-              ))}
-            </div>
-          </div>
+                <input
+                  id="staff-legal-name"
+                  type="text"
+                  value={legalName}
+                  onChange={(event) => setLegalName(event.target.value)}
+                  placeholder="Full legal name"
+                  style={fieldInputStyle}
+                />
+                {formErrors.legalName ? (
+                  <p
+                    style={{
+                      fontSize: '12px',
+                      color: '#EF4444',
+                      marginTop: '4px',
+                    }}
+                  >
+                    {formErrors.legalName}
+                  </p>
+                ) : null}
+              </div>
 
-          <ExperienceRatingSelector
-            value={experienceRating}
-            onChange={setExperienceRating}
-            error={formErrors.experienceRating}
-          />
+              <div style={{ marginBottom: '16px' }}>
+                <label htmlFor="staff-phone" style={fieldLabelStyle}>
+                  Phone Number (required)
+                </label>
+                <input
+                  id="staff-phone"
+                  type="tel"
+                  value={phone}
+                  onChange={(event) => setPhone(event.target.value)}
+                  placeholder="+1 (XXX) XXX-XXXX"
+                  style={fieldInputStyle}
+                />
+                {formErrors.phone ? (
+                  <p
+                    style={{
+                      fontSize: '12px',
+                      color: '#EF4444',
+                      marginTop: '4px',
+                    }}
+                  >
+                    {formErrors.phone}
+                  </p>
+                ) : null}
+              </div>
 
-          {formSubmitError ? (
-            <p
-              style={{
-                fontSize: '12px',
-                color: '#EF4444',
-                marginBottom: '12px',
-              }}
-            >
-              {formSubmitError}
-            </p>
-          ) : null}
+              <div style={{ marginBottom: '16px' }}>
+                <label htmlFor="staff-primary-role" style={fieldLabelStyle}>
+                  Primary Role (required)
+                </label>
+                <select
+                  id="staff-primary-role"
+                  value={primaryRole}
+                  onChange={(event) => {
+                    setPrimaryRole(event.target.value)
+                    setSecondaryRoles((previous) =>
+                      previous.filter((role) => role !== event.target.value),
+                    )
+                  }}
+                  style={fieldInputStyle}
+                >
+                  {ROLE_OPTIONS.map((role) => (
+                    <option key={role} value={role}>
+                      {role}
+                    </option>
+                  ))}
+                </select>
+                {primaryRole === 'Custom' ? (
+                  <input
+                    type="text"
+                    value={customPrimaryRole}
+                    onChange={(event) =>
+                      setCustomPrimaryRole(event.target.value)
+                    }
+                    placeholder="Custom role name"
+                    style={{ ...fieldInputStyle, marginTop: '8px' }}
+                  />
+                ) : null}
+                {formErrors.primaryRole ? (
+                  <p
+                    style={{
+                      fontSize: '12px',
+                      color: '#EF4444',
+                      marginTop: '4px',
+                    }}
+                  >
+                    {formErrors.primaryRole}
+                  </p>
+                ) : null}
+              </div>
 
-          <button
-            type="submit"
-            disabled={isSaving}
-            style={{
-              width: '100%',
-              backgroundColor: NAVY,
-              color: '#ffffff',
-              borderRadius: '6px',
-              padding: '10px',
-              fontSize: '14px',
-              fontWeight: 500,
-              border: 'none',
-              cursor: isSaving ? 'default' : 'pointer',
-              opacity: isSaving ? 0.7 : 1,
-            }}
-          >
-            Add Staff Member
-          </button>
-          <button
-            type="button"
-            onClick={handleCloseAddForm}
-            className="mt-3 w-full hover:underline"
-            style={{
-              fontSize: '13px',
-              color: '#6B7280',
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-            }}
-          >
-            Cancel
-          </button>
-            </form>
-          </div>
+              <div style={{ marginBottom: '16px' }}>
+                <span style={fieldLabelStyle}>Secondary Role(s)</span>
+                <div
+                  className="flex flex-col"
+                  style={{ gap: '8px', marginTop: '4px' }}
+                >
+                  {availableSecondaryRoles.map((role) => (
+                    <label
+                      key={role}
+                      className="flex items-center gap-2"
+                      style={{ fontSize: '13px', color: '#374151' }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={secondaryRoles.includes(role)}
+                        onChange={() => handleToggleSecondaryRole(role)}
+                      />
+                      {role}
+                    </label>
+                  ))}
+                </div>
+              </div>
 
-          {addFormMinimized ? (
-            <button
-              type="button"
-              onClick={() => setAddFormMinimized(false)}
-              aria-label="Expand New Staff form"
-              className="fixed flex flex-col items-center border-none"
-              style={{
-                top: '40%',
-                right: 0,
-                transform: 'translateY(-50%)',
-                width: '28px',
-                padding: '10px 4px',
-                backgroundColor: NAVY,
-                borderTopLeftRadius: '6px',
-                borderBottomLeftRadius: '6px',
-                zIndex: 305,
-                cursor: 'pointer',
-                gap: '6px',
-              }}
-            >
-              <IconChevronLeft size={16} color="#ffffff" stroke={2} />
-              <span
+              <ExperienceRatingSelector
+                value={experienceRating}
+                onChange={setExperienceRating}
+                error={formErrors.experienceRating}
+              />
+
+              {formSubmitError ? (
+                <p
+                  style={{
+                    fontSize: '12px',
+                    color: '#EF4444',
+                    marginBottom: '12px',
+                  }}
+                >
+                  {formSubmitError}
+                </p>
+              ) : null}
+
+              <button
+                type="submit"
+                disabled={isSaving}
                 style={{
-                  writingMode: 'vertical-rl',
-                  transform: 'rotate(180deg)',
+                  width: '100%',
+                  backgroundColor: NAVY,
                   color: '#ffffff',
-                  fontSize: '12px',
+                  borderRadius: '6px',
+                  padding: '10px',
+                  fontSize: '14px',
                   fontWeight: 500,
-                  whiteSpace: 'nowrap',
-                  letterSpacing: '0.02em',
+                  border: 'none',
+                  cursor: isSaving ? 'default' : 'pointer',
+                  opacity: isSaving ? 0.7 : 1,
                 }}
               >
-                New Staff
-              </span>
-            </button>
-          ) : null}
+                Add Staff Member
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAddFormConfirmClose(true)}
+                className="mt-3 w-full hover:underline"
+                style={{
+                  fontSize: '13px',
+                  color: '#6B7280',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+            </form>
+          </div>
         </>
       ) : null}
     </>

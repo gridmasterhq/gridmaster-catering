@@ -3,6 +3,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import AppShell, { useActiveScreen } from './components/shared/AppShell'
 import SMSDeepLinkHandler from './components/shared/SMSDeepLinkHandler'
 import cateringConfig from './lib/productConfig'
+import { TabManagerProvider } from './components/TabManager'
 import { ProductConfigProvider } from './lib/hooks/useProductConfig'
 import { supabase } from './lib/supabase'
 import LoginPage from './pages/auth/LoginPage'
@@ -70,6 +71,7 @@ function CoordinatorApp() {
 function App() {
   return (
     <ProductConfigProvider value={cateringConfig}>
+      <TabManagerProvider>
       <BrowserRouter>
         <Routes>
           <Route path="/staff/checkin" element={<StaffCheckInPage />} />
@@ -92,6 +94,7 @@ function App() {
           />
         </Routes>
       </BrowserRouter>
+      </TabManagerProvider>
     </ProductConfigProvider>
   )
 }

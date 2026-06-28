@@ -35,6 +35,7 @@ import {
   useExpertMode,
   type ExpertModeScreen,
 } from './ExpertModeToggle'
+import { useTabManager } from '../TabManager'
 import OverlayPanel from './OverlayPanel'
 import UniformsPage from '../../pages/settings/UniformsPage'
 import NoteTemplatesPage from '../../pages/settings/NoteTemplatesPage'
@@ -525,6 +526,7 @@ interface AppShellProps {
 function AppShell({ children }: AppShellProps) {
   const navigate = useNavigate()
   const location = useLocation()
+  const { canOpenNew, showMaxTabsNotice } = useTabManager()
   const { brand_name, product_name, navigation, labels, colors } =
     useProductConfig()
 
@@ -621,6 +623,11 @@ function AppShell({ children }: AppShellProps) {
   }, [])
 
   const openOverlay = useCallback((id: string, options?: OpenOverlayOptions) => {
+    if (!canOpenNew()) {
+      showMaxTabsNotice()
+      return
+    }
+
     if (id === 'new-event') {
       setNewEventPrefilledDate(options?.date ?? null)
       setNewEventInitialMode(options?.mode ?? null)
@@ -641,7 +648,7 @@ function AppShell({ children }: AppShellProps) {
       setNewEventInitialTemplate(null)
     }
     setActiveOverlay(id)
-  }, [])
+  }, [canOpenNew, showMaxTabsNotice])
 
   const closeOverlay = useCallback(() => {
     setActiveOverlay(null)
@@ -981,6 +988,13 @@ function AppShell({ children }: AppShellProps) {
           title={overlayTitles[activeOverlay] ?? ''}
           dismissable={overlayDismissable[activeOverlay] ?? true}
           onClose={closeOverlay}
+          tabId={activeOverlay === 'new-event' ? 'new-event' : undefined}
+          tabLabel={
+            activeOverlay === 'new-event'
+              ? (overlayTitles['new-event'] ?? 'New Event')
+              : undefined
+          }
+          tabColor={activeOverlay === 'new-event' ? '#1B3A5C' : undefined}
         >
           {activeOverlay === 'uniforms' ? <UniformsPage /> : null}
           {activeOverlay === 'roles' ? <RolesPage /> : null}

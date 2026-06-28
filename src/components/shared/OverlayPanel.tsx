@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect, useState } from 'react'
-import { IconChevronLeft, IconChevronRight, IconX } from '@tabler/icons-react'
+import { IconChevronRight, IconX } from '@tabler/icons-react'
+import { useMinimizablePanel } from '../../hooks/useMinimizablePanel'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
 
 interface OverlayPanelProps {
@@ -8,6 +9,9 @@ interface OverlayPanelProps {
   dismissable?: boolean
   onClose: () => void
   children: ReactNode
+  tabId?: string
+  tabLabel?: string
+  tabColor?: string
 }
 
 export default function OverlayPanel({
@@ -16,16 +20,25 @@ export default function OverlayPanel({
   dismissable = true,
   onClose,
   children,
+  tabId,
+  tabLabel,
+  tabColor = '#1B3A5C',
 }: OverlayPanelProps) {
   const { labels, colors } = useProductConfig()
   const [slideIn, setSlideIn] = useState(false)
-  const [minimized, setMinimized] = useState(false)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+  const isFormPanel = !dismissable && tabId != null
+
+  const { isMinimized, minimize, restore } = useMinimizablePanel({
+    id: tabId ?? title,
+    label: tabLabel ?? title,
+    color: tabColor,
+    enabled: isFormPanel,
+  })
 
   useEffect(() => {
     if (!isOpen) {
       setSlideIn(false)
-      setMinimized(false)
       setShowConfirmDialog(false)
       return
     }
@@ -49,7 +62,7 @@ export default function OverlayPanel({
         return
       }
 
-      if (minimized) {
+      if (isMinimized) {
         return
       }
 
@@ -64,7 +77,7 @@ export default function OverlayPanel({
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [dismissable, isOpen, minimized, onClose])
+  }, [dismissable, isOpen, isMinimized, onClose])
 
   const handleRequestClose = () => {
     if (dismissable) {
@@ -77,11 +90,13 @@ export default function OverlayPanel({
 
   const handleDiscard = () => {
     setShowConfirmDialog(false)
-    setMinimized(false)
+    if (isMinimized) {
+      restore()
+    }
     onClose()
   }
 
-  const panelVisible = slideIn && !minimized
+  const panelVisible = slideIn && !isMinimized
 
   if (!isOpen) {
     return null
@@ -89,7 +104,7 @@ export default function OverlayPanel({
 
   return (
     <>
-      {!minimized ? (
+      {!isMinimized ? (
         dismissable ? (
           <button
             type="button"
@@ -103,12 +118,15 @@ export default function OverlayPanel({
             }}
           />
         ) : (
-          <div
-            aria-hidden="true"
-            className="fixed inset-0"
+          <button
+            type="button"
+            aria-label="Minimize overlay"
+            onClick={minimize}
+            className="fixed inset-0 border-none"
             style={{
               backgroundColor: 'rgba(0, 0, 0, 0.3)',
               zIndex: 300,
+              cursor: 'default',
             }}
           />
         )
@@ -121,7 +139,7 @@ export default function OverlayPanel({
           zIndex: 301,
           transform: panelVisible ? 'translateX(0)' : 'translateX(100%)',
           transition: 'transform 0.2s ease',
-          pointerEvents: minimized ? 'none' : 'auto',
+          pointerEvents: isMinimized ? 'none' : 'auto',
         }}
       >
         <header className="flex shrink-0 items-center justify-between border-b border-gray-200 px-4 py-3">
@@ -135,98 +153,73 @@ export default function OverlayPanel({
             {title}
           </h2>
           <div className="flex items-center gap-1">
-            {!dismissable ? (
+            {isFormPanel ? (
+              showConfirmDialog ? (
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleDiscard}
+                    className="border-none bg-transparent p-0"
+                    style={{
+                      fontSize: '12px',
+                      fontWeight: 500,
+                      color: colors.brand_red,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Discard
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmDialog(false)}
+                    className="border-none bg-transparent p-0"
+                    style={{
+                      fontSize: '12px',
+                      fontWeight: 500,
+                      color: '#6B7280',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {labels.overlay_keep_editing}
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={minimize}
+                    aria-label="Minimize"
+                    className="rounded p-1 hover:bg-gray-100"
+                    style={{ color: colors.brand_navy }}
+                  >
+                    <IconChevronRight size={20} stroke={2} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRequestClose}
+                    aria-label="Close"
+                    className="rounded p-1 hover:bg-gray-100"
+                    style={{ color: colors.brand_navy }}
+                  >
+                    <IconX size={20} stroke={2} />
+                  </button>
+                </>
+              )
+            ) : (
               <button
                 type="button"
-                onClick={() => setMinimized(true)}
-                aria-label="Minimize"
+                onClick={handleRequestClose}
+                aria-label="Close"
                 className="rounded p-1 hover:bg-gray-100"
                 style={{ color: colors.brand_navy }}
               >
-                <IconChevronRight size={20} stroke={2} />
+                <IconX size={20} stroke={2} />
               </button>
-            ) : null}
-            <button
-              type="button"
-              onClick={handleRequestClose}
-              aria-label="Close"
-              className="rounded p-1 hover:bg-gray-100"
-              style={{ color: colors.brand_navy }}
-            >
-              <IconX size={20} stroke={2} />
-            </button>
+            )}
           </div>
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
-
-        {showConfirmDialog ? (
-          <div
-            className="absolute inset-0 flex items-center justify-center p-4"
-            style={{ backgroundColor: 'rgba(0, 0, 0, 0.4)' }}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="overlay-discard-heading"
-          >
-            <div className="w-full max-w-sm rounded-lg bg-white p-5 shadow-lg">
-              <p
-                id="overlay-discard-heading"
-                className="text-center text-sm"
-                style={{ color: colors.brand_navy }}
-              >
-                {labels.overlay_discard_confirm}
-              </p>
-              <div className="mt-4 flex flex-col gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmDialog(false)}
-                  className="w-full rounded-lg py-2.5 text-sm font-semibold text-white"
-                  style={{ backgroundColor: colors.brand_navy }}
-                >
-                  {labels.overlay_keep_editing}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDiscard}
-                  className="w-full rounded-lg py-2.5 text-sm font-semibold text-white"
-                  style={{ backgroundColor: colors.brand_red }}
-                >
-                  {labels.overlay_discard_changes}
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : null}
       </div>
-
-      {minimized ? (
-        <button
-          type="button"
-          onClick={() => setMinimized(false)}
-          aria-label={`Expand ${title}`}
-          className="fixed top-0 right-0 bottom-0 flex flex-col items-center justify-center gap-3 border-none"
-          style={{
-            width: '40px',
-            backgroundColor: colors.brand_navy,
-            zIndex: 301,
-            cursor: 'pointer',
-          }}
-        >
-          <IconChevronLeft size={16} color="white" stroke={2} />
-          <span
-            style={{
-              writingMode: 'vertical-rl',
-              transform: 'rotate(180deg)',
-              color: colors.white,
-              fontSize: '13px',
-              fontWeight: 500,
-              whiteSpace: 'nowrap',
-              letterSpacing: '0.02em',
-            }}
-          >
-            {title}
-          </span>
-        </button>
-      ) : null}
     </>
   )
 }
