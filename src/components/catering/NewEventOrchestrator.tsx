@@ -47,6 +47,7 @@ export default function NewEventOrchestrator() {
     newEventPrefilledDate,
     newEventInitialMode,
     newEventInitialTemplate,
+    newEventModeSelectRequestId,
     openOverlay,
   } = useOverlay()
   const { hasTab, restoreTab, unregisterTab, canOpenNew, showMaxTabsNotice } =
@@ -206,18 +207,18 @@ export default function NewEventOrchestrator() {
       return
     }
 
-    const launchKey = [
-      newEventInitialMode ?? '',
-      newEventPrefilledDate?.toISOString() ?? '',
-      newEventInitialTemplate?.id ?? '',
-    ].join('|')
-
     const launchMode = resolveLaunchMode(
       newEventInitialMode,
       newEventInitialTemplate != null,
     )
 
     if (launchMode) {
+      const launchKey = [
+        newEventInitialMode ?? '',
+        newEventPrefilledDate?.toISOString() ?? '',
+        newEventInitialTemplate?.id ?? '',
+      ].join('|')
+
       if (launchHandledRef.current === launchKey) {
         return
       }
@@ -233,7 +234,6 @@ export default function NewEventOrchestrator() {
       return
     }
 
-    launchHandledRef.current = launchKey
     setForegroundSessionId(null)
     setDuplicateNoticeMode(null)
     setShowModeSelect(true)
@@ -241,6 +241,7 @@ export default function NewEventOrchestrator() {
     activeOverlay,
     newEventInitialMode,
     newEventInitialTemplate,
+    newEventModeSelectRequestId,
     newEventPrefilledDate,
     tryStartMode,
   ])

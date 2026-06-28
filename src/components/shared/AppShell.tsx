@@ -74,6 +74,7 @@ interface OverlayContextValue {
   newEventPrefilledDate: Date | null
   newEventInitialMode: NewEventOpenMode | null
   newEventInitialTemplate: EventTemplate | null
+  newEventModeSelectRequestId: number
 }
 
 export type NewEventOpenMode = 'quick' | 'beo' | 'manual' | 'template'
@@ -543,6 +544,8 @@ function AppShell({ children }: AppShellProps) {
     useState<NewEventOpenMode | null>(null)
   const [newEventInitialTemplate, setNewEventInitialTemplate] =
     useState<EventTemplate | null>(null)
+  const [newEventModeSelectRequestId, setNewEventModeSelectRequestId] =
+    useState(0)
   const [accountMenuOpen, setAccountMenuOpen] = useState(false)
   const [userDisplayName, setUserDisplayName] = useState('')
   const accountMenuRef = useRef<HTMLDivElement>(null)
@@ -633,6 +636,9 @@ function AppShell({ children }: AppShellProps) {
       setNewEventPrefilledDate(options?.date ?? null)
       setNewEventInitialMode(options?.mode ?? null)
       setNewEventInitialTemplate(options?.initialTemplate ?? null)
+      if (!options?.mode && !options?.initialTemplate) {
+        setNewEventModeSelectRequestId((current) => current + 1)
+      }
     } else if (
       TEMPLATE_OVERLAY_IDS.includes(
         id as (typeof TEMPLATE_OVERLAY_IDS)[number],
@@ -757,6 +763,7 @@ function AppShell({ children }: AppShellProps) {
         newEventPrefilledDate,
         newEventInitialMode,
         newEventInitialTemplate,
+        newEventModeSelectRequestId,
       }}
     >
     <div className="min-h-screen flex flex-col" style={themeVars}>
