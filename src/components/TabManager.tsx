@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -28,6 +29,7 @@ interface TabManagerContextValue {
   ) => void
   unregisterTab: (id: string) => void
   hasTab: (id: string) => boolean
+  restoreTab: (id: string) => void
   canOpenNew: () => boolean
   showMaxTabsNotice: () => void
 }
@@ -76,6 +78,14 @@ export function TabManagerProvider({ children }: TabManagerProviderProps) {
     [tabs],
   )
 
+  const tabsRef = useRef(tabs)
+  tabsRef.current = tabs
+
+  const restoreTab = useCallback((id: string) => {
+    const tab = tabsRef.current.find((entry) => entry.id === id)
+    tab?.onRestore()
+  }, [])
+
   const canOpenNew = useCallback(() => tabs.length < MAX_TABS, [tabs.length])
 
   const showMaxTabsNotice = useCallback(() => {
@@ -101,10 +111,11 @@ export function TabManagerProvider({ children }: TabManagerProviderProps) {
       registerTab,
       unregisterTab,
       hasTab,
+      restoreTab,
       canOpenNew,
       showMaxTabsNotice,
     }),
-    [registerTab, unregisterTab, hasTab, canOpenNew, showMaxTabsNotice],
+    [registerTab, unregisterTab, hasTab, restoreTab, canOpenNew, showMaxTabsNotice],
   )
 
   return (

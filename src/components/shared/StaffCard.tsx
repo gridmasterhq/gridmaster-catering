@@ -1,4 +1,5 @@
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
+import { formatCoordinatorStaffName } from '../../lib/staffDisplayName'
 
 export interface StaffCardProps {
   phone: string
@@ -59,6 +60,7 @@ function StaffCard({
   onClick,
 }: StaffCardProps) {
   const { rating_floors, features } = useProductConfig()
+  const coordinatorName = formatCoordinatorStaffName(displayName, legalName)
 
   const maxStars = rating_floors.length
   const filledStars = Math.min(Math.max(Math.round(averageRating), 0), maxStars)
@@ -77,7 +79,7 @@ function StaffCard({
       {photoUrl ? (
         <img
           src={photoUrl}
-          alt={displayName}
+          alt={coordinatorName}
           className="size-10 shrink-0 rounded-full object-cover"
         />
       ) : (
@@ -85,12 +87,12 @@ function StaffCard({
           className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-navy text-sm font-semibold text-white"
           aria-hidden="true"
         >
-          {getInitials(displayName)}
+          {getInitials(coordinatorName)}
         </div>
       )}
 
       <div className="min-w-0 flex-1">
-        <p className="truncate font-semibold text-text-body">{displayName}</p>
+        <p className="truncate font-semibold text-text-body">{coordinatorName}</p>
         <p className="truncate text-sm text-gray-500">{roleLabel}</p>
         {availabilityPercent !== undefined ? (
           <p className="text-xs text-gray-500">{availabilityPercent}% available</p>
@@ -135,7 +137,7 @@ function StaffCard({
         type="button"
         className={cardClassName}
         onClick={onClick}
-        aria-label={`${displayName}, ${roleLabel}, ${legalName}, ${phone}`}
+        aria-label={`${coordinatorName}, ${roleLabel}, ${legalName}, ${phone}`}
       >
         {content}
       </button>
@@ -143,7 +145,7 @@ function StaffCard({
   }
 
   return (
-    <div className={cardClassName} aria-label={`${displayName}, ${roleLabel}`}>
+    <div className={cardClassName} aria-label={`${coordinatorName}, ${roleLabel}`}>
       {content}
     </div>
   )

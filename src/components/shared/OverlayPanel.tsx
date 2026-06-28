@@ -8,6 +8,7 @@ interface OverlayPanelProps {
   isOpen: boolean
   title: string
   dismissable?: boolean
+  visible?: boolean
   onClose: () => void
   onPanelRestore?: () => void
   children: ReactNode
@@ -20,6 +21,7 @@ export default function OverlayPanel({
   isOpen,
   title,
   dismissable = true,
+  visible = true,
   onClose,
   onPanelRestore,
   children,
@@ -103,7 +105,7 @@ export default function OverlayPanel({
     onClose()
   }
 
-  const panelVisible = slideIn && !isMinimized
+  const panelVisible = slideIn && !isMinimized && visible
 
   if (!isOpen && !isMinimized) {
     return null
@@ -111,7 +113,7 @@ export default function OverlayPanel({
 
   return (
     <>
-      {!isMinimized ? (
+      {!isMinimized && visible ? (
         dismissable ? (
           <button
             type="button"

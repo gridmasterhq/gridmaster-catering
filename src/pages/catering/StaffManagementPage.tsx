@@ -15,6 +15,7 @@ import {
   IconUsers,
   IconX,
 } from '@tabler/icons-react'
+import { formatCoordinatorStaffName } from '../../lib/staffDisplayName'
 import { useMinimizablePanel } from '../../hooks/useMinimizablePanel'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
 import { supabase } from '../../lib/supabase'
@@ -194,11 +195,7 @@ function getPrimaryRole(staff: StaffMember): string {
 }
 
 function getStaffDisplayName(staff: StaffMember): string {
-  if (staff.display_name?.trim()) {
-    return staff.display_name.trim()
-  }
-  const legal = staff.legal_name.trim()
-  return legal || 'Unknown'
+  return formatCoordinatorStaffName(staff.display_name, staff.legal_name)
 }
 
 function formatStartingDesignation(value: string | null | undefined): string {

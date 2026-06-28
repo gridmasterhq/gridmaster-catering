@@ -41,7 +41,7 @@ import UniformsPage from '../../pages/settings/UniformsPage'
 import NoteTemplatesPage from '../../pages/settings/NoteTemplatesPage'
 import RolesPage from '../../pages/RolesPage'
 import StaffManagementPage from '../../pages/catering/StaffManagementPage'
-import NewEvent from '../../pages/NewEvent'
+import NewEventOrchestrator from '../catering/NewEventOrchestrator'
 import MyTemplatesOverlay from '../overlays/MyTemplatesOverlay'
 import GridMasterTemplatesOverlay from '../overlays/GridMasterTemplatesOverlay'
 import AITemplateBuilderOverlay from '../overlays/AITemplateBuilderOverlay'
@@ -70,6 +70,7 @@ interface OverlayContextValue {
   activeOverlay: string | null
   openOverlay: (id: string, options?: OpenOverlayOptions) => void
   closeOverlay: () => void
+  focusNewEventOverlay: () => void
   newEventPrefilledDate: Date | null
   newEventInitialMode: NewEventOpenMode | null
   newEventInitialTemplate: EventTemplate | null
@@ -623,7 +624,7 @@ function AppShell({ children }: AppShellProps) {
   }, [])
 
   const openOverlay = useCallback((id: string, options?: OpenOverlayOptions) => {
-    if (!canOpenNew()) {
+    if (id !== 'new-event' && !canOpenNew()) {
       showMaxTabsNotice()
       return
     }
@@ -703,9 +704,6 @@ function AppShell({ children }: AppShellProps) {
     hasTab('staff-mgmt') ||
     hasTab('new-staff')
 
-  const showNewEventPanel =
-    activeOverlay === 'new-event' || hasTab('new-event')
-
   const showGenericOverlay =
     activeOverlay !== null &&
     activeOverlay !== 'staff' &&
@@ -755,6 +753,7 @@ function AppShell({ children }: AppShellProps) {
         activeOverlay,
         openOverlay,
         closeOverlay,
+        focusNewEventOverlay,
         newEventPrefilledDate,
         newEventInitialMode,
         newEventInitialTemplate,
@@ -1007,20 +1006,7 @@ function AppShell({ children }: AppShellProps) {
         />
       ) : null}
 
-      {showNewEventPanel ? (
-        <OverlayPanel
-          isOpen={activeOverlay === 'new-event' || hasTab('new-event')}
-          title={overlayTitles['new-event'] ?? 'New Event'}
-          dismissable={false}
-          onClose={closeOverlay}
-          onPanelRestore={focusNewEventOverlay}
-          tabId="new-event"
-          tabLabel={overlayTitles['new-event'] ?? 'New Event'}
-          tabColor="#1B3A5C"
-        >
-          <NewEvent />
-        </OverlayPanel>
-      ) : null}
+      <NewEventOrchestrator />
 
       {showGenericOverlay ? (
         <OverlayPanel
