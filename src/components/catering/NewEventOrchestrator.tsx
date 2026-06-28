@@ -212,18 +212,18 @@ export default function NewEventOrchestrator() {
       newEventInitialTemplate?.id ?? '',
     ].join('|')
 
-    if (launchHandledRef.current === launchKey) {
-      return
-    }
-
-    launchHandledRef.current = launchKey
-
     const launchMode = resolveLaunchMode(
       newEventInitialMode,
       newEventInitialTemplate != null,
     )
 
     if (launchMode) {
+      if (launchHandledRef.current === launchKey) {
+        return
+      }
+
+      launchHandledRef.current = launchKey
+
       if (!tryStartMode(launchMode, {
         prefilledDate: newEventPrefilledDate,
         initialTemplate: newEventInitialTemplate,
@@ -233,6 +233,9 @@ export default function NewEventOrchestrator() {
       return
     }
 
+    launchHandledRef.current = launchKey
+    setForegroundSessionId(null)
+    setDuplicateNoticeMode(null)
     setShowModeSelect(true)
   }, [
     activeOverlay,
