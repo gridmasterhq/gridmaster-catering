@@ -8,15 +8,14 @@ import {
   useState,
 } from 'react'
 import {
-  IconChevronRight,
   IconSearch,
   IconUser,
   IconUsers,
-  IconX,
 } from '@tabler/icons-react'
 import StaffProfilePanel, {
   type StaffProfileSessionState,
 } from '../../components/catering/StaffProfilePanel'
+import PanelHeaderActions from '../../components/shared/PanelHeaderActions'
 import { formatCoordinatorStaffName } from '../../lib/staffDisplayName'
 import {
   formatStaffProfileTabLabel,
@@ -1032,26 +1031,11 @@ function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
             >
               Add New Staff
             </button>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => staffPanel.minimize()}
-                aria-label="Minimize"
-                className="rounded p-1 hover:bg-white/10"
-                style={{ color: '#ffffff', border: 'none', background: 'none' }}
-              >
-                <IconChevronRight size={20} stroke={2} />
-              </button>
-              <button
-                type="button"
-                onClick={handleStaffClose}
-                aria-label="Close"
-                className="rounded p-1 hover:bg-white/10"
-                style={{ color: '#ffffff', border: 'none', background: 'none' }}
-              >
-                <IconX size={20} stroke={2} />
-              </button>
-            </div>
+            <PanelHeaderActions
+              variant="dark"
+              onMinimize={() => staffPanel.minimize()}
+              onClose={handleStaffClose}
+            />
           </div>
         </header>
 
@@ -1363,67 +1347,43 @@ function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
               >
                 Add New Staff
               </h2>
-              <div className="flex items-center gap-1">
-                {showAddFormConfirmClose ? (
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={handleCloseAddForm}
-                      className="border-none bg-transparent p-0"
-                      style={{
-                        fontSize: '12px',
-                        fontWeight: 500,
-                        color: '#EF4444',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      Discard
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowAddFormConfirmClose(false)}
-                      className="border-none bg-transparent p-0"
-                      style={{
-                        fontSize: '12px',
-                        fontWeight: 500,
-                        color: '#9CA3AF',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      Keep editing
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => addFormPanel.minimize()}
-                      aria-label="Minimize"
-                      className="rounded p-1 hover:bg-white/10"
-                      style={{
-                        color: '#ffffff',
-                        border: 'none',
-                        background: 'none',
-                      }}
-                    >
-                      <IconChevronRight size={20} stroke={2} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowAddFormConfirmClose(true)}
-                      aria-label="Close"
-                      className="rounded p-1 hover:bg-white/10"
-                      style={{
-                        color: '#ffffff',
-                        border: 'none',
-                        background: 'none',
-                      }}
-                    >
-                      <IconX size={20} stroke={2} />
-                    </button>
-                  </>
-                )}
-              </div>
+              <PanelHeaderActions
+                variant="dark"
+                onMinimize={() => addFormPanel.minimize()}
+                onClose={() => setShowAddFormConfirmClose(true)}
+                replaceActions={
+                  showAddFormConfirmClose ? (
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={handleCloseAddForm}
+                        className="border-none bg-transparent p-0"
+                        style={{
+                          fontSize: '12px',
+                          fontWeight: 500,
+                          color: '#EF4444',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Discard
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowAddFormConfirmClose(false)}
+                        className="border-none bg-transparent p-0"
+                        style={{
+                          fontSize: '12px',
+                          fontWeight: 500,
+                          color: '#9CA3AF',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Keep editing
+                      </button>
+                    </div>
+                  ) : undefined
+                }
+              />
             </header>
 
             <form

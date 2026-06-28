@@ -6,11 +6,10 @@ import {
 } from 'react'
 import {
   IconArrowLeft,
-  IconChevronRight,
   IconClock,
   IconUser,
-  IconX,
 } from '@tabler/icons-react'
+import PanelHeaderActions from '../shared/PanelHeaderActions'
 import { formatCoordinatorStaffName } from '../../lib/staffDisplayName'
 import { useMinimizablePanel } from '../../hooks/useMinimizablePanel'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
@@ -18,9 +17,6 @@ import { useTabManager } from '../TabManager'
 
 const NAVY = '#1B3A5C'
 const GOLD = '#C9A84C'
-const PANEL_HEADER_PADDING_PX = 16
-const PANEL_BUTTON_EXTRA_MARGIN_PX =
-  PANEL_HEADER_PADDING_PX * 2.5 - PANEL_HEADER_PADDING_PX
 const STAFF_PROFILE_Z_INDEX = 302
 
 type StaffStatus = 'active' | 'alumni' | 'not_active' | 'archived'
@@ -363,79 +359,62 @@ export default function StaffProfilePanel({
           >
             {displayName}
           </h2>
-          <div
-            className="flex shrink-0 items-center gap-2"
-            style={{ marginRight: `${PANEL_BUTTON_EXTRA_MARGIN_PX}px` }}
-          >
-            {hasEditableFields ? (
-              <button
-                type="button"
-                style={{
-                  backgroundColor: '#ffffff',
-                  color: NAVY,
-                  fontSize: '12px',
-                  fontWeight: 500,
-                  borderRadius: '6px',
-                  padding: '6px 14px',
-                  border: 'none',
-                  cursor: 'pointer',
-                }}
-              >
-                Save Changes
-              </button>
-            ) : null}
-            {showConfirmDialog ? (
-              <div className="flex items-center gap-3">
+          <PanelHeaderActions
+            variant="dark"
+            onMinimize={handleMinimize}
+            onClose={() => setShowConfirmDialog(true)}
+            leading={
+              hasEditableFields ? (
                 <button
                   type="button"
-                  onClick={handleDiscard}
-                  className="border-none bg-transparent p-0"
                   style={{
+                    backgroundColor: '#ffffff',
+                    color: NAVY,
                     fontSize: '12px',
                     fontWeight: 500,
-                    color: '#FCA5A5',
+                    borderRadius: '6px',
+                    padding: '6px 14px',
+                    border: 'none',
                     cursor: 'pointer',
                   }}
                 >
-                  Discard
+                  Save Changes
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmDialog(false)}
-                  className="border-none bg-transparent p-0"
-                  style={{
-                    fontSize: '12px',
-                    fontWeight: 500,
-                    color: 'rgba(255,255,255,0.75)',
-                    cursor: 'pointer',
-                  }}
-                >
-                  {labels.overlay_keep_editing}
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={handleMinimize}
-                  aria-label="Minimize"
-                  className="rounded p-1 hover:bg-white/10"
-                  style={{ color: '#ffffff', border: 'none', background: 'none' }}
-                >
-                  <IconChevronRight size={20} stroke={2} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmDialog(true)}
-                  aria-label="Close"
-                  className="rounded p-1 hover:bg-white/10"
-                  style={{ color: '#ffffff', border: 'none', background: 'none' }}
-                >
-                  <IconX size={20} stroke={2} />
-                </button>
-              </div>
-            )}
-          </div>
+              ) : undefined
+            }
+            replaceActions={
+              showConfirmDialog ? (
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleDiscard}
+                    className="border-none bg-transparent p-0"
+                    style={{
+                      fontSize: '12px',
+                      fontWeight: 500,
+                      color: '#FCA5A5',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Discard
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmDialog(false)}
+                    className="border-none bg-transparent p-0"
+                    style={{
+                      fontSize: '12px',
+                      fontWeight: 500,
+                      color: 'rgba(255,255,255,0.75)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {labels.overlay_keep_editing}
+                  </button>
+                </div>
+              ) : undefined
+            }
+          />
         </header>
 
         <div

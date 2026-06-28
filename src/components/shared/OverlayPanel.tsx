@@ -1,13 +1,8 @@
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
-import { IconChevronRight, IconX } from '@tabler/icons-react'
 import { useMinimizablePanel } from '../../hooks/useMinimizablePanel'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
 import { FormPanelContext } from './FormPanelContext'
-
-const FORM_PANEL_HEADER_PADDING_PX = 16
-const FORM_PANEL_BUTTON_RIGHT_OFFSET_PX = FORM_PANEL_HEADER_PADDING_PX * 2.5
-const FORM_PANEL_BUTTON_EXTRA_MARGIN_PX =
-  FORM_PANEL_BUTTON_RIGHT_OFFSET_PX - FORM_PANEL_HEADER_PADDING_PX
+import PanelHeaderActions from './PanelHeaderActions'
 
 interface OverlayPanelProps {
   isOpen: boolean
@@ -166,9 +161,12 @@ export default function OverlayPanel({
           >
             {title}
           </h2>
-          <div className="flex items-center gap-1">
-            {isFormPanel ? (
-              showConfirmDialog ? (
+          <PanelHeaderActions
+            onClose={handleRequestClose}
+            onMinimize={isFormPanel ? minimize : undefined}
+            iconColor={colors.brand_navy}
+            replaceActions={
+              isFormPanel && showConfirmDialog ? (
                 <div className="flex items-center gap-3">
                   <button
                     type="button"
@@ -197,43 +195,9 @@ export default function OverlayPanel({
                     {labels.overlay_keep_editing}
                   </button>
                 </div>
-              ) : (
-                <div
-                  className="flex items-center gap-1"
-                  style={{ marginRight: `${FORM_PANEL_BUTTON_EXTRA_MARGIN_PX}px` }}
-                >
-                  <button
-                    type="button"
-                    onClick={minimize}
-                    aria-label="Minimize"
-                    className="rounded p-1 hover:bg-gray-100"
-                    style={{ color: colors.brand_navy }}
-                  >
-                    <IconChevronRight size={20} stroke={2} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleRequestClose}
-                    aria-label="Close"
-                    className="rounded p-1 hover:bg-gray-100"
-                    style={{ color: colors.brand_navy }}
-                  >
-                    <IconX size={20} stroke={2} />
-                  </button>
-                </div>
-              )
-            ) : (
-              <button
-                type="button"
-                onClick={handleRequestClose}
-                aria-label="Close"
-                className="rounded p-1 hover:bg-gray-100"
-                style={{ color: colors.brand_navy }}
-              >
-                <IconX size={20} stroke={2} />
-              </button>
-            )}
-          </div>
+              ) : undefined
+            }
+          />
         </header>
         <FormPanelContext.Provider value={formPanelContextValue}>
           <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
