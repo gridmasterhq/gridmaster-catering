@@ -105,22 +105,6 @@ function getStaffDisplayName(staff: StaffProfileStaffMember): string {
   return formatCoordinatorStaffName(staff.display_name, staff.legal_name)
 }
 
-function formatStartingDesignation(value: string | null | undefined): string {
-  switch (value) {
-    case 'new':
-      return 'New'
-    case 'promising':
-      return 'Promising'
-    case 'experienced':
-      return 'Experienced'
-    case 'senior':
-    case 'senior_hire':
-      return 'Senior'
-    default:
-      return value?.trim() || 'New'
-  }
-}
-
 function formatStatusLabel(status: StaffStatus): string {
   if (status === 'not_active') {
     return 'Not Active'
@@ -171,6 +155,55 @@ function ReadOnlyStars({
       ))}
     </span>
   )
+}
+
+function ExperienceRatingStars({
+  rating,
+  size = 14,
+}: {
+  rating: number
+  size?: number
+}) {
+  const filled = Math.min(Math.max(Math.round(rating), 1), 6)
+
+  return (
+    <span
+      className="inline-flex items-center"
+      style={{ fontSize: `${size}px`, lineHeight: 1, gap: '2px' }}
+    >
+      <span style={{ fontWeight: 700, color: '#C0392B' }}>E</span>
+      {[1, 2, 3, 4, 5, 6].map((star) => (
+        <span
+          key={star}
+          style={{ color: star <= filled ? GOLD : '#D1D5DB' }}
+        >
+          {star <= filled ? '★' : '☆'}
+        </span>
+      ))}
+    </span>
+  )
+}
+
+function StaffProfileHeaderRating({
+  staff,
+}: {
+  staff: StaffProfileStaffMember
+}) {
+  if (staff.rating_count >= 6 && staff.average_rating != null) {
+    return <ReadOnlyStars rating={staff.average_rating} size={14} />
+  }
+
+  const experienceRating = staff.experience_rating
+  if (
+    experienceRating != null &&
+    experienceRating >= 1 &&
+    experienceRating <= 6 &&
+    staff.rating_count < 6
+  ) {
+    return <ExperienceRatingStars rating={experienceRating} size={14} />
+  }
+
+  return null
 }
 
 function StaffPhoto({
@@ -440,29 +473,8 @@ export default function StaffProfilePanel({
               >
                 {getPrimaryRole(staff)}
               </p>
-              <p
-                style={{
-                  fontSize: '11px',
-                  color: '#6B7280',
-                  marginTop: '4px',
-                }}
-              >
-                S{staff.experience_rating ?? 0}
-              </p>
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                {staff.rating_count > 0 && staff.average_rating != null ? (
-                  <ReadOnlyStars rating={staff.average_rating} size={14} />
-                ) : (
-                  <span
-                    style={{
-                      fontSize: '11px',
-                      color: '#6B7280',
-                      fontStyle: 'italic',
-                    }}
-                  >
-                    {formatStartingDesignation(staff.starting_designation)}
-                  </span>
-                )}
+                <StaffProfileHeaderRating staff={staff} />
                 <span
                   style={{
                     ...statusBadgeStyle(staff.status),
