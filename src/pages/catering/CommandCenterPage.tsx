@@ -322,7 +322,24 @@ function ActionItemsSnoozedPanel({
           console.error('[CommandCenter] snoozed panel load failed', error)
           setSnoozedItems([])
         } else {
-          setSnoozedItems((data ?? []) as SnoozedItemRow[])
+          setSnoozedItems(
+            (data ?? []).map((row) => {
+              const rawEvents = row.events as
+                | SnoozedItemRow['events']
+                | NonNullable<SnoozedItemRow['events']>[number]
+                | null
+
+              return {
+                ...row,
+                events:
+                  rawEvents == null
+                    ? null
+                    : Array.isArray(rawEvents)
+                      ? rawEvents
+                      : [rawEvents],
+              } as SnoozedItemRow
+            }),
+          )
         }
       } catch (error) {
         console.error('[CommandCenter] snoozed panel unexpected error', error)
@@ -511,18 +528,29 @@ function ActionItemsSnoozedPanel({
               </p>
             </div>
           ) : (
-            snoozedItems.map((row) => {
-              const event = row.events?.[0]
-              const title = event
-                ? getDraftActionTitle(event)
+            snoozedItems.map((snoozeItem) => {
+              const title = snoozeItem.events?.[0]?.event_name
+                ? getDraftActionTitle({
+                    id: snoozeItem.events[0].id,
+                    event_name: snoozeItem.events[0].event_name,
+                    event_date: snoozeItem.events[0].event_date,
+                    created_at: snoozeItem.events[0].created_at,
+                    status: snoozeItem.events[0].status,
+                  })
                 : 'Unknown event'
-              const reasonSubtext = event
-                ? getDraftActionSubtext(event)
+              const reasonSubtext = snoozeItem.events?.[0]?.event_name
+                ? getDraftActionSubtext({
+                    id: snoozeItem.events[0].id,
+                    event_name: snoozeItem.events[0].event_name,
+                    event_date: snoozeItem.events[0].event_date,
+                    created_at: snoozeItem.events[0].created_at,
+                    status: snoozeItem.events[0].status,
+                  })
                 : null
 
               return (
                 <div
-                  key={row.id}
+                  key={snoozeItem.id}
                   style={{
                     display: 'flex',
                     alignItems: 'flex-start',
@@ -532,11 +560,11 @@ function ActionItemsSnoozedPanel({
                   }}
                 >
                   <div className="min-w-0 flex-1">
-                    {row.event_id ? (
+                    {snoozeItem.event_id ? (
                       <button
                         type="button"
                         onClick={() =>
-                          window.open(`/event/${row.event_id}`, '_blank')
+                          window.open(`/event/${snoozeItem.event_id}`, '_blank')
                         }
                         className="text-left hover:underline"
                         style={{
@@ -584,9 +612,9 @@ function ActionItemsSnoozedPanel({
                         lineHeight: 1.3,
                       }}
                     >
-                      {getSnoozeWakeUpLabel(row.snooze_until)}
+                      {getSnoozeWakeUpLabel(snoozeItem.snooze_until)}
                     </p>
-                    {restoreErrors[row.id] ? (
+                    {restoreErrors[snoozeItem.id] ? (
                       <p
                         style={{
                           fontSize: '12px',
@@ -595,10 +623,10 @@ function ActionItemsSnoozedPanel({
                           lineHeight: 1.3,
                         }}
                       >
-                        {restoreErrors[row.id]}
+                        {restoreErrors[snoozeItem.id]}
                       </p>
                     ) : null}
-                    {updateErrors[row.id] ? (
+                    {updateErrors[snoozeItem.id] ? (
                       <p
                         style={{
                           fontSize: '12px',
@@ -607,7 +635,7 @@ function ActionItemsSnoozedPanel({
                           lineHeight: 1.3,
                         }}
                       >
-                        {updateErrors[row.id]}
+                        {updateErrors[snoozeItem.id]}
                       </p>
                     ) : null}
                   </div>
@@ -617,7 +645,7 @@ function ActionItemsSnoozedPanel({
                   >
                     <button
                       type="button"
-                      onClick={() => void handleRestore(row)}
+                      onClick={() => void handleRestore(snoozeItem)}
                       className="hover:underline"
                       style={{
                         fontSize: '12px',
@@ -634,7 +662,7 @@ function ActionItemsSnoozedPanel({
                       type="button"
                       onClick={(clickEvent) => {
                         setPanelSnoozePopover({
-                          snoozeId: row.id,
+                          snoozeId: snoozeItem.id,
                           anchorEl: clickEvent.currentTarget,
                         })
                       }}
@@ -1397,9 +1425,11 @@ function CommandCenterPage() {
                     textDecoration: 'none',
                   }}
                 >
-                  Snoozed
+                  Snooze List
                 </button>
-                <span style={countBadgeStyle}>{actionItemCount}</span>
+                <span style={{ ...countBadgeStyle, padding: '2px 10px' }}>
+                  To-Do: {actionItemCount}
+                </span>
               </div>
             }
           />
