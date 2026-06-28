@@ -39,21 +39,8 @@ const ROLE_OPTIONS = [
   'Custom',
 ] as const
 
-const SENIORITY_OPTIONS = [
-  { level: 1, label: 'S1', description: 'New hire' },
-  { level: 2, label: 'S2', description: 'Some experience' },
-  { level: 3, label: 'S3', description: 'Solid performer' },
-  { level: 4, label: 'S4', description: 'Senior' },
-  { level: 5, label: 'S5', description: 'Lead' },
-  { level: 6, label: 'S6', description: 'Veteran' },
-] as const
-
-const STARTING_DESIGNATIONS = [
-  { value: 'new', label: 'New Unrated' },
-  { value: 'promising', label: 'Promising' },
-  { value: 'experienced', label: 'Experienced' },
-  { value: 'senior', label: 'Senior Hire' },
-] as const
+type ExperienceRatingColumn = 'experience_rating' | 'starting_designation'
+type StaffRolesPhoneColumn = 'staff_phone' | 'phone'
 
 type StaffStatus = 'active' | 'alumni' | 'dnr' | 'archived'
 type FilterPill =
@@ -78,7 +65,6 @@ interface StaffRoleRow {
 }
 
 interface StaffMember {
-  id: string
   phone: string
   legal_name: string
   display_name: string | null
@@ -252,6 +238,118 @@ function formatPhoneToE164(raw: string): string {
   return digits.length > 0 ? `+${digits}` : ''
 }
 
+async function resolveExperienceRatingColumn(): Promise<ExperienceRatingColumn> {
+  const { error } = await supabase
+    .from('staff')
+    .select('experience_rating')
+    .limit(0)
+
+  if (error?.message?.includes('experience_rating')) {
+    return 'starting_designation'
+  }
+
+  return 'experience_rating'
+}
+
+async function resolveStaffRolesPhoneColumn(): Promise<StaffRolesPhoneColumn> {
+  const { error } = await supabase
+    .from('staff_roles')
+    .select('staff_phone')
+    .limit(0)
+
+  if (error?.message?.includes('staff_phone')) {
+    return 'phone'
+  }
+
+  return 'staff_phone'
+}
+
+function buildStaffRoleInsertRow(
+  organizationId: string,
+  staffPhone: string,
+  role: string,
+  isPrimary: boolean,
+  phoneColumn: StaffRolesPhoneColumn,
+) {
+  return {
+    organization_id: organizationId,
+    role,
+    is_primary: isPrimary,
+    [phoneColumn]: staffPhone,
+  }
+}
+
+function ExperienceRatingSelector({
+  value,
+  onChange,
+  error,
+}: {
+  value: number
+  onChange: (rating: number) => void
+  error?: string
+}) {
+  return (
+    <div style={{ marginBottom: '16px' }}>
+      <span style={fieldLabelStyle}>Experience Rating (required)</span>
+      <p
+        style={{
+          fontSize: '12px',
+          color: '#6B7280',
+          marginTop: '4px',
+          marginBottom: '8px',
+        }}
+      >
+        Assign based on resume, interview, and references. This is the active
+        broadcast credential until the staff member completes 6 rated events,
+        after which their Performance Rating takes over.
+      </p>
+      <div className="flex items-center" style={{ gap: '8px' }}>
+        {[1, 2, 3, 4, 5, 6].map((star) => (
+          <button
+            key={star}
+            type="button"
+            onClick={() => onChange(star)}
+            aria-label={`${star} stars`}
+            style={{
+              fontSize: '28px',
+              lineHeight: 1,
+              color: star <= value ? GOLD : '#D1D5DB',
+              border: 'none',
+              background: 'none',
+              cursor: 'pointer',
+              padding: 0,
+            }}
+          >
+            ★
+          </button>
+        ))}
+      </div>
+      {value > 0 ? (
+        <p
+          style={{
+            fontSize: '12px',
+            color: '#6B7280',
+            marginTop: '8px',
+          }}
+        >
+          Selected: {value} stars
+        </p>
+      ) : null}
+      {error ? (
+        <p
+          style={{
+            fontSize: '12px',
+            color: '#EF4444',
+            marginTop: '4px',
+          }}
+        >
+          {error}
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
 function statusDotColor(status: StaffStatus): string {
   switch (status) {
     case 'active':
@@ -402,8 +500,11 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
   const [primaryRole, setPrimaryRole] = useState<string>(ROLE_OPTIONS[0])
   const [customPrimaryRole, setCustomPrimaryRole] = useState('')
   const [secondaryRoles, setSecondaryRoles] = useState<string[]>([])
-  const [seniorityLevel, setSeniorityLevel] = useState(1)
-  const [startingDesignation, setStartingDesignation] = useState('new')
+  const [experienceRating, setExperienceRating] = useState(0)
+  const [experienceRatingColumn, setExperienceRatingColumn] =
+    useState<ExperienceRatingColumn>('starting_designation')
+  const [staffRolesPhoneColumn, setStaffRolesPhoneColumn] =
+    useState<StaffRolesPhoneColumn>('staff_phone')
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
   const [formSubmitError, setFormSubmitError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -415,7 +516,6 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
       .from('staff')
       .select(
         `
-        id,
         phone,
         legal_name,
         display_name,
@@ -464,6 +564,13 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
         setLoading(false)
         return
       }
+
+      const [experienceColumn, rolesPhoneColumn] = await Promise.all([
+        resolveExperienceRatingColumn(),
+        resolveStaffRolesPhoneColumn(),
+      ])
+      setExperienceRatingColumn(experienceColumn)
+      setStaffRolesPhoneColumn(rolesPhoneColumn)
 
       setOrganizationId(orgId.trim())
       await loadStaff(orgId.trim())
@@ -538,8 +645,7 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
     setPrimaryRole(ROLE_OPTIONS[0])
     setCustomPrimaryRole('')
     setSecondaryRoles([])
-    setSeniorityLevel(1)
-    setStartingDesignation('new')
+    setExperienceRating(0)
     setFormErrors({})
     setFormSubmitError(null)
   }
@@ -583,6 +689,9 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
     if (!resolvedPrimary) {
       errors.primaryRole = 'Primary role is required'
     }
+    if (experienceRating < 1) {
+      errors.experienceRating = 'Please assign an Experience Rating'
+    }
 
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors)
@@ -621,42 +730,50 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
       }
 
       const nowIso = new Date().toISOString()
-      const { data: insertedStaff, error: staffError } = await supabase
-        .from('staff')
-        .insert({
-          organization_id: organizationId,
-          legal_name: trimmedLegalName,
-          phone: e164Phone,
-          seniority_level: seniorityLevel,
-          starting_designation: startingDesignation,
-          status: 'active',
-          captain_priority: false,
-          rating_count: 0,
-          created_at: nowIso,
-          updated_at: nowIso,
-        })
-        .select('id, phone')
-        .single()
+      const staffInsertPayload: Record<string, unknown> = {
+        organization_id: organizationId,
+        legal_name: trimmedLegalName,
+        phone: e164Phone,
+        status: 'active',
+        captain_priority: false,
+        rating_count: 0,
+        created_at: nowIso,
+        updated_at: nowIso,
+      }
 
-      if (staffError || !insertedStaff) {
+      if (experienceRatingColumn === 'experience_rating') {
+        staffInsertPayload.experience_rating = experienceRating
+      } else {
+        staffInsertPayload.starting_designation = String(experienceRating)
+      }
+
+      const { error: staffError } = await supabase
+        .from('staff')
+        .insert(staffInsertPayload)
+
+      if (staffError) {
         console.error('[StaffManagement] staff insert failed', staffError)
         setFormSubmitError('Failed to add staff member — please try again.')
         return
       }
 
       const roleRows = [
-        {
-          organization_id: organizationId,
-          staff_phone: e164Phone,
-          role: resolvedPrimary,
-          is_primary: true,
-        },
-        ...secondaryRoles.map((role) => ({
-          organization_id: organizationId,
-          staff_phone: e164Phone,
-          role,
-          is_primary: false,
-        })),
+        buildStaffRoleInsertRow(
+          organizationId,
+          e164Phone,
+          resolvedPrimary,
+          true,
+          staffRolesPhoneColumn,
+        ),
+        ...secondaryRoles.map((role) =>
+          buildStaffRoleInsertRow(
+            organizationId,
+            e164Phone,
+            role,
+            false,
+            staffRolesPhoneColumn,
+          ),
+        ),
       ]
 
       const { error: rolesError } = await supabase
@@ -867,7 +984,7 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
 
               return (
                 <button
-                  key={staff.id}
+                  key={staff.phone}
                   type="button"
                   onClick={() => {
                     setSelectedStaff(staff)
@@ -1270,60 +1387,11 @@ function StaffManagementPage({ onClose }: StaffManagementPageProps) {
             </div>
           </div>
 
-          <div style={{ marginBottom: '16px' }}>
-            <label htmlFor="staff-seniority" style={fieldLabelStyle}>
-              Seniority Level (required)
-            </label>
-            <select
-              id="staff-seniority"
-              value={seniorityLevel}
-              onChange={(event) =>
-                setSeniorityLevel(Number(event.target.value))
-              }
-              style={fieldInputStyle}
-            >
-              {SENIORITY_OPTIONS.map((option) => (
-                <option key={option.level} value={option.level}>
-                  {option.label} — {option.description}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div style={{ marginBottom: '16px' }}>
-            <span style={fieldLabelStyle}>Starting Designation (required)</span>
-            <div
-              className="flex flex-col"
-              style={{ gap: '8px', marginTop: '4px' }}
-            >
-              {STARTING_DESIGNATIONS.map((option) => (
-                <label
-                  key={option.value}
-                  className="flex items-center gap-2"
-                  style={{ fontSize: '13px', color: '#374151' }}
-                >
-                  <input
-                    type="radio"
-                    name="starting-designation"
-                    value={option.value}
-                    checked={startingDesignation === option.value}
-                    onChange={() => setStartingDesignation(option.value)}
-                  />
-                  {option.label}
-                </label>
-              ))}
-            </div>
-            <p
-              style={{
-                fontSize: '12px',
-                color: '#6B7280',
-                marginTop: '8px',
-              }}
-            >
-              This temporary designation is used for broadcast eligibility until
-              the staff member receives their first rating.
-            </p>
-          </div>
+          <ExperienceRatingSelector
+            value={experienceRating}
+            onChange={setExperienceRating}
+            error={formErrors.experienceRating}
+          />
 
           {formSubmitError ? (
             <p
