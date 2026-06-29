@@ -68,8 +68,6 @@ export interface StaffProfileStaffMember {
   is_priority: boolean
   created_at: string
   staff_roles: StaffRoleRow[] | null
-  is_trainer?: boolean
-  trainer_designated_at?: string | null
 }
 
 export interface StaffProfileSessionState {
@@ -246,16 +244,13 @@ export default function StaffProfilePanel({
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const [staff, setStaff] = useState(session.staff)
   const [organizationId, setOrganizationId] = useState<string | null>(null)
-  const [isTrainer, setIsTrainer] = useState(Boolean(session.staff.is_trainer))
   const [showRoleEditor, setShowRoleEditor] = useState(false)
   const [editorRoles, setEditorRoles] = useState<string[]>([])
   const [isSavingRoles, setIsSavingRoles] = useState(false)
-  const [isTogglingTrainer, setIsTogglingTrainer] = useState(false)
   const [roleEditorError, setRoleEditorError] = useState<string | null>(null)
 
   useEffect(() => {
     setStaff(session.staff)
-    setIsTrainer(Boolean(session.staff.is_trainer))
   }, [session.staff])
 
   const handleRestore = useCallback(() => {
@@ -295,7 +290,7 @@ export default function StaffProfilePanel({
   }, [])
 
   useEffect(() => {
-    async function loadProfileMeta() {
+    async function loadOrganizationId() {
       const {
         data: { user },
       } = await supabase.auth.getUser()
@@ -305,32 +300,10 @@ export default function StaffProfilePanel({
       }
 
       setOrganizationId(orgId.trim())
-
-      const { data, error } = await supabase
-        .from('staff')
-        .select('is_trainer, trainer_designated_at')
-        .eq('organization_id', orgId.trim())
-        .eq('phone', session.staff.phone)
-        .maybeSingle()
-
-      if (error) {
-        console.error('[StaffProfile] load trainer status failed', error)
-        return
-      }
-
-      if (data) {
-        setIsTrainer(Boolean(data.is_trainer))
-        setStaff((previous) => ({
-          ...previous,
-          is_trainer: Boolean(data.is_trainer),
-          trainer_designated_at:
-            (data.trainer_designated_at as string | null) ?? null,
-        }))
-      }
     }
 
-    void loadProfileMeta()
-  }, [session.staff.phone])
+    void loadOrganizationId()
+  }, [])
 
   useEffect(() => {
     if (isMinimized || !isForeground) {
@@ -450,42 +423,6 @@ export default function StaffProfilePanel({
       setRoleEditorError('Failed to save roles — please try again.')
     } finally {
       setIsSavingRoles(false)
-    }
-  }
-
-  const handleToggleTrainer = async () => {
-    if (!organizationId || isTogglingTrainer) {
-      return
-    }
-
-    const nextIsTrainer = !isTrainer
-    setIsTogglingTrainer(true)
-
-    try {
-      const { error } = await supabase
-        .from('staff')
-        .update({
-          is_trainer: nextIsTrainer,
-          trainer_designated_at: nextIsTrainer ? new Date().toISOString() : null,
-        })
-        .eq('organization_id', organizationId)
-        .eq('phone', staff.phone)
-
-      if (error) {
-        console.error('[StaffProfile] toggle trainer failed', error)
-        return
-      }
-
-      setIsTrainer(nextIsTrainer)
-      setStaff((previous) => ({
-        ...previous,
-        is_trainer: nextIsTrainer,
-        trainer_designated_at: nextIsTrainer ? new Date().toISOString() : null,
-      }))
-    } catch (error) {
-      console.error('[StaffProfile] toggle trainer unexpected error', error)
-    } finally {
-      setIsTogglingTrainer(false)
     }
   }
 
@@ -684,25 +621,13 @@ export default function StaffProfilePanel({
               </div>
             </div>
 
-            <div
-              className="flex shrink-0 flex-col"
-              style={{ gap: '8px', alignItems: 'stretch' }}
-            >
+            <div className="flex shrink-0">
               <button
                 type="button"
                 onClick={openRoleEditor}
                 style={outlineButtonStyle}
               >
                 Change / Add Roles
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleToggleTrainer()}
-                disabled={isTogglingTrainer}
-                style={isTrainer ? solidTrainerButtonStyle : outlineButtonStyle}
-                aria-pressed={isTrainer}
-              >
-                Trainer
               </button>
             </div>
           </div>
