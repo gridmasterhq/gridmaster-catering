@@ -1,22 +1,12 @@
 import { type ReactNode } from 'react'
 import { IconChevronRight, IconX } from '@tabler/icons-react'
 
-/** Minimum distance from the panel right edge to clear the 32px tab stack. */
-export const PANEL_HEADER_ACTIONS_RIGHT_OFFSET_PX = 40
-
-export function getPanelHeaderActionsMarginRight(
-  headerPaddingPx = 16,
-): number {
-  return Math.max(0, PANEL_HEADER_ACTIONS_RIGHT_OFFSET_PX - headerPaddingPx)
-}
-
 type PanelHeaderActionsVariant = 'light' | 'dark'
 
 interface PanelHeaderActionsProps {
   onClose: () => void
   onMinimize?: () => void
   variant?: PanelHeaderActionsVariant
-  headerPaddingPx?: number
   leading?: ReactNode
   replaceActions?: ReactNode
   iconColor?: string
@@ -26,7 +16,6 @@ export default function PanelHeaderActions({
   onClose,
   onMinimize,
   variant = 'light',
-  headerPaddingPx = 16,
   leading,
   replaceActions,
   iconColor,
@@ -41,12 +30,7 @@ export default function PanelHeaderActions({
     : { color: resolvedIconColor }
 
   return (
-    <div
-      className="flex shrink-0 items-center gap-2"
-      style={{
-        marginRight: `${getPanelHeaderActionsMarginRight(headerPaddingPx)}px`,
-      }}
-    >
+    <div className="flex shrink-0 items-center gap-2">
       {leading}
       {replaceActions ?? (
         <div className="flex items-center gap-1">

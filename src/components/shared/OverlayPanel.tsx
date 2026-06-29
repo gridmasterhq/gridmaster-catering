@@ -4,6 +4,14 @@ import { useProductConfig } from '../../lib/hooks/useProductConfig'
 import { FormPanelContext } from './FormPanelContext'
 import PanelHeaderActions from './PanelHeaderActions'
 
+/** Right inset so panel content clears the 32px minimized-tab stack. */
+export const OVERLAY_PANEL_TAB_STACK_CLEARANCE_PX = 40
+
+const OVERLAY_PANEL_CONTENT_MAX_WIDTH_PX = 560
+
+export const OVERLAY_PANEL_MAX_WIDTH_PX =
+  OVERLAY_PANEL_CONTENT_MAX_WIDTH_PX + OVERLAY_PANEL_TAB_STACK_CLEARANCE_PX
+
 interface OverlayPanelProps {
   isOpen: boolean
   title: string
@@ -144,7 +152,9 @@ export default function OverlayPanel({
       <div
         className="fixed top-0 right-0 bottom-0 flex w-full flex-col bg-white shadow-xl"
         style={{
-          maxWidth: '560px',
+          maxWidth: `${OVERLAY_PANEL_MAX_WIDTH_PX}px`,
+          paddingRight: `${OVERLAY_PANEL_TAB_STACK_CLEARANCE_PX}px`,
+          boxSizing: 'border-box',
           zIndex: 301,
           transform: panelVisible ? 'translateX(0)' : 'translateX(100%)',
           transition: 'transform 0.2s ease',

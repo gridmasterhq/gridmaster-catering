@@ -16,6 +16,7 @@ import StaffProfilePanel, {
   type StaffProfileSessionState,
 } from '../../components/catering/StaffProfilePanel'
 import PanelHeaderActions from '../../components/shared/PanelHeaderActions'
+import { OVERLAY_PANEL_TAB_STACK_CLEARANCE_PX } from '../../components/shared/OverlayPanel'
 import StaffRatingBadge from '../../components/shared/StaffRatingBadge'
 import { formatCoordinatorStaffName } from '../../lib/staffDisplayName'
 import {
@@ -28,6 +29,12 @@ import { useOverlay } from '../../components/shared/AppShell'
 import { supabase } from '../../lib/supabase'
 
 const NAVY = '#1B3A5C'
+const STAFF_PANEL_CONTENT_MAX_WIDTH_PX = 680
+const STAFF_PANEL_MAX_WIDTH_PX =
+  STAFF_PANEL_CONTENT_MAX_WIDTH_PX + OVERLAY_PANEL_TAB_STACK_CLEARANCE_PX
+const ADD_STAFF_FORM_CONTENT_MAX_WIDTH_PX = 600
+const ADD_STAFF_FORM_MAX_WIDTH_PX =
+  ADD_STAFF_FORM_CONTENT_MAX_WIDTH_PX + OVERLAY_PANEL_TAB_STACK_CLEARANCE_PX
 const GOLD = '#C9A84C'
 
 const ROLE_OPTIONS = [
@@ -942,7 +949,9 @@ function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
         className="fixed top-0 right-0 bottom-0 flex flex-col bg-white shadow-xl"
         style={{
           width: '100vw',
-          maxWidth: '680px',
+          maxWidth: `${STAFF_PANEL_MAX_WIDTH_PX}px`,
+          paddingRight: `${OVERLAY_PANEL_TAB_STACK_CLEARANCE_PX}px`,
+          boxSizing: 'border-box',
           height: '100vh',
           zIndex: 301,
           transform: staffPanelTransform,
@@ -1257,7 +1266,9 @@ function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
             className="fixed top-0 right-0 bottom-0 flex flex-col bg-white shadow-xl"
             style={{
               width: '100vw',
-              maxWidth: '600px',
+              maxWidth: `${ADD_STAFF_FORM_MAX_WIDTH_PX}px`,
+              paddingRight: `${OVERLAY_PANEL_TAB_STACK_CLEARANCE_PX}px`,
+              boxSizing: 'border-box',
               height: '100vh',
               zIndex: 305,
               transform:

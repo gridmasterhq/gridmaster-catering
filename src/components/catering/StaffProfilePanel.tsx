@@ -10,6 +10,7 @@ import {
   IconUser,
 } from '@tabler/icons-react'
 import PanelHeaderActions from '../shared/PanelHeaderActions'
+import { OVERLAY_PANEL_TAB_STACK_CLEARANCE_PX } from '../shared/OverlayPanel'
 import StaffRatingBadge from '../shared/StaffRatingBadge'
 import { formatCoordinatorStaffName } from '../../lib/staffDisplayName'
 import { useMinimizablePanel } from '../../hooks/useMinimizablePanel'
@@ -18,6 +19,9 @@ import { supabase } from '../../lib/supabase'
 import { useTabManager } from '../TabManager'
 
 const NAVY = '#1B3A5C'
+const STAFF_PROFILE_CONTENT_MAX_WIDTH_PX = 600
+const STAFF_PROFILE_MAX_WIDTH_PX =
+  STAFF_PROFILE_CONTENT_MAX_WIDTH_PX + OVERLAY_PANEL_TAB_STACK_CLEARANCE_PX
 const STAFF_PROFILE_Z_INDEX = 302
 
 const SCHEMA_ROLE_NAMES = new Set([
@@ -723,7 +727,9 @@ export default function StaffProfilePanel({
       <div
         className="fixed top-0 right-0 bottom-0 flex w-full flex-col bg-white shadow-xl"
         style={{
-          maxWidth: '600px',
+          maxWidth: `${STAFF_PROFILE_MAX_WIDTH_PX}px`,
+          paddingRight: `${OVERLAY_PANEL_TAB_STACK_CLEARANCE_PX}px`,
+          boxSizing: 'border-box',
           height: '100vh',
           zIndex: STAFF_PROFILE_Z_INDEX + 1,
           transform: panelVisible ? 'translateX(0)' : 'translateX(100%)',
