@@ -632,7 +632,7 @@ export default function StaffProfileAvailabilityTab({
     setOpenAddFormMonthKey(null)
   }
 
-  const handleSaveBlackout = async (monthKey: string) => {
+  const handleSaveBlackout = async (_monthKey: string) => {
     if (!organizationId || !addFormStartDate.trim()) {
       return
     }

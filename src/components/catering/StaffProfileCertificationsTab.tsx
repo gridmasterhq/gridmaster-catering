@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { IconChevronDown, IconChevronRight } from '@tabler/icons-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { IconBell, IconChevronDown, IconChevronRight } from '@tabler/icons-react'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
 import { supabase } from '../../lib/supabase'
 
@@ -58,6 +58,8 @@ interface StaffRoleRow {
 
 export interface StaffProfileCertificationsStaff {
   phone: string
+  legal_name?: string
+  display_name?: string | null
   staff_roles: StaffRoleRow[] | null
 }
 
@@ -280,6 +282,48 @@ function getAssignmentLabel(
   return 'Required course'
 }
 
+function getStaffFirstName(staff: {
+  display_name?: string | null
+  legal_name?: string
+}): string {
+  const displayName = staff.display_name?.trim()
+  if (displayName) {
+    return displayName.split(/\s+/)[0] ?? displayName
+  }
+
+  const legalName = staff.legal_name?.trim()
+  if (legalName) {
+    return legalName.split(/\s+/)[0] ?? legalName
+  }
+
+  return 'there'
+}
+
+function getPortalLink(): string {
+  return `${window.location.origin}/staff/checkin`
+}
+
+function buildReminderSmsMessage(
+  firstName: string,
+  portalLink: string,
+  certsOutstanding: boolean,
+  coursesOutstanding: boolean,
+): string | null {
+  if (!certsOutstanding && !coursesOutstanding) {
+    return null
+  }
+
+  if (certsOutstanding && coursesOutstanding) {
+    return `Hi ${firstName}, you have certification(s) to upload and required course(s) to complete. Tap here to take care of both today: ${portalLink}`
+  }
+
+  if (certsOutstanding) {
+    return `Hi ${firstName}, you have certification(s) that need your attention. Please take a moment to upload or renew them today: ${portalLink}`
+  }
+
+  return `Hi ${firstName}, you have required course(s) to complete. Please log in and finish them today: ${portalLink}`
+}
+
 function getRequiredCourseStatus(
   completion: CourseCompletionRow | undefined,
 ): RequiredCourseStatus {
@@ -394,6 +438,8 @@ export default function StaffProfileCertificationsTab({
   const [overrideNotes, setOverrideNotes] = useState('')
   const [isSavingOverride, setIsSavingOverride] = useState(false)
   const [overrideError, setOverrideError] = useState<string | null>(null)
+  const [coursesOutstanding, setCoursesOutstanding] = useState(false)
+  const [reminderToastVisible, setReminderToastVisible] = useState(false)
 
   const fieldLabelStyle = {
     display: 'block' as const,
@@ -432,11 +478,21 @@ export default function StaffProfileCertificationsTab({
     border: `1px solid ${colors.brand_navy}`,
   }
 
+  const smallOutlineButtonStyle = {
+    ...outlineButtonStyle,
+    fontSize: '11px',
+    padding: '6px 10px',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+  } as const
+
   const loadCertificationsData = useCallback(async () => {
     if (!organizationId) {
       setCertifications([])
       setRequiredCourses([])
       setCompletedCourses([])
+      setCoursesOutstanding(false)
       setLoading(false)
       return
     }
@@ -605,6 +661,8 @@ export default function StaffProfileCertificationsTab({
       }),
     )
 
+    setCoursesOutstanding(completions.some((row) => !row.completed_at))
+
     setLoading(false)
     onComplianceRefresh?.()
   // eslint-disable-next-line react-hooks/exhaustive-deps -- staff.staff_roles read via closure; unstable array ref must not trigger reload
@@ -647,6 +705,59 @@ export default function StaffProfileCertificationsTab({
       window.clearTimeout(timer)
     }
   }, [toastMessage])
+
+  useEffect(() => {
+    if (!reminderToastVisible) {
+      return
+    }
+
+    const timer = window.setTimeout(() => {
+      setReminderToastVisible(false)
+    }, 3000)
+
+    return () => {
+      window.clearTimeout(timer)
+    }
+  }, [reminderToastVisible])
+
+  const certsOutstanding = useMemo(() => {
+    const alcoholOutstanding =
+      hasBartenderRole(staff.staff_roles) &&
+      !certifications.some(satisfiesAlcoholCertRequirement)
+
+    const expiringOrExpired = certifications.some(
+      (cert) =>
+        cert.expiry_date &&
+        (isCertExpired(cert.expiry_date) || isCertExpiringSoon(cert.expiry_date)),
+    )
+
+    return alcoholOutstanding || expiringOrExpired
+  }, [certifications, staff.staff_roles])
+
+  const hasReminderOutstanding = certsOutstanding || coursesOutstanding
+
+  const reminderMessage = useMemo(
+    () =>
+      buildReminderSmsMessage(
+        getStaffFirstName(staff),
+        getPortalLink(),
+        certsOutstanding,
+        coursesOutstanding,
+      ),
+    [certsOutstanding, coursesOutstanding, staff],
+  )
+
+  const handleSendReminder = () => {
+    if (!hasReminderOutstanding || !reminderMessage) {
+      return
+    }
+
+    console.log('[SMS QUEUED]', {
+      to: staff.phone,
+      message: reminderMessage,
+    })
+    setReminderToastVisible(true)
+  }
 
   const showBartenderBanner =
     hasBartenderRole(staff.staff_roles) &&
@@ -1010,14 +1121,47 @@ export default function StaffProfileCertificationsTab({
       <section style={{ marginBottom: '24px' }}>
         <div className="mb-3 flex items-center justify-between gap-3">
           <SectionHeading>Certifications</SectionHeading>
-          <button
-            type="button"
-            onClick={() => openUploadForm()}
-            style={outlineButtonStyle}
-          >
-            Upload Certification
-          </button>
+          <div className="flex items-center" style={{ gap: '8px' }}>
+            <button
+              type="button"
+              onClick={handleSendReminder}
+              disabled={!hasReminderOutstanding}
+              title={
+                hasReminderOutstanding
+                  ? undefined
+                  : 'Nothing outstanding to remind about.'
+              }
+              style={{
+                ...smallOutlineButtonStyle,
+                opacity: hasReminderOutstanding ? 1 : 0.4,
+                cursor: hasReminderOutstanding ? 'pointer' : 'not-allowed',
+              }}
+            >
+              <IconBell size={14} stroke={1.75} />
+              Send Reminder
+            </button>
+            <button
+              type="button"
+              onClick={() => openUploadForm()}
+              style={outlineButtonStyle}
+            >
+              Upload Certification
+            </button>
+          </div>
         </div>
+
+        {reminderToastVisible ? (
+          <p
+            style={{
+              fontSize: '12px',
+              color: '#6B7280',
+              marginTop: '-4px',
+              marginBottom: '10px',
+            }}
+          >
+            Reminder SMS queued — will send when messaging is live.
+          </p>
+        ) : null}
 
         {showUploadForm ? (
           <div
