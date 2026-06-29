@@ -531,6 +531,14 @@ export default function StaffProfilePanel({
     }
   }, [staff])
 
+  const handleCertificationsScrollTargetHandled = useCallback(() => {
+    setCertificationsScrollTarget(null)
+  }, [])
+
+  const handleComplianceRefresh = useCallback(() => {
+    void refreshStaffCompliance()
+  }, [refreshStaffCompliance])
+
   const staffRoleSignature = (staff.staff_roles ?? [])
     .map((role) => `${role.role}:${role.is_primary ? '1' : '0'}`)
     .sort()
@@ -1159,8 +1167,8 @@ export default function StaffProfilePanel({
             staff={staff}
             organizationId={organizationId}
             scrollTarget={certificationsScrollTarget}
-            onScrollTargetHandled={() => setCertificationsScrollTarget(null)}
-            onComplianceRefresh={() => void refreshStaffCompliance()}
+            onScrollTargetHandled={handleCertificationsScrollTargetHandled}
+            onComplianceRefresh={handleComplianceRefresh}
           />
         ) : (
           <div className="flex min-h-0 flex-1 flex-col items-center justify-center py-16">
