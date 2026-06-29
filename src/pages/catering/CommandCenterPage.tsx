@@ -59,6 +59,21 @@ const STAFF_ACTION_ITEM_CATEGORIES = new Set([
   'course_overdue',
 ])
 
+function getSnoozeListColumnLabel(
+  category: string | undefined,
+): 'Event' | 'Staff' | null {
+  if (!category) {
+    return null
+  }
+  if (EVENT_ACTION_ITEM_CATEGORIES.has(category)) {
+    return 'Event'
+  }
+  if (STAFF_ACTION_ITEM_CATEGORIES.has(category)) {
+    return 'Staff'
+  }
+  return null
+}
+
 function getTwoDaysFromTodayDate(): string {
   const date = new Date()
   date.setDate(date.getDate() + 2)
@@ -687,6 +702,9 @@ function ActionItemsSnoozedPanel({
                 EVENT_ACTION_ITEM_CATEGORIES.has(snoozeItem.actionItem.category)
                   ? snoozeItem.actionItem.entity_id
                   : legacyEvent?.id ?? null
+              const snoozeColumnLabel = getSnoozeListColumnLabel(
+                snoozeItem.actionItem?.category ?? snoozeItem.item_type,
+              )
 
               return (
                 <div
@@ -700,38 +718,61 @@ function ActionItemsSnoozedPanel({
                   }}
                 >
                   <div className="min-w-0 flex-1">
-                    {reviewEventId ? (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          window.open(`/event/${reviewEventId}`, '_blank')
-                        }
-                        className="text-left hover:underline"
-                        style={{
-                          fontSize: '14px',
-                          fontWeight: 700,
-                          color: '#1B3A5C',
-                          background: 'none',
-                          border: 'none',
-                          padding: 0,
-                          cursor: 'pointer',
-                          lineHeight: 1.3,
-                        }}
-                      >
-                        {title}
-                      </button>
-                    ) : (
-                      <p
-                        style={{
-                          fontSize: '14px',
-                          fontWeight: 700,
-                          color: '#1B3A5C',
-                          lineHeight: 1.3,
-                        }}
-                      >
-                        {title}
-                      </p>
-                    )}
+                    <div
+                      className="flex flex-wrap items-center"
+                      style={{ gap: '8px' }}
+                    >
+                      {reviewEventId ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            window.open(`/event/${reviewEventId}`, '_blank')
+                          }
+                          className="text-left hover:underline"
+                          style={{
+                            fontSize: '14px',
+                            fontWeight: 700,
+                            color: '#1B3A5C',
+                            background: 'none',
+                            border: 'none',
+                            padding: 0,
+                            cursor: 'pointer',
+                            lineHeight: 1.3,
+                          }}
+                        >
+                          {title}
+                        </button>
+                      ) : (
+                        <p
+                          style={{
+                            fontSize: '14px',
+                            fontWeight: 700,
+                            color: '#1B3A5C',
+                            lineHeight: 1.3,
+                          }}
+                        >
+                          {title}
+                        </p>
+                      )}
+                      {snoozeColumnLabel ? (
+                        <span
+                          style={{
+                            fontSize: '10px',
+                            borderRadius: '9999px',
+                            padding: '2px 6px',
+                            backgroundColor:
+                              snoozeColumnLabel === 'Event'
+                                ? '#1B3A5C'
+                                : '#991b1b',
+                            color: '#ffffff',
+                            fontWeight: 500,
+                            flexShrink: 0,
+                          }}
+                        >
+                          {snoozeColumnLabel}
+                        </span>
+                      ) : null}
+                    </div>
                     {reasonSubtext ? (
                       <p
                         style={{
@@ -914,6 +955,7 @@ interface ActionItemsColumnProps {
   expanded: boolean
   onToggleExpand: () => void
   actionItemErrors: Record<string, string>
+  showDescription?: boolean
   renderActions: (item: PersistedActionItemRow) => ReactNode
 }
 
@@ -923,6 +965,7 @@ function ActionItemsColumn({
   expanded,
   onToggleExpand,
   actionItemErrors,
+  showDescription = false,
   renderActions,
 }: ActionItemsColumnProps) {
   const visibleLimit = expanded ? 12 : 6
@@ -991,6 +1034,18 @@ function ActionItemsColumn({
                   >
                     {item.title}
                   </p>
+                  {showDescription && item.description ? (
+                    <p
+                      style={{
+                        fontSize: '12px',
+                        color: '#6b7280',
+                        marginTop: '2px',
+                        lineHeight: 1.3,
+                      }}
+                    >
+                      {item.description}
+                    </p>
+                  ) : null}
                   {actionItemErrors[item.id] ? (
                     <p
                       style={{
@@ -1701,7 +1756,10 @@ function CommandCenterPage() {
         className="grid grid-cols-2"
         style={{ gap: '10px' }}
       >
-        <div id="command-center-action-items" style={{ scrollMarginTop: 60 }}>
+        <div
+          id="command-center-action-items"
+          style={{ scrollMarginTop: 60, gridColumn: '1 / -1', width: '100%' }}
+        >
         <CommandCenterBox fullWidth>
           <BoxHeader
             label={labels.cc_action_items}
@@ -1737,6 +1795,7 @@ function CommandCenterPage() {
               gridTemplateColumns: '1fr 1fr',
               gap: '10px',
               padding: '10px',
+              width: '100%',
             }}
           >
             <ActionItemsColumn
@@ -1745,6 +1804,7 @@ function CommandCenterPage() {
               expanded={eventActionItemsExpanded}
               onToggleExpand={() => setEventActionItemsExpanded(true)}
               actionItemErrors={actionItemErrors}
+              showDescription
               renderActions={(item) => (
                 <>
                   <button
