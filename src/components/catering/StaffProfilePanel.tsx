@@ -14,10 +14,30 @@ import StaffRatingBadge from '../shared/StaffRatingBadge'
 import { formatCoordinatorStaffName } from '../../lib/staffDisplayName'
 import { useMinimizablePanel } from '../../hooks/useMinimizablePanel'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
+import { supabase } from '../../lib/supabase'
 import { useTabManager } from '../TabManager'
 
 const NAVY = '#1B3A5C'
 const STAFF_PROFILE_Z_INDEX = 302
+
+const ROLE_OPTIONS = [
+  'Server',
+  'Bartender',
+  'Bar Back',
+  'Food Runner',
+  'Captain',
+  'CIT',
+  'Setup Crew',
+  'Breakdown Crew',
+  'Line Cook',
+  'Prep Cook',
+  'Dishwasher',
+  'Kitchen Runner',
+  'Sous Chef',
+  'Lead Chef',
+  'Driver',
+  'Ops Lead',
+] as const
 
 type StaffStatus = 'active' | 'alumni' | 'not_active' | 'archived'
 
@@ -48,6 +68,8 @@ export interface StaffProfileStaffMember {
   is_priority: boolean
   created_at: string
   staff_roles: StaffRoleRow[] | null
+  is_trainer?: boolean
+  trainer_designated_at?: string | null
 }
 
 export interface StaffProfileSessionState {
@@ -73,13 +95,33 @@ interface StaffProfilePanelProps {
   ) => () => void
 }
 
-const profileTabs: { id: ProfileTab; label: string }[] = [
-  { id: 'history', label: 'History' },
-  { id: 'certifications', label: 'Certifications' },
-  { id: 'availability', label: 'Availability' },
-  { id: 'ai_summary', label: 'AI Summary' },
-  { id: 'development', label: 'Development' },
-  { id: 'personal_note', label: 'Personal Note' },
+const profileTabs: {
+  id: ProfileTab
+  label: string
+  subLabel: string
+}[] = [
+  { id: 'history', label: 'History', subLabel: 'Events · Ratings · Milestones' },
+  {
+    id: 'certifications',
+    label: 'Certifications',
+    subLabel: 'Certs · Courses · Grades',
+  },
+  {
+    id: 'availability',
+    label: 'Availability',
+    subLabel: 'Schedule · Blackouts',
+  },
+  { id: 'ai_summary', label: 'AI Summary', subLabel: 'Analysis · History' },
+  {
+    id: 'development',
+    label: 'Development',
+    subLabel: 'CIT · Training · Growth',
+  },
+  {
+    id: 'personal_note',
+    label: 'Personal Note',
+    subLabel: 'Private coordinator notes',
+  },
 ]
 
 function profileHasEditableFields(_profileTab: ProfileTab): boolean {
@@ -183,10 +225,23 @@ export default function StaffProfilePanel({
   onProfileTabChange,
   onRegisterActions,
 }: StaffProfilePanelProps) {
-  const { labels } = useProductConfig()
+  const { labels, colors } = useProductConfig()
   const { hasTab } = useTabManager()
   const [slideIn, setSlideIn] = useState(false)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+  const [staff, setStaff] = useState(session.staff)
+  const [organizationId, setOrganizationId] = useState<string | null>(null)
+  const [isTrainer, setIsTrainer] = useState(Boolean(session.staff.is_trainer))
+  const [showRoleEditor, setShowRoleEditor] = useState(false)
+  const [editorRoles, setEditorRoles] = useState<string[]>([])
+  const [isSavingRoles, setIsSavingRoles] = useState(false)
+  const [isTogglingTrainer, setIsTogglingTrainer] = useState(false)
+  const [roleEditorError, setRoleEditorError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setStaff(session.staff)
+    setIsTrainer(Boolean(session.staff.is_trainer))
+  }, [session.staff])
 
   const handleRestore = useCallback(() => {
     onFocus()
@@ -225,6 +280,44 @@ export default function StaffProfilePanel({
   }, [])
 
   useEffect(() => {
+    async function loadProfileMeta() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      const orgId = user?.user_metadata?.organization_id
+      if (typeof orgId !== 'string' || !orgId.trim()) {
+        return
+      }
+
+      setOrganizationId(orgId.trim())
+
+      const { data, error } = await supabase
+        .from('staff')
+        .select('is_trainer, trainer_designated_at')
+        .eq('organization_id', orgId.trim())
+        .eq('phone', session.staff.phone)
+        .maybeSingle()
+
+      if (error) {
+        console.error('[StaffProfile] load trainer status failed', error)
+        return
+      }
+
+      if (data) {
+        setIsTrainer(Boolean(data.is_trainer))
+        setStaff((previous) => ({
+          ...previous,
+          is_trainer: Boolean(data.is_trainer),
+          trainer_designated_at:
+            (data.trainer_designated_at as string | null) ?? null,
+        }))
+      }
+    }
+
+    void loadProfileMeta()
+  }, [session.staff.phone])
+
+  useEffect(() => {
     if (isMinimized || !isForeground) {
       return
     }
@@ -245,13 +338,159 @@ export default function StaffProfilePanel({
   const panelVisible = slideIn && !isMinimized && isPanelVisible
   const showBackdrop = isForeground && !isMinimized
   const hasEditableFields = profileHasEditableFields(session.profileTab)
-  const displayName = getStaffDisplayName(session.staff)
-  const { staff, profileTab } = session
+  const displayName = getStaffDisplayName(staff)
+  const { profileTab } = session
 
   const handleDiscard = () => {
     setShowConfirmDialog(false)
     dismiss()
     onCloseSession()
+  }
+
+  const openRoleEditor = () => {
+    const currentRoles = normalizeStaffRoles(staff.staff_roles).map(
+      (row) => row.role,
+    )
+    setEditorRoles(currentRoles)
+    setRoleEditorError(null)
+    setShowRoleEditor(true)
+  }
+
+  const cancelRoleEditor = () => {
+    setShowRoleEditor(false)
+    setRoleEditorError(null)
+  }
+
+  const toggleEditorRole = (role: string) => {
+    setEditorRoles((previous) =>
+      previous.includes(role)
+        ? previous.filter((item) => item !== role)
+        : [...previous, role],
+    )
+  }
+
+  const handleSaveRoles = async () => {
+    if (!organizationId) {
+      return
+    }
+
+    if (editorRoles.length === 0) {
+      setRoleEditorError('Select at least one role.')
+      return
+    }
+
+    setIsSavingRoles(true)
+    setRoleEditorError(null)
+
+    try {
+      const previousRoles = normalizeStaffRoles(staff.staff_roles)
+      const previousPrimary =
+        previousRoles.find((row) => row.is_primary)?.role ?? previousRoles[0]?.role
+      const primaryRole =
+        previousPrimary && editorRoles.includes(previousPrimary)
+          ? previousPrimary
+          : editorRoles[0]
+
+      const { error: deleteError } = await supabase
+        .from('staff_roles')
+        .delete()
+        .eq('organization_id', organizationId)
+        .eq('staff_phone', staff.phone)
+
+      if (deleteError) {
+        console.error('[StaffProfile] delete staff_roles failed', deleteError)
+        setRoleEditorError('Failed to save roles — please try again.')
+        return
+      }
+
+      const roleRows = editorRoles.map((role) => ({
+        staff_phone: staff.phone,
+        organization_id: organizationId,
+        role_name: role,
+        is_primary: role === primaryRole,
+      }))
+
+      const { error: insertError } = await supabase
+        .from('staff_roles')
+        .insert(roleRows)
+
+      if (insertError) {
+        console.error('[StaffProfile] insert staff_roles failed', insertError)
+        setRoleEditorError('Failed to save roles — please try again.')
+        return
+      }
+
+      const nextRoles: StaffRoleRow[] = roleRows.map((row) => ({
+        role: row.role_name,
+        is_primary: row.is_primary,
+      }))
+
+      setStaff((previous) => ({
+        ...previous,
+        staff_roles: nextRoles,
+      }))
+      setShowRoleEditor(false)
+    } catch (error) {
+      console.error('[StaffProfile] save roles unexpected error', error)
+      setRoleEditorError('Failed to save roles — please try again.')
+    } finally {
+      setIsSavingRoles(false)
+    }
+  }
+
+  const handleToggleTrainer = async () => {
+    if (!organizationId || isTogglingTrainer) {
+      return
+    }
+
+    const nextIsTrainer = !isTrainer
+    setIsTogglingTrainer(true)
+
+    try {
+      const { error } = await supabase
+        .from('staff')
+        .update({
+          is_trainer: nextIsTrainer,
+          trainer_designated_at: nextIsTrainer ? new Date().toISOString() : null,
+        })
+        .eq('organization_id', organizationId)
+        .eq('phone', staff.phone)
+
+      if (error) {
+        console.error('[StaffProfile] toggle trainer failed', error)
+        return
+      }
+
+      setIsTrainer(nextIsTrainer)
+      setStaff((previous) => ({
+        ...previous,
+        is_trainer: nextIsTrainer,
+        trainer_designated_at: nextIsTrainer ? new Date().toISOString() : null,
+      }))
+    } catch (error) {
+      console.error('[StaffProfile] toggle trainer unexpected error', error)
+    } finally {
+      setIsTogglingTrainer(false)
+    }
+  }
+
+  const outlineButtonStyle: CSSProperties = {
+    fontSize: '12px',
+    fontWeight: 500,
+    borderRadius: '6px',
+    padding: '8px 12px',
+    border: `1px solid ${colors.brand_navy}`,
+    backgroundColor: 'transparent',
+    color: colors.brand_navy,
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+  }
+
+  const solidTrainerButtonStyle: CSSProperties = {
+    ...outlineButtonStyle,
+    backgroundColor: colors.brand_navy,
+    color: colors.white,
+    border: `1px solid ${colors.brand_navy}`,
   }
 
   if (!isPanelVisible && !isMinimized) {
@@ -387,23 +626,27 @@ export default function StaffProfilePanel({
               name={displayName}
               size={56}
             />
-            <div className="min-w-0 flex-1">
+
+            <div className="min-w-0 flex-1" style={{ gap: '6px' }}>
               <p
                 style={{
-                  fontSize: '13px',
-                  color: '#6B7280',
-                  marginTop: '2px',
+                  fontSize: '18px',
+                  fontWeight: 700,
+                  color: colors.brand_navy,
+                  lineHeight: 1.3,
                 }}
               >
-                {getPrimaryRole(staff)}
+                {displayName}
               </p>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <StaffRatingBadge
-                  experience_rating={staff.experience_rating}
-                  rating_count={staff.rating_count}
-                  average_rating={staff.average_rating}
-                  variant="full"
-                />
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <span
+                  style={{
+                    fontSize: '13px',
+                    color: colors.text_muted,
+                  }}
+                >
+                  {getPrimaryRole(staff)}
+                </span>
                 <span
                   style={{
                     ...statusBadgeStyle(staff.status),
@@ -416,8 +659,107 @@ export default function StaffProfilePanel({
                   {formatStatusLabel(staff.status)}
                 </span>
               </div>
+              <div className="mt-2">
+                <StaffRatingBadge
+                  experience_rating={staff.experience_rating}
+                  rating_count={staff.rating_count}
+                  average_rating={staff.average_rating}
+                  variant="full"
+                />
+              </div>
+            </div>
+
+            <div
+              className="flex shrink-0 flex-col"
+              style={{ gap: '8px', alignItems: 'stretch' }}
+            >
+              <button
+                type="button"
+                onClick={openRoleEditor}
+                style={outlineButtonStyle}
+              >
+                Change / Add Roles
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleToggleTrainer()}
+                disabled={isTogglingTrainer}
+                style={isTrainer ? solidTrainerButtonStyle : outlineButtonStyle}
+                aria-pressed={isTrainer}
+              >
+                Trainer
+              </button>
             </div>
           </div>
+
+          {showRoleEditor ? (
+            <div
+              className="mt-4 border-t border-gray-200 pt-4"
+              style={{ borderColor: '#E5E7EB' }}
+            >
+              <p
+                style={{
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  color: colors.brand_navy,
+                  marginBottom: '12px',
+                }}
+              >
+                Roles
+              </p>
+              <div
+                className="flex flex-col"
+                style={{ gap: '8px', maxHeight: '200px', overflowY: 'auto' }}
+              >
+                {ROLE_OPTIONS.map((role) => (
+                  <label
+                    key={role}
+                    className="flex items-center gap-2"
+                    style={{ fontSize: '13px', color: colors.text_body }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={editorRoles.includes(role)}
+                      onChange={() => toggleEditorRole(role)}
+                    />
+                    {role}
+                  </label>
+                ))}
+              </div>
+              {roleEditorError ? (
+                <p
+                  style={{
+                    fontSize: '12px',
+                    color: colors.brand_red,
+                    marginTop: '8px',
+                  }}
+                >
+                  {roleEditorError}
+                </p>
+              ) : null}
+              <div className="mt-3 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void handleSaveRoles()}
+                  disabled={isSavingRoles}
+                  style={{
+                    ...solidTrainerButtonStyle,
+                    opacity: isSavingRoles ? 0.7 : 1,
+                  }}
+                >
+                  Save
+                </button>
+                <button
+                  type="button"
+                  onClick={cancelRoleEditor}
+                  disabled={isSavingRoles}
+                  style={outlineButtonStyle}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <div
@@ -434,21 +776,39 @@ export default function StaffProfilePanel({
                 key={tab.id}
                 type="button"
                 onClick={() => onProfileTabChange(tab.id)}
+                className="flex flex-col items-start"
                 style={{
-                  fontSize: '12px',
-                  fontWeight: 500,
                   padding: '10px 14px',
                   border: 'none',
                   background: 'none',
                   cursor: 'pointer',
-                  color: isActive ? NAVY : '#6B7280',
                   borderBottom: isActive
-                    ? `2px solid ${NAVY}`
+                    ? `2px solid ${colors.brand_navy}`
                     : '2px solid transparent',
-                  whiteSpace: 'nowrap',
+                  minWidth: 'max-content',
                 }}
               >
-                {tab.label}
+                <span
+                  style={{
+                    fontSize: '12px',
+                    fontWeight: 500,
+                    color: isActive ? colors.brand_navy : colors.text_muted,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {tab.label}
+                </span>
+                <span
+                  style={{
+                    fontSize: '11px',
+                    fontStyle: 'italic',
+                    color: colors.text_muted,
+                    whiteSpace: 'nowrap',
+                    marginTop: '2px',
+                  }}
+                >
+                  {tab.subLabel}
+                </span>
               </button>
             )
           })}
