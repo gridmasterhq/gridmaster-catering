@@ -213,6 +213,10 @@ function formatDisplayDate(isoDate: string): string {
 }
 
 function getCertDisplayName(cert: StaffCertification): string {
+  if (cert.cert_type === 'tips_override') {
+    return 'Alcohol Cert — Requirement Overridden'
+  }
+
   if (cert.cert_type === 'Custom' && cert.cert_name?.trim()) {
     return cert.cert_name.trim()
   }
@@ -891,11 +895,12 @@ export default function StaffProfileCertificationsTab({
             <button
               type="button"
               onClick={() => setShowOverrideForm(true)}
-              className="mt-2 border-none bg-transparent p-0 hover:underline"
+              className="mt-2 border-none bg-transparent p-0 hover:opacity-80"
               style={{
-                fontSize: '12px',
-                color: '#6B7280',
+                fontSize: '13px',
+                color: '#1B3A5C',
                 cursor: 'pointer',
+                textDecoration: 'underline',
               }}
             >
               Override requirement

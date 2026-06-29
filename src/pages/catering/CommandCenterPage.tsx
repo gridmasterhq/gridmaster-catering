@@ -1113,7 +1113,9 @@ function CommandCenterPage() {
       const isBartender = (roles ?? []).some(
         (role) => role.role_name === 'bartender',
       )
-      const hasTips = (certs ?? []).some((cert) => cert.cert_type === 'tips')
+      const hasTips = (certs ?? []).some(
+        (cert) => cert.cert_type === 'tips' || cert.cert_type === 'tips_override',
+      )
 
       if (isBartender && !hasTips) {
         const fullName =
