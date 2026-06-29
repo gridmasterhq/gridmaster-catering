@@ -185,14 +185,56 @@ function rolesSelectionEqual(left: string[], right: string[]): boolean {
   )
 }
 
+function resolveEditorPrimaryRole(
+  roles: string[],
+  primaryHint: string | null | undefined,
+): string {
+  if (roles.length === 0) {
+    return ''
+  }
+
+  const normalizedHint = primaryHint
+    ? normalizeLoadedRoleName(primaryHint)
+    : ''
+
+  if (normalizedHint && roles.includes(normalizedHint)) {
+    return normalizedHint
+  }
+
+  return roles[0]
+}
+
+function rolesFromStaffMember(staff: StaffProfileStaffMember): {
+  roles: string[]
+  primaryRole: string | null
+} {
+  const staffRoles = normalizeStaffRoles(staff.staff_roles)
+  const roles = [
+    ...new Set(
+      staffRoles
+        .map((row) => normalizeLoadedRoleName(row.role))
+        .filter((role) => role.length > 0 && SCHEMA_ROLE_NAMES.has(role)),
+    ),
+  ]
+  const primaryRow = staffRoles.find((row) => row.is_primary)
+  const primaryRole = primaryRow?.role
+    ? normalizeLoadedRoleName(primaryRow.role)
+    : null
+
+  return { roles, primaryRole }
+}
+
 function hasUnsavedInlineEdits(
   showRoleEditor: boolean,
   editorRoles: string[],
   roleEditorBaseline: string[],
+  editorPrimaryRole: string,
+  roleEditorPrimaryBaseline: string,
 ): boolean {
   return (
     showRoleEditor &&
-    !rolesSelectionEqual(editorRoles, roleEditorBaseline)
+    (!rolesSelectionEqual(editorRoles, roleEditorBaseline) ||
+      editorPrimaryRole !== roleEditorPrimaryBaseline)
   )
 }
 
@@ -291,7 +333,10 @@ export default function StaffProfilePanel({
   const [organizationId, setOrganizationId] = useState<string | null>(null)
   const [showRoleEditor, setShowRoleEditor] = useState(false)
   const [editorRoles, setEditorRoles] = useState<string[]>([])
+  const [editorPrimaryRole, setEditorPrimaryRole] = useState('')
   const [roleEditorBaseline, setRoleEditorBaseline] = useState<string[]>([])
+  const [roleEditorPrimaryBaseline, setRoleEditorPrimaryBaseline] =
+    useState('')
   const [isSavingRoles, setIsSavingRoles] = useState(false)
   const [roleEditorError, setRoleEditorError] = useState<string | null>(null)
 
@@ -359,7 +404,13 @@ export default function StaffProfilePanel({
     function handleKeyDown(event: KeyboardEvent) {
       if (
         event.key === 'Escape' &&
-        !hasUnsavedInlineEdits(showRoleEditor, editorRoles, roleEditorBaseline)
+        !hasUnsavedInlineEdits(
+          showRoleEditor,
+          editorRoles,
+          roleEditorBaseline,
+          editorPrimaryRole,
+          roleEditorPrimaryBaseline,
+        )
       ) {
         dismiss()
         onCloseSession()
@@ -372,11 +423,13 @@ export default function StaffProfilePanel({
     }
   }, [
     dismiss,
+    editorPrimaryRole,
     editorRoles,
     isForeground,
     isMinimized,
     onCloseSession,
     roleEditorBaseline,
+    roleEditorPrimaryBaseline,
     showRoleEditor,
   ])
 
@@ -390,6 +443,8 @@ export default function StaffProfilePanel({
     showRoleEditor,
     editorRoles,
     roleEditorBaseline,
+    editorPrimaryRole,
+    roleEditorPrimaryBaseline,
   )
 
   const handleCloseProfile = useCallback(() => {
@@ -401,7 +456,9 @@ export default function StaffProfilePanel({
     setShowRoleEditor(false)
     setRoleEditorError(null)
     setEditorRoles([])
+    setEditorPrimaryRole('')
     setRoleEditorBaseline([])
+    setRoleEditorPrimaryBaseline('')
     dismiss()
     onCloseSession()
   }, [dismiss, onCloseSession])
@@ -432,35 +489,35 @@ export default function StaffProfilePanel({
     setRoleEditorError(null)
     setShowRoleEditor(true)
 
-    const applyLoadedEditorRoles = (roles: string[]) => {
+    const applyLoadedEditorRoles = (
+      roles: string[],
+      primaryHint: string | null | undefined,
+    ) => {
       const nextRoles = [...new Set(roles)]
+      const resolvedPrimary = resolveEditorPrimaryRole(nextRoles, primaryHint)
       setEditorRoles(nextRoles)
+      setEditorPrimaryRole(resolvedPrimary)
       setRoleEditorBaseline(nextRoles)
+      setRoleEditorPrimaryBaseline(resolvedPrimary)
     }
 
     const orgId = await resolveOrganizationId()
     if (!orgId) {
-      applyLoadedEditorRoles(
-        normalizeStaffRoles(staff.staff_roles)
-          .map((row) => normalizeLoadedRoleName(row.role))
-          .filter((role) => role.length > 0 && SCHEMA_ROLE_NAMES.has(role)),
-      )
+      const { roles, primaryRole } = rolesFromStaffMember(staff)
+      applyLoadedEditorRoles(roles, primaryRole)
       return
     }
 
     const { data, error } = await supabase
       .from('staff_roles')
-      .select('role_name')
+      .select('role_name, is_primary')
       .eq('organization_id', orgId)
       .eq('staff_phone', staff.phone)
 
     if (error) {
       console.error('[StaffProfile] load staff_roles failed', error)
-      applyLoadedEditorRoles(
-        normalizeStaffRoles(staff.staff_roles)
-          .map((row) => normalizeLoadedRoleName(row.role))
-          .filter((role) => role.length > 0 && SCHEMA_ROLE_NAMES.has(role)),
-      )
+      const { roles, primaryRole } = rolesFromStaffMember(staff)
+      applyLoadedEditorRoles(roles, primaryRole)
       return
     }
 
@@ -472,22 +529,61 @@ export default function StaffProfilePanel({
       )
       .filter((role) => role.length > 0 && SCHEMA_ROLE_NAMES.has(role))
 
-    applyLoadedEditorRoles(loadedRoles)
+    const primaryFromDb = (data ?? []).find((row) => row.is_primary)?.role_name
+    applyLoadedEditorRoles(loadedRoles, primaryFromDb)
   }
 
   const cancelRoleEditor = () => {
     setShowRoleEditor(false)
     setRoleEditorError(null)
     setEditorRoles([])
+    setEditorPrimaryRole('')
     setRoleEditorBaseline([])
+    setRoleEditorPrimaryBaseline('')
+  }
+
+  const handleSetPrimaryRole = (role: string) => {
+    if (!editorRoles.includes(role)) {
+      return
+    }
+
+    setEditorPrimaryRole(role)
   }
 
   const toggleEditorRole = (role: string) => {
-    setEditorRoles((previous) =>
-      previous.includes(role)
-        ? previous.filter((item) => item !== role)
-        : [...previous, role],
-    )
+    setEditorRoles((previous) => {
+      const isChecked = previous.includes(role)
+
+      if (isChecked) {
+        const next = previous.filter((item) => item !== role)
+        setEditorPrimaryRole((currentPrimary) => {
+          if (next.length === 0) {
+            return ''
+          }
+
+          if (role === currentPrimary) {
+            return next[0]
+          }
+
+          return currentPrimary
+        })
+        return next
+      }
+
+      const next = [...previous, role]
+      setEditorPrimaryRole((currentPrimary) => {
+        if (next.length === 1) {
+          return role
+        }
+
+        if (!currentPrimary || !next.includes(currentPrimary)) {
+          return next[0]
+        }
+
+        return currentPrimary
+      })
+      return next
+    })
   }
 
   const handleSaveRoles = async () => {
@@ -505,16 +601,7 @@ export default function StaffProfilePanel({
     setRoleEditorError(null)
 
     try {
-      const previousRoles = normalizeStaffRoles(staff.staff_roles)
-      const previousPrimary = normalizeLoadedRoleName(
-        previousRoles.find((row) => row.is_primary)?.role ??
-          previousRoles[0]?.role ??
-          '',
-      )
-      const primaryRole =
-        previousPrimary && editorRoles.includes(previousPrimary)
-          ? previousPrimary
-          : editorRoles[0]
+      const primaryRole = resolveEditorPrimaryRole(editorRoles, editorPrimaryRole)
       const trainerIsPrimary = primaryRole === 'trainer'
 
       const { error: deleteError } = await supabase
@@ -574,7 +661,9 @@ export default function StaffProfilePanel({
       }))
       setShowRoleEditor(false)
       setEditorRoles([])
+      setEditorPrimaryRole('')
       setRoleEditorBaseline([])
+      setRoleEditorPrimaryBaseline('')
     } catch (error) {
       console.error('[StaffProfile] save roles unexpected error', error)
       setRoleEditorError('Failed to save roles — please try again.')
@@ -827,20 +916,58 @@ export default function StaffProfilePanel({
                 className="flex flex-col"
                 style={{ gap: '8px', maxHeight: '200px', overflowY: 'auto' }}
               >
-                {ROLE_EDITOR_OPTIONS.map((role) => (
-                  <label
-                    key={role.roleName}
-                    className="flex items-center gap-2"
-                    style={{ fontSize: '13px', color: colors.text_body }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={editorRoles.includes(role.roleName)}
-                      onChange={() => toggleEditorRole(role.roleName)}
-                    />
-                    {role.label}
-                  </label>
-                ))}
+                {ROLE_EDITOR_OPTIONS.map((role) => {
+                  const isChecked = editorRoles.includes(role.roleName)
+                  const isPrimary = editorPrimaryRole === role.roleName
+
+                  return (
+                    <div
+                      key={role.roleName}
+                      className="flex items-center gap-2"
+                      style={{ fontSize: '13px', color: colors.text_body }}
+                    >
+                      <label className="flex min-w-0 flex-1 items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => toggleEditorRole(role.roleName)}
+                        />
+                        <span>{role.label}</span>
+                      </label>
+                      {isChecked && isPrimary ? (
+                        <span
+                          style={{
+                            fontSize: '10px',
+                            fontWeight: 600,
+                            color: colors.white,
+                            backgroundColor: colors.brand_navy,
+                            borderRadius: '4px',
+                            padding: '2px 6px',
+                            flexShrink: 0,
+                          }}
+                        >
+                          Primary
+                        </span>
+                      ) : null}
+                      {isChecked && !isPrimary ? (
+                        <button
+                          type="button"
+                          onClick={() => handleSetPrimaryRole(role.roleName)}
+                          className="border-none bg-transparent p-0"
+                          style={{
+                            fontSize: '11px',
+                            fontWeight: 500,
+                            color: colors.text_muted,
+                            cursor: 'pointer',
+                            flexShrink: 0,
+                          }}
+                        >
+                          Set as Primary
+                        </button>
+                      ) : null}
+                    </div>
+                  )
+                })}
               </div>
               {roleEditorError ? (
                 <p
