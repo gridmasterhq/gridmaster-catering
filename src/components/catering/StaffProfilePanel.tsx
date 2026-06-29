@@ -945,11 +945,11 @@ export default function StaffProfilePanel({
                         <button
                           type="button"
                           onClick={() => handleSetPrimaryRole(role.roleName)}
-                          className="border-none bg-transparent p-0"
+                          className="border-none bg-transparent p-0 hover:opacity-80"
                           style={{
-                            fontSize: '11px',
-                            fontWeight: 500,
-                            color: colors.text_muted,
+                            fontSize: '13px',
+                            color: colors.brand_navy,
+                            textDecoration: 'underline',
                             cursor: 'pointer',
                             flexShrink: 0,
                             marginLeft: '12px',
