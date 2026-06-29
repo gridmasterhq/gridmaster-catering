@@ -5,7 +5,8 @@ import { supabase } from '../../lib/supabase'
 
 const CERTIFICATION_TYPES = [
   'Food Handler Card',
-  'ServSafe',
+  'ServSafe — Food',
+  'ServSafe — Alcohol',
   'TIPS',
   'TIPS On Premise',
   'RAMP',
@@ -60,6 +61,7 @@ interface StaffProfileCertificationsTabProps {
   organizationId: string | null
   scrollTarget?: string | null
   onScrollTargetHandled?: () => void
+  onComplianceRefresh?: () => void
 }
 
 interface StaffCertification {
@@ -174,8 +176,13 @@ function isValidAlcoholCert(cert: StaffCertification): boolean {
   return cert.expiry_date >= todayIsoDate()
 }
 
-function hasTipsOverrideCert(certifications: StaffCertification[]): boolean {
-  return certifications.some((cert) => cert.cert_type === 'tips_override')
+function satisfiesAlcoholCertRequirement(cert: StaffCertification): boolean {
+  const normalized = cert.cert_type.trim().toLowerCase()
+  if (normalized === 'tips' || normalized === 'tips_override') {
+    return true
+  }
+
+  return isValidAlcoholCert(cert)
 }
 
 function isCertExpired(expiryDate: string | null): boolean {
@@ -352,6 +359,7 @@ export default function StaffProfileCertificationsTab({
   organizationId,
   scrollTarget,
   onScrollTargetHandled,
+  onComplianceRefresh,
 }: StaffProfileCertificationsTabProps) {
   const { colors } = useProductConfig()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -585,7 +593,8 @@ export default function StaffProfileCertificationsTab({
     )
 
     setLoading(false)
-  }, [organizationId, staff.phone, staff.staff_roles])
+    onComplianceRefresh?.()
+  }, [organizationId, onComplianceRefresh, staff.phone, staff.staff_roles])
 
   useEffect(() => {
     void loadCertificationsData()
@@ -627,8 +636,7 @@ export default function StaffProfileCertificationsTab({
 
   const showBartenderBanner =
     hasBartenderRole(staff.staff_roles) &&
-    !certifications.some(isValidAlcoholCert) &&
-    !hasTipsOverrideCert(certifications) &&
+    !certifications.some(satisfiesAlcoholCertRequirement) &&
     !bannerDismissed
 
   const resetOverrideForm = () => {

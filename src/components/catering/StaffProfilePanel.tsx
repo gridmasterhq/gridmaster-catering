@@ -531,13 +531,18 @@ export default function StaffProfilePanel({
     }
   }, [staff])
 
+  const staffRoleSignature = (staff.staff_roles ?? [])
+    .map((role) => `${role.role}:${role.is_primary ? '1' : '0'}`)
+    .sort()
+    .join('|')
+
   useEffect(() => {
     if (!organizationId) {
       return
     }
 
     void refreshStaffCompliance()
-  }, [organizationId, refreshStaffCompliance])
+  }, [organizationId, refreshStaffCompliance, staff.phone, staffRoleSignature])
 
   const loadRoleEditorRoles = async () => {
     setRoleEditorError(null)
@@ -1155,6 +1160,7 @@ export default function StaffProfilePanel({
             organizationId={organizationId}
             scrollTarget={certificationsScrollTarget}
             onScrollTargetHandled={() => setCertificationsScrollTarget(null)}
+            onComplianceRefresh={() => void refreshStaffCompliance()}
           />
         ) : (
           <div className="flex min-h-0 flex-1 flex-col items-center justify-center py-16">

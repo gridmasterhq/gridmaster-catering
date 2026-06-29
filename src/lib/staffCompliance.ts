@@ -107,6 +107,15 @@ function isValidAlcoholCert(cert: StaffCertificationRow): boolean {
   return cert.expiry_date >= todayIsoDate()
 }
 
+function satisfiesAlcoholCertRequirement(cert: StaffCertificationRow): boolean {
+  const normalized = normalizeCertType(cert.cert_type)
+  if (normalized === 'tips' || normalized === 'tips_override') {
+    return true
+  }
+
+  return isValidAlcoholCert(cert)
+}
+
 function isCertExpired(expiryDate: string | null): boolean {
   if (!expiryDate) {
     return false
@@ -198,7 +207,7 @@ export function detectStaffComplianceIssues(
 
   if (
     hasBartenderRole(data.staffRoles) &&
-    !data.certifications.some(isValidAlcoholCert)
+    !data.certifications.some(satisfiesAlcoholCertRequirement)
   ) {
     issues.push({
       type: 'missing_alcohol_cert',

@@ -1200,7 +1200,10 @@ function CommandCenterPage() {
     const intervalId = window.setInterval(() => {
       void fetchDraftActionItems()
       void fetchDismissedEventIds()
-      void fetchOpenActionItems()
+      void (async () => {
+        await runComplianceScan()
+        await fetchOpenActionItems()
+      })()
     }, DRAFT_ACTION_REFRESH_MS)
 
     return () => {
