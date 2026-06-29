@@ -16,18 +16,26 @@ import { useActiveScreen, useOverlay } from '../../components/shared/AppShell'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
 import { formatDateForInput } from '../../lib/dateUtils'
 import {
-  loadOpenStaffComplianceActionItems,
-  scanOrganizationStaffCompliance,
-  STAFF_COMPLIANCE_CATEGORY,
-  type ActionItemRow,
-} from '../../lib/staffCompliance'
-import {
   openStaffProfileNavigation,
   parseStaffProfileDeepLink,
 } from '../../lib/staffProfileNavigation'
 import { supabase } from '../../lib/supabase'
 
 const DRAFT_ACTION_REFRESH_MS = 5 * 60 * 1000
+const STAFF_COMPLIANCE_CATEGORY = 'staff_compliance'
+
+interface PersistedActionItemRow {
+  id: string
+  category: string
+  entity_type: string
+  entity_id: string
+  title: string
+  description: string | null
+  priority: string
+  deep_link: string
+  auto_resolves: boolean
+  status: string
+}
 
 interface DraftActionEvent {
   id: string
@@ -876,7 +884,7 @@ function CommandCenterPage() {
   const [eventCount, setEventCount] = useState<number | null>(null)
   const [draftActionItems, setDraftActionItems] = useState<DraftActionEvent[]>([])
   const [persistedActionItems, setPersistedActionItems] = useState<
-    ActionItemRow[]
+    PersistedActionItemRow[]
   >([])
   const [archivedEventIds, setArchivedEventIds] = useState<Set<string>>(new Set())
   const [snoozedEventIds, setSnoozedEventIds] = useState<Set<string>>(new Set())
@@ -1056,68 +1064,125 @@ function CommandCenterPage() {
     }
   }, [])
 
-  const fetchStaffComplianceActionItems = useCallback(async () => {
-    try {
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser()
+  const runComplianceScan = useCallback(async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+    const orgId = session?.user?.user_metadata?.organization_id
 
-      if (userError) {
-        console.error(
-          '[CommandCenter] staff compliance actions: getUser failed',
-          userError,
+    if (typeof orgId !== 'string' || !orgId.trim()) {
+      return
+    }
+
+    const trimmedOrgId = orgId.trim()
+
+    const { data: staffList } = await supabase
+      .from('staff')
+      .select('phone, legal_name, display_name')
+      .eq('organization_id', trimmedOrgId)
+      .eq('status', 'active')
+
+    if (!staffList) {
+      return
+    }
+
+    for (const staff of staffList) {
+      const phone =
+        typeof staff.phone === 'string' ? staff.phone.trim() : ''
+      const legalName =
+        typeof staff.legal_name === 'string' ? staff.legal_name : ''
+      if (!phone || !legalName) {
+        continue
+      }
+
+      const displayName =
+        typeof staff.display_name === 'string' ? staff.display_name : null
+
+      const { data: roles } = await supabase
+        .from('staff_roles')
+        .select('role_name')
+        .eq('staff_phone', phone)
+        .eq('organization_id', trimmedOrgId)
+
+      const { data: certs } = await supabase
+        .from('staff_certifications')
+        .select('cert_type')
+        .eq('staff_phone', phone)
+        .eq('organization_id', trimmedOrgId)
+
+      const isBartender = (roles ?? []).some(
+        (role) => role.role_name === 'bartender',
+      )
+      const hasTips = (certs ?? []).some((cert) => cert.cert_type === 'tips')
+
+      if (isBartender && !hasTips) {
+        const fullName =
+          (displayName ?? legalName.split(' ')[0]) +
+          ' ' +
+          legalName.split(' ').slice(1).join(' ')
+
+        const { error } = await supabase.from('action_items').upsert(
+          {
+            organization_id: trimmedOrgId,
+            category: 'staff_compliance',
+            priority: 'high',
+            status: 'open',
+            title: 'No alcohol cert on file — ' + fullName,
+            description:
+              fullName + ' is a bartender with no TIPS certification on file.',
+            entity_type: 'staff',
+            entity_id: phone,
+            deep_link: 'staff-profile:' + phone + ':certifications',
+            auto_resolves: true,
+          },
+          { onConflict: 'organization_id,entity_id,category' },
         )
-        setPersistedActionItems([])
-        return
-      }
 
-      const organizationId = user?.user_metadata?.organization_id
-      if (typeof organizationId !== 'string' || !organizationId.trim()) {
-        setPersistedActionItems([])
-        return
-      }
+        if (error) {
+          console.error('[CommandCenter] compliance upsert failed', error)
+        }
+      } else if (isBartender && hasTips) {
+        const { error } = await supabase
+          .from('action_items')
+          .delete()
+          .eq('organization_id', trimmedOrgId)
+          .eq('entity_id', phone)
+          .eq('category', 'staff_compliance')
 
-      const items = await loadOpenStaffComplianceActionItems(
-        organizationId.trim(),
-      )
-      setPersistedActionItems(items)
-    } catch (error) {
-      console.error(
-        '[CommandCenter] staff compliance actions unexpected error',
-        error,
-      )
-      setPersistedActionItems([])
+        if (error) {
+          console.error('[CommandCenter] compliance delete failed', error)
+        }
+      }
     }
   }, [])
 
-  const runStaffComplianceScan = useCallback(async () => {
-    try {
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser()
+  const fetchOpenActionItems = useCallback(async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+    const orgId = session?.user?.user_metadata?.organization_id
 
-      if (userError) {
-        console.error(
-          '[CommandCenter] staff compliance scan: getUser failed',
-          userError,
-        )
-        return
-      }
-
-      const organizationId = user?.user_metadata?.organization_id
-      if (typeof organizationId !== 'string' || !organizationId.trim()) {
-        return
-      }
-
-      await scanOrganizationStaffCompliance(organizationId.trim())
-    } catch (error) {
-      console.error(
-        '[CommandCenter] staff compliance scan unexpected error',
-        error,
-      )
+    if (typeof orgId !== 'string' || !orgId.trim()) {
+      setPersistedActionItems([])
+      return
     }
+
+    const { data, error } = await supabase
+      .from('action_items')
+      .select(
+        'id, category, entity_type, entity_id, title, description, priority, deep_link, auto_resolves, status',
+      )
+      .eq('organization_id', orgId.trim())
+      .eq('status', 'open')
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.error('[CommandCenter] load open action items failed', error)
+      setPersistedActionItems([])
+      return
+    }
+
+    setPersistedActionItems((data ?? []) as PersistedActionItemRow[])
   }, [])
 
   useEffect(() => {
@@ -1126,14 +1191,14 @@ function CommandCenterPage() {
     void fetchDismissedEventIds()
 
     void (async () => {
-      await runStaffComplianceScan()
-      await fetchStaffComplianceActionItems()
+      await runComplianceScan()
+      await fetchOpenActionItems()
     })()
 
     const intervalId = window.setInterval(() => {
       void fetchDraftActionItems()
       void fetchDismissedEventIds()
-      void fetchStaffComplianceActionItems()
+      void fetchOpenActionItems()
     }, DRAFT_ACTION_REFRESH_MS)
 
     return () => {
@@ -1143,8 +1208,8 @@ function CommandCenterPage() {
     fetchDraftActionItems,
     fetchArchivedEventIds,
     fetchDismissedEventIds,
-    fetchStaffComplianceActionItems,
-    runStaffComplianceScan,
+    fetchOpenActionItems,
+    runComplianceScan,
   ])
 
   useEffect(() => {
@@ -1211,25 +1276,24 @@ function CommandCenterPage() {
     return true
   })
 
-  const visibleStaffComplianceActionItems = persistedActionItems.filter(
-    (item) => {
-      if (item.category !== STAFF_COMPLIANCE_CATEGORY) {
-        return false
-      }
-      if (dismissedEventIds.has(item.id)) {
-        return false
-      }
-      if (snoozedEventIds.has(item.id)) {
-        return false
-      }
-      return true
-    },
+  const visibleOpenActionItems = persistedActionItems.filter((item) => {
+    if (dismissedEventIds.has(item.id)) {
+      return false
+    }
+    if (snoozedEventIds.has(item.id)) {
+      return false
+    }
+    return true
+  })
+
+  const visibleStaffComplianceActionItems = visibleOpenActionItems.filter(
+    (item) => item.category === STAFF_COMPLIANCE_CATEGORY,
   )
 
   const actionItemCount =
-    visibleDraftActionItems.length + visibleStaffComplianceActionItems.length
+    visibleDraftActionItems.length + visibleOpenActionItems.length
 
-  const handleViewStaffProfile = (item: ActionItemRow) => {
+  const handleViewStaffProfile = (item: PersistedActionItemRow) => {
     const parsed = parseStaffProfileDeepLink(item.deep_link)
     if (!parsed) {
       return

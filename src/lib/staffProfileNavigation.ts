@@ -64,12 +64,29 @@ export function buildStaffProfileDeepLink(
 const STAFF_CERTIFICATIONS_PATH =
   /^\/staff\/([^/]+)\/certifications\/?$/
 
+const STAFF_PROFILE_COLON_LINK =
+  /^staff-profile:([^:]+):([^:]+)$/
+
 export function parseStaffProfileDeepLink(
   deepLink: string,
 ): StaffProfileDeepLink | null {
   const trimmed = deepLink.trim()
   if (!trimmed) {
     return null
+  }
+
+  const colonMatch = STAFF_PROFILE_COLON_LINK.exec(trimmed)
+  if (colonMatch) {
+    const phone = colonMatch[1].trim()
+    const tab = colonMatch[2].trim() as StaffProfileTabId
+    if (!phone) {
+      return null
+    }
+
+    return {
+      phone,
+      tab: tab || 'certifications',
+    }
   }
 
   const pathMatch = STAFF_CERTIFICATIONS_PATH.exec(trimmed)
