@@ -175,6 +175,27 @@ function normalizeStaffRoles(
   return Array.isArray(roles) ? roles : [roles]
 }
 
+function rolesSelectionEqual(left: string[], right: string[]): boolean {
+  const sortedLeft = [...left].sort()
+  const sortedRight = [...right].sort()
+
+  return (
+    sortedLeft.length === sortedRight.length &&
+    sortedLeft.every((role, index) => role === sortedRight[index])
+  )
+}
+
+function hasUnsavedInlineEdits(
+  showRoleEditor: boolean,
+  editorRoles: string[],
+  roleEditorBaseline: string[],
+): boolean {
+  return (
+    showRoleEditor &&
+    !rolesSelectionEqual(editorRoles, roleEditorBaseline)
+  )
+}
+
 function getPrimaryRole(staff: StaffProfileStaffMember): string {
   const roles = normalizeStaffRoles(staff.staff_roles)
   const primary = roles.find((role) => role.is_primary)
@@ -266,11 +287,11 @@ export default function StaffProfilePanel({
   const { labels, colors } = useProductConfig()
   const { hasTab } = useTabManager()
   const [slideIn, setSlideIn] = useState(false)
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const [staff, setStaff] = useState(session.staff)
   const [organizationId, setOrganizationId] = useState<string | null>(null)
   const [showRoleEditor, setShowRoleEditor] = useState(false)
   const [editorRoles, setEditorRoles] = useState<string[]>([])
+  const [roleEditorBaseline, setRoleEditorBaseline] = useState<string[]>([])
   const [isSavingRoles, setIsSavingRoles] = useState(false)
   const [roleEditorError, setRoleEditorError] = useState<string | null>(null)
 
@@ -336,8 +357,12 @@ export default function StaffProfilePanel({
     }
 
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        setShowConfirmDialog(true)
+      if (
+        event.key === 'Escape' &&
+        !hasUnsavedInlineEdits(showRoleEditor, editorRoles, roleEditorBaseline)
+      ) {
+        dismiss()
+        onCloseSession()
       }
     }
 
@@ -345,7 +370,15 @@ export default function StaffProfilePanel({
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [isForeground, isMinimized])
+  }, [
+    dismiss,
+    editorRoles,
+    isForeground,
+    isMinimized,
+    onCloseSession,
+    roleEditorBaseline,
+    showRoleEditor,
+  ])
 
   const isPanelVisible = isForeground || hasTab(session.tabId)
   const panelVisible = slideIn && !isMinimized && isPanelVisible
@@ -353,12 +386,25 @@ export default function StaffProfilePanel({
   const hasEditableFields = profileHasEditableFields(session.profileTab)
   const displayName = getStaffDisplayName(staff)
   const { profileTab } = session
+  const hasUnsavedInlineEditsState = hasUnsavedInlineEdits(
+    showRoleEditor,
+    editorRoles,
+    roleEditorBaseline,
+  )
 
-  const handleDiscard = () => {
-    setShowConfirmDialog(false)
+  const handleCloseProfile = useCallback(() => {
     dismiss()
     onCloseSession()
-  }
+  }, [dismiss, onCloseSession])
+
+  const handleDiscard = useCallback(() => {
+    setShowRoleEditor(false)
+    setRoleEditorError(null)
+    setEditorRoles([])
+    setRoleEditorBaseline([])
+    dismiss()
+    onCloseSession()
+  }, [dismiss, onCloseSession])
 
   const openRoleEditor = () => {
     void loadRoleEditorRoles()
@@ -386,16 +432,18 @@ export default function StaffProfilePanel({
     setRoleEditorError(null)
     setShowRoleEditor(true)
 
+    const applyLoadedEditorRoles = (roles: string[]) => {
+      const nextRoles = [...new Set(roles)]
+      setEditorRoles(nextRoles)
+      setRoleEditorBaseline(nextRoles)
+    }
+
     const orgId = await resolveOrganizationId()
     if (!orgId) {
-      setEditorRoles(
-        [
-          ...new Set(
-            normalizeStaffRoles(staff.staff_roles)
-              .map((row) => normalizeLoadedRoleName(row.role))
-              .filter((role) => role.length > 0 && SCHEMA_ROLE_NAMES.has(role)),
-          ),
-        ],
+      applyLoadedEditorRoles(
+        normalizeStaffRoles(staff.staff_roles)
+          .map((row) => normalizeLoadedRoleName(row.role))
+          .filter((role) => role.length > 0 && SCHEMA_ROLE_NAMES.has(role)),
       )
       return
     }
@@ -408,14 +456,10 @@ export default function StaffProfilePanel({
 
     if (error) {
       console.error('[StaffProfile] load staff_roles failed', error)
-      setEditorRoles(
-        [
-          ...new Set(
-            normalizeStaffRoles(staff.staff_roles)
-              .map((row) => normalizeLoadedRoleName(row.role))
-              .filter((role) => role.length > 0 && SCHEMA_ROLE_NAMES.has(role)),
-          ),
-        ],
+      applyLoadedEditorRoles(
+        normalizeStaffRoles(staff.staff_roles)
+          .map((row) => normalizeLoadedRoleName(row.role))
+          .filter((role) => role.length > 0 && SCHEMA_ROLE_NAMES.has(role)),
       )
       return
     }
@@ -428,12 +472,14 @@ export default function StaffProfilePanel({
       )
       .filter((role) => role.length > 0 && SCHEMA_ROLE_NAMES.has(role))
 
-    setEditorRoles([...new Set(loadedRoles)])
+    applyLoadedEditorRoles(loadedRoles)
   }
 
   const cancelRoleEditor = () => {
     setShowRoleEditor(false)
     setRoleEditorError(null)
+    setEditorRoles([])
+    setRoleEditorBaseline([])
   }
 
   const toggleEditorRole = (role: string) => {
@@ -527,12 +573,23 @@ export default function StaffProfilePanel({
         staff_roles: nextRoles,
       }))
       setShowRoleEditor(false)
+      setEditorRoles([])
+      setRoleEditorBaseline([])
     } catch (error) {
       console.error('[StaffProfile] save roles unexpected error', error)
       setRoleEditorError('Failed to save roles — please try again.')
     } finally {
       setIsSavingRoles(false)
     }
+  }
+
+  const headerTextButtonStyle: CSSProperties = {
+    fontSize: '12px',
+    fontWeight: 500,
+    border: 'none',
+    background: 'transparent',
+    padding: 0,
+    cursor: 'pointer',
   }
 
   const outlineButtonStyle: CSSProperties = {
@@ -619,51 +676,61 @@ export default function StaffProfilePanel({
           <PanelHeaderActions
             variant="dark"
             onMinimize={handleMinimize}
-            onClose={() => setShowConfirmDialog(true)}
+            onClose={handleCloseProfile}
             leading={
-              hasEditableFields ? (
-                <button
-                  type="button"
-                  style={{
-                    backgroundColor: '#ffffff',
-                    color: NAVY,
-                    fontSize: '12px',
-                    fontWeight: 500,
-                    borderRadius: '6px',
-                    padding: '6px 14px',
-                    border: 'none',
-                    cursor: 'pointer',
-                  }}
-                >
-                  Save Changes
-                </button>
-              ) : undefined
+              <>
+                {hasEditableFields ? (
+                  <button
+                    type="button"
+                    style={{
+                      backgroundColor: '#ffffff',
+                      color: NAVY,
+                      fontSize: '12px',
+                      fontWeight: 500,
+                      borderRadius: '6px',
+                      padding: '6px 14px',
+                      border: 'none',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Save Changes
+                  </button>
+                ) : null}
+                {!hasUnsavedInlineEditsState ? (
+                  <button
+                    type="button"
+                    onClick={handleCloseProfile}
+                    className="border-none bg-transparent p-0"
+                    style={{
+                      ...headerTextButtonStyle,
+                      color: 'rgba(255,255,255,0.75)',
+                    }}
+                  >
+                    Close
+                  </button>
+                ) : null}
+              </>
             }
             replaceActions={
-              showConfirmDialog ? (
+              hasUnsavedInlineEditsState ? (
                 <div className="flex items-center gap-3">
                   <button
                     type="button"
                     onClick={handleDiscard}
                     className="border-none bg-transparent p-0"
                     style={{
-                      fontSize: '12px',
-                      fontWeight: 500,
+                      ...headerTextButtonStyle,
                       color: '#FCA5A5',
-                      cursor: 'pointer',
                     }}
                   >
                     Discard
                   </button>
                   <button
                     type="button"
-                    onClick={() => setShowConfirmDialog(false)}
                     className="border-none bg-transparent p-0"
                     style={{
-                      fontSize: '12px',
-                      fontWeight: 500,
+                      ...headerTextButtonStyle,
                       color: 'rgba(255,255,255,0.75)',
-                      cursor: 'pointer',
                     }}
                   >
                     {labels.overlay_keep_editing}
