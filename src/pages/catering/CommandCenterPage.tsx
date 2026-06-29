@@ -1307,6 +1307,85 @@ function CommandCenterPage() {
     })
   }
 
+  const handleSnoozeComplianceActionItem = async (
+    item: PersistedActionItemRow,
+    days: number,
+  ) => {
+    snoozedFetchGenerationRef.current += 1
+    setSnoozedEventIds((previous) => new Set(previous).add(item.id))
+
+    const revertSnooze = () => {
+      setSnoozedEventIds((previous) => {
+        const next = new Set(previous)
+        next.delete(item.id)
+        return next
+      })
+    }
+
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser()
+
+      if (userError) {
+        console.error(
+          '[CommandCenter] snooze compliance: getUser failed',
+          userError,
+        )
+        revertSnooze()
+        setActionItemErrors((previous) => ({
+          ...previous,
+          [item.id]: 'Snooze failed — try again',
+        }))
+        return
+      }
+
+      const organizationId = user?.user_metadata?.organization_id
+      if (typeof organizationId !== 'string' || !organizationId.trim()) {
+        revertSnooze()
+        setActionItemErrors((previous) => ({
+          ...previous,
+          [item.id]: 'Snooze failed — try again',
+        }))
+        return
+      }
+
+      const snoozeUntil = new Date()
+      snoozeUntil.setDate(snoozeUntil.getDate() + days)
+
+      const { error } = await supabase.from('action_item_snoozes').insert({
+        organization_id: organizationId.trim(),
+        item_type: STAFF_COMPLIANCE_CATEGORY,
+        event_id: item.id,
+        snooze_until: snoozeUntil.toISOString(),
+      })
+
+      if (error) {
+        console.error('[CommandCenter] snooze compliance insert failed', error)
+        revertSnooze()
+        setActionItemErrors((previous) => ({
+          ...previous,
+          [item.id]: 'Snooze failed — try again',
+        }))
+        return
+      }
+
+      setActionItemErrors((previous) => {
+        const next = { ...previous }
+        delete next[item.id]
+        return next
+      })
+    } catch (error) {
+      console.error('[CommandCenter] snooze compliance unexpected error', error)
+      revertSnooze()
+      setActionItemErrors((previous) => ({
+        ...previous,
+        [item.id]: 'Snooze failed — try again',
+      }))
+    }
+  }
+
   const handleSnoozeActionItem = async (event: DraftActionEvent, days: number) => {
     snoozedFetchGenerationRef.current += 1
     setSnoozedEventIds((previous) => new Set(previous).add(event.id))
@@ -1776,22 +1855,47 @@ function CommandCenterPage() {
                     {item.title}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => handleViewStaffProfile(item)}
-                  className="shrink-0 hover:underline"
-                  style={{
-                    fontSize: '12px',
-                    color: '#1B3A5C',
-                    cursor: 'pointer',
-                    background: 'none',
-                    border: 'none',
-                    padding: 0,
-                    textDecoration: 'underline',
-                  }}
+                <div
+                  className="flex shrink-0 items-center"
+                  style={{ gap: '12px' }}
                 >
-                  View Profile
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => handleViewStaffProfile(item)}
+                    className="hover:underline"
+                    style={{
+                      fontSize: '12px',
+                      color: '#1B3A5C',
+                      cursor: 'pointer',
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                      textDecoration: 'underline',
+                    }}
+                  >
+                    View Profile
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(clickEvent) => {
+                      setSnoozePopover({
+                        eventId: item.id,
+                        anchorEl: clickEvent.currentTarget,
+                        itemType: STAFF_COMPLIANCE_CATEGORY,
+                      })
+                    }}
+                    style={{
+                      fontSize: '12px',
+                      color: '#6B7280',
+                      cursor: 'pointer',
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                    }}
+                  >
+                    Snooze
+                  </button>
+                </div>
               </div>
             ))}
             </>
@@ -2032,6 +2136,17 @@ function CommandCenterPage() {
           onClose={() => setSnoozePopover(null)}
           onSelect={(days) => {
             setSnoozePopover(null)
+
+            if (snoozePopover.itemType === STAFF_COMPLIANCE_CATEGORY) {
+              const complianceItem = persistedActionItems.find(
+                (entry) => entry.id === snoozePopover.eventId,
+              )
+              if (complianceItem) {
+                void handleSnoozeComplianceActionItem(complianceItem, days)
+              }
+              return
+            }
+
             const event = draftActionItems.find(
               (entry) => entry.id === snoozePopover.eventId,
             )

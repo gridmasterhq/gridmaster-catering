@@ -15,6 +15,13 @@ const CERTIFICATION_TYPES = [
 
 const ALCOHOL_CERT_TYPES = new Set(['TIPS', 'TIPS On Premise', 'RAMP'])
 
+const OVERRIDE_REASON_OPTIONS = [
+  'Staff does not serve alcohol',
+  'Certification on file elsewhere',
+  'Exempted by management',
+  'Other',
+] as const
+
 const ROLE_LABELS: Record<string, string> = {
   server: 'Server',
   bartender: 'Bartender',
@@ -165,6 +172,10 @@ function isValidAlcoholCert(cert: StaffCertification): boolean {
   }
 
   return cert.expiry_date >= todayIsoDate()
+}
+
+function hasTipsOverrideCert(certifications: StaffCertification[]): boolean {
+  return certifications.some((cert) => cert.cert_type === 'tips_override')
 }
 
 function isCertExpired(expiryDate: string | null): boolean {
@@ -352,6 +363,13 @@ export default function StaffProfileCertificationsTab({
   const [isSavingCert, setIsSavingCert] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
+  const [showOverrideForm, setShowOverrideForm] = useState(false)
+  const [overrideReason, setOverrideReason] = useState<string>(
+    OVERRIDE_REASON_OPTIONS[0],
+  )
+  const [overrideNotes, setOverrideNotes] = useState('')
+  const [isSavingOverride, setIsSavingOverride] = useState(false)
+  const [overrideError, setOverrideError] = useState<string | null>(null)
 
   const fieldLabelStyle = {
     display: 'block' as const,
@@ -606,7 +624,65 @@ export default function StaffProfileCertificationsTab({
   const showBartenderBanner =
     hasBartenderRole(staff.staff_roles) &&
     !certifications.some(isValidAlcoholCert) &&
+    !hasTipsOverrideCert(certifications) &&
     !bannerDismissed
+
+  const resetOverrideForm = () => {
+    setShowOverrideForm(false)
+    setOverrideReason(OVERRIDE_REASON_OPTIONS[0])
+    setOverrideNotes('')
+    setOverrideError(null)
+  }
+
+  const handleConfirmOverride = async () => {
+    if (!organizationId) {
+      return
+    }
+
+    setIsSavingOverride(true)
+    setOverrideError(null)
+
+    const coordinatorNotes = `Reason: ${overrideReason}. Notes: ${overrideNotes.trim()}`
+
+    const { error: insertError } = await supabase
+      .from('staff_certifications')
+      .insert({
+        organization_id: organizationId,
+        staff_phone: staff.phone,
+        cert_type: 'tips_override',
+        cert_name: 'Requirement override',
+        issued_date: todayIsoDate(),
+        coordinator_notes: coordinatorNotes,
+      })
+
+    if (insertError) {
+      console.error(
+        '[StaffProfileCertifications] override insert failed',
+        insertError,
+      )
+      setOverrideError('Failed to save override — please try again.')
+      setIsSavingOverride(false)
+      return
+    }
+
+    const { error: deleteError } = await supabase
+      .from('action_items')
+      .delete()
+      .eq('organization_id', organizationId)
+      .eq('entity_id', staff.phone)
+      .eq('category', 'staff_compliance')
+
+    if (deleteError) {
+      console.error(
+        '[StaffProfileCertifications] delete action item failed',
+        deleteError,
+      )
+    }
+
+    resetOverrideForm()
+    setIsSavingOverride(false)
+    void loadCertificationsData()
+  }
 
   const resetUploadForm = () => {
     setUploadForm(EMPTY_UPLOAD_FORM)
@@ -780,34 +856,124 @@ export default function StaffProfileCertificationsTab({
       style={{ padding: '16px', backgroundColor: '#ffffff' }}
     >
       {showBartenderBanner ? (
-        <div
-          data-compliance-scroll="compliance-banner"
-          className="mb-4 flex items-start justify-between gap-3"
-          style={{
-            backgroundColor: '#FEF3C7',
-            border: '1px solid #F59E0B',
-            borderRadius: '8px',
-            padding: '12px',
-          }}
-        >
-          <p style={{ fontSize: '13px', color: '#92400E', lineHeight: 1.4 }}>
-            This staff member is scheduled as a bartender but has no valid
-            alcohol service certification on file.
-          </p>
-          <button
-            type="button"
-            onClick={() => setBannerDismissed(true)}
-            className="shrink-0 border-none bg-transparent p-0 hover:opacity-80"
+        <div className="mb-4">
+          <div
+            data-compliance-scroll="compliance-banner"
+            className="flex items-start justify-between gap-3"
             style={{
-              fontSize: '12px',
-              fontWeight: 500,
-              color: colors.brand_navy,
-              cursor: 'pointer',
-              textDecoration: 'underline',
+              backgroundColor: '#FEF3C7',
+              border: '1px solid #F59E0B',
+              borderRadius: '8px',
+              padding: '12px',
             }}
           >
-            Acknowledge
-          </button>
+            <p style={{ fontSize: '13px', color: '#92400E', lineHeight: 1.4 }}>
+              This staff member is scheduled as a bartender but has no valid
+              alcohol service certification on file.
+            </p>
+            <button
+              type="button"
+              onClick={() => setBannerDismissed(true)}
+              className="shrink-0 border-none bg-transparent p-0 hover:opacity-80"
+              style={{
+                fontSize: '12px',
+                fontWeight: 500,
+                color: colors.brand_navy,
+                cursor: 'pointer',
+                textDecoration: 'underline',
+              }}
+            >
+              Acknowledge
+            </button>
+          </div>
+
+          {!showOverrideForm ? (
+            <button
+              type="button"
+              onClick={() => setShowOverrideForm(true)}
+              className="mt-2 border-none bg-transparent p-0 hover:underline"
+              style={{
+                fontSize: '12px',
+                color: '#6B7280',
+                cursor: 'pointer',
+              }}
+            >
+              Override requirement
+            </button>
+          ) : (
+            <div
+              className="mt-2 flex flex-col"
+              style={{
+                gap: '10px',
+                border: '1px solid #E5E7EB',
+                borderRadius: '8px',
+                padding: '12px',
+              }}
+            >
+              <div>
+                <label htmlFor="override-reason" style={fieldLabelStyle}>
+                  Reason
+                </label>
+                <select
+                  id="override-reason"
+                  value={overrideReason}
+                  onChange={(event) => setOverrideReason(event.target.value)}
+                  style={fieldInputStyle}
+                >
+                  {OVERRIDE_REASON_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="override-notes" style={fieldLabelStyle}>
+                  Notes
+                </label>
+                <textarea
+                  id="override-notes"
+                  value={overrideNotes}
+                  onChange={(event) => setOverrideNotes(event.target.value)}
+                  placeholder="Add a note..."
+                  rows={3}
+                  style={{
+                    ...fieldInputStyle,
+                    resize: 'vertical' as const,
+                  }}
+                />
+              </div>
+              {overrideError ? (
+                <p style={{ fontSize: '12px', color: '#EF4444' }}>{overrideError}</p>
+              ) : null}
+              <div className="flex items-center" style={{ gap: '12px' }}>
+                <button
+                  type="button"
+                  onClick={() => void handleConfirmOverride()}
+                  disabled={isSavingOverride}
+                  style={{
+                    ...solidButtonStyle,
+                    opacity: isSavingOverride ? 0.7 : 1,
+                  }}
+                >
+                  Confirm Override
+                </button>
+                <button
+                  type="button"
+                  onClick={resetOverrideForm}
+                  disabled={isSavingOverride}
+                  className="border-none bg-transparent p-0 hover:underline"
+                  style={{
+                    fontSize: '12px',
+                    color: '#6B7280',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       ) : null}
 
