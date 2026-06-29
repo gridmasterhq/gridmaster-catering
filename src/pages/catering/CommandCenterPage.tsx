@@ -12,9 +12,18 @@ import {
   IconZzz,
 } from '@tabler/icons-react'
 import type { Icon } from '@tabler/icons-react'
-import { useActiveScreen } from '../../components/shared/AppShell'
+import { useActiveScreen, useOverlay } from '../../components/shared/AppShell'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
 import { formatDateForInput } from '../../lib/dateUtils'
+import {
+  loadOpenStaffComplianceActionItems,
+  STAFF_COMPLIANCE_ITEM_TYPE,
+  type StaffComplianceActionItemRow,
+} from '../../lib/staffCompliance'
+import {
+  openStaffProfileNavigation,
+  parseStaffProfileDeepLink,
+} from '../../lib/staffProfileNavigation'
 import { supabase } from '../../lib/supabase'
 
 const DRAFT_ACTION_REFRESH_MS = 5 * 60 * 1000
@@ -862,8 +871,12 @@ function ToolGridItem({ icon: ItemIcon, title, subtitle }: ToolGridItemProps) {
 function CommandCenterPage() {
   const { labels, navigation } = useProductConfig()
   const { setActiveScreen } = useActiveScreen()
+  const { openOverlay } = useOverlay()
   const [eventCount, setEventCount] = useState<number | null>(null)
   const [draftActionItems, setDraftActionItems] = useState<DraftActionEvent[]>([])
+  const [staffComplianceActionItems, setStaffComplianceActionItems] = useState<
+    StaffComplianceActionItemRow[]
+  >([])
   const [archivedEventIds, setArchivedEventIds] = useState<Set<string>>(new Set())
   const [snoozedEventIds, setSnoozedEventIds] = useState<Set<string>>(new Set())
   const [dismissedEventIds, setDismissedEventIds] = useState<Set<string>>(new Set())
@@ -871,6 +884,7 @@ function CommandCenterPage() {
   const [snoozePopover, setSnoozePopover] = useState<{
     eventId: string
     anchorEl: HTMLElement
+    itemType?: string
   } | null>(null)
   const [snoozedPanelOpen, setSnoozedPanelOpen] = useState(false)
   const snoozedFetchGenerationRef = useRef(0)
@@ -1041,20 +1055,62 @@ function CommandCenterPage() {
     }
   }, [])
 
+  const fetchStaffComplianceActionItems = useCallback(async () => {
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser()
+
+      if (userError) {
+        console.error(
+          '[CommandCenter] staff compliance actions: getUser failed',
+          userError,
+        )
+        setStaffComplianceActionItems([])
+        return
+      }
+
+      const organizationId = user?.user_metadata?.organization_id
+      if (typeof organizationId !== 'string' || !organizationId.trim()) {
+        setStaffComplianceActionItems([])
+        return
+      }
+
+      const items = await loadOpenStaffComplianceActionItems(
+        organizationId.trim(),
+      )
+      setStaffComplianceActionItems(items)
+    } catch (error) {
+      console.error(
+        '[CommandCenter] staff compliance actions unexpected error',
+        error,
+      )
+      setStaffComplianceActionItems([])
+    }
+  }, [])
+
   useEffect(() => {
     void fetchDraftActionItems()
     void fetchArchivedEventIds()
     void fetchDismissedEventIds()
+    void fetchStaffComplianceActionItems()
 
     const intervalId = window.setInterval(() => {
       void fetchDraftActionItems()
       void fetchDismissedEventIds()
+      void fetchStaffComplianceActionItems()
     }, DRAFT_ACTION_REFRESH_MS)
 
     return () => {
       window.clearInterval(intervalId)
     }
-  }, [fetchDraftActionItems, fetchArchivedEventIds, fetchDismissedEventIds])
+  }, [
+    fetchDraftActionItems,
+    fetchArchivedEventIds,
+    fetchDismissedEventIds,
+    fetchStaffComplianceActionItems,
+  ])
 
   useEffect(() => {
     async function fetchEventCount() {
@@ -1120,7 +1176,34 @@ function CommandCenterPage() {
     return true
   })
 
-  const actionItemCount = visibleDraftActionItems.length
+  const visibleStaffComplianceActionItems = staffComplianceActionItems.filter(
+    (item) => {
+      if (dismissedEventIds.has(item.id)) {
+        return false
+      }
+      if (snoozedEventIds.has(item.id)) {
+        return false
+      }
+      return true
+    },
+  )
+
+  const actionItemCount =
+    visibleDraftActionItems.length + visibleStaffComplianceActionItems.length
+
+  const handleViewStaffProfile = (item: StaffComplianceActionItemRow) => {
+    const parsed = parseStaffProfileDeepLink(item.deep_link)
+    if (!parsed) {
+      return
+    }
+
+    openOverlay('staff')
+    openStaffProfileNavigation({
+      phone: parsed.phone,
+      tab: parsed.tab,
+      scrollTarget: parsed.scroll,
+    })
+  }
 
   const handleSnoozeActionItem = async (event: DraftActionEvent, days: number) => {
     snoozedFetchGenerationRef.current += 1
@@ -1255,6 +1338,163 @@ function CommandCenterPage() {
       setActionItemErrors((previous) => ({
         ...previous,
         [event.id]: 'Dismiss failed — try again',
+      }))
+    }
+  }
+
+  const handleSnoozeStaffComplianceItem = async (
+    item: StaffComplianceActionItemRow,
+    days: number,
+  ) => {
+    snoozedFetchGenerationRef.current += 1
+    setSnoozedEventIds((previous) => new Set(previous).add(item.id))
+
+    const revertSnooze = () => {
+      setSnoozedEventIds((previous) => {
+        const next = new Set(previous)
+        next.delete(item.id)
+        return next
+      })
+    }
+
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser()
+
+      if (userError) {
+        console.error(
+          '[CommandCenter] snooze staff compliance: getUser failed',
+          userError,
+        )
+        revertSnooze()
+        setActionItemErrors((previous) => ({
+          ...previous,
+          [item.id]: 'Snooze failed — try again',
+        }))
+        return
+      }
+
+      const organizationId = user?.user_metadata?.organization_id
+      if (typeof organizationId !== 'string' || !organizationId.trim()) {
+        revertSnooze()
+        setActionItemErrors((previous) => ({
+          ...previous,
+          [item.id]: 'Snooze failed — try again',
+        }))
+        return
+      }
+
+      const snoozeUntil = new Date()
+      snoozeUntil.setDate(snoozeUntil.getDate() + days)
+
+      const { error } = await supabase.from('action_item_snoozes').insert({
+        organization_id: organizationId.trim(),
+        item_type: STAFF_COMPLIANCE_ITEM_TYPE,
+        event_id: item.id,
+        snooze_until: snoozeUntil.toISOString(),
+      })
+
+      if (error) {
+        console.error(
+          '[CommandCenter] snooze staff compliance insert failed',
+          error,
+        )
+        revertSnooze()
+        setActionItemErrors((previous) => ({
+          ...previous,
+          [item.id]: 'Snooze failed — try again',
+        }))
+        return
+      }
+
+      setActionItemErrors((previous) => {
+        const next = { ...previous }
+        delete next[item.id]
+        return next
+      })
+    } catch (error) {
+      console.error(
+        '[CommandCenter] snooze staff compliance unexpected error',
+        error,
+      )
+      revertSnooze()
+      setActionItemErrors((previous) => ({
+        ...previous,
+        [item.id]: 'Snooze failed — try again',
+      }))
+    }
+  }
+
+  const handleDismissStaffComplianceItem = async (
+    item: StaffComplianceActionItemRow,
+  ) => {
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser()
+
+      if (userError) {
+        console.error(
+          '[CommandCenter] dismiss staff compliance: getUser failed',
+          userError,
+        )
+        setActionItemErrors((previous) => ({
+          ...previous,
+          [item.id]: 'Dismiss failed — try again',
+        }))
+        return
+      }
+
+      const organizationId = user?.user_metadata?.organization_id
+      if (typeof organizationId !== 'string' || !organizationId.trim()) {
+        setActionItemErrors((previous) => ({
+          ...previous,
+          [item.id]: 'Dismiss failed — try again',
+        }))
+        return
+      }
+
+      const dismissedBy =
+        (typeof user?.phone === 'string' && user.phone.trim()) ||
+        user?.id ||
+        null
+
+      const { error } = await supabase.from('action_item_dismissals').insert({
+        organization_id: organizationId.trim(),
+        item_type: STAFF_COMPLIANCE_ITEM_TYPE,
+        event_id: item.id,
+        dismissed_by: dismissedBy,
+      })
+
+      if (error) {
+        console.error(
+          '[CommandCenter] dismiss staff compliance insert failed',
+          error,
+        )
+        setActionItemErrors((previous) => ({
+          ...previous,
+          [item.id]: 'Dismiss failed — try again',
+        }))
+        return
+      }
+
+      setDismissedEventIds((previous) => new Set(previous).add(item.id))
+      setActionItemErrors((previous) => {
+        const next = { ...previous }
+        delete next[item.id]
+        return next
+      })
+    } catch (error) {
+      console.error(
+        '[CommandCenter] dismiss staff compliance unexpected error',
+        error,
+      )
+      setActionItemErrors((previous) => ({
+        ...previous,
+        [item.id]: 'Dismiss failed — try again',
       }))
     }
   }
@@ -1414,7 +1654,8 @@ function CommandCenterPage() {
               </div>
             }
           />
-          {visibleDraftActionItems.length === 0 ? (
+          {visibleDraftActionItems.length === 0 &&
+          visibleStaffComplianceActionItems.length === 0 ? (
             <BoxItemRow>
               <div
                 className="flex w-full items-center justify-center text-gray-400"
@@ -1436,7 +1677,8 @@ function CommandCenterPage() {
               </div>
             </BoxItemRow>
           ) : (
-            visibleDraftActionItems.map((event) => {
+            <>
+            {visibleDraftActionItems.map((event) => {
               const itemType = DRAFT_EVENT_ITEM_TYPE
               const showDismiss = !isSystemResolvableItemType(itemType)
 
@@ -1520,6 +1762,7 @@ function CommandCenterPage() {
                       setSnoozePopover({
                         eventId: event.id,
                         anchorEl: clickEvent.currentTarget,
+                        itemType: DRAFT_EVENT_ITEM_TYPE,
                       })
                     }}
                     style={{
@@ -1554,7 +1797,110 @@ function CommandCenterPage() {
                 </div>
               </div>
               )
-            })
+            })}
+            {visibleStaffComplianceActionItems.map((item) => (
+              <div
+                key={item.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  padding: '10px 12px',
+                  borderBottom: '0.5px solid #f3f4f6',
+                }}
+              >
+                <span
+                  aria-hidden="true"
+                  style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    backgroundColor: item.priority === 'high' ? '#C0392B' : '#D97706',
+                    flexShrink: 0,
+                  }}
+                />
+                <div className="min-w-0 flex-1">
+                  <p
+                    style={{
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      color: '#1B3A5C',
+                      lineHeight: 1.3,
+                    }}
+                  >
+                    {item.title}
+                  </p>
+                  {actionItemErrors[item.id] ? (
+                    <p
+                      style={{
+                        fontSize: '12px',
+                        color: '#ef4444',
+                        marginTop: '4px',
+                        lineHeight: 1.3,
+                      }}
+                    >
+                      {actionItemErrors[item.id]}
+                    </p>
+                  ) : null}
+                </div>
+                <div
+                  className="flex shrink-0 items-center"
+                  style={{ gap: '12px' }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => handleViewStaffProfile(item)}
+                    className="hover:underline"
+                    style={{
+                      fontSize: '12px',
+                      color: '#1B3A5C',
+                      cursor: 'pointer',
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                      textDecoration: 'underline',
+                    }}
+                  >
+                    View Profile
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(clickEvent) => {
+                      setSnoozePopover({
+                        eventId: item.id,
+                        anchorEl: clickEvent.currentTarget,
+                        itemType: STAFF_COMPLIANCE_ITEM_TYPE,
+                      })
+                    }}
+                    style={{
+                      fontSize: '12px',
+                      color: '#6B7280',
+                      cursor: 'pointer',
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                    }}
+                  >
+                    Snooze
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleDismissStaffComplianceItem(item)}
+                    style={{
+                      fontSize: '12px',
+                      color: '#6B7280',
+                      cursor: 'pointer',
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                    }}
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            ))}
+            </>
           )}
         </CommandCenterBox>
 
@@ -1792,8 +2138,18 @@ function CommandCenterPage() {
           onClose={() => setSnoozePopover(null)}
           onSelect={(days) => {
             setSnoozePopover(null)
+            if (snoozePopover.itemType === STAFF_COMPLIANCE_ITEM_TYPE) {
+              const item = staffComplianceActionItems.find(
+                (entry) => entry.id === snoozePopover.eventId,
+              )
+              if (item) {
+                void handleSnoozeStaffComplianceItem(item, days)
+              }
+              return
+            }
+
             const event = draftActionItems.find(
-              (item) => item.id === snoozePopover.eventId,
+              (entry) => entry.id === snoozePopover.eventId,
             )
             if (event) {
               void handleSnoozeActionItem(event, days)

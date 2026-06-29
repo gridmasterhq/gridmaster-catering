@@ -51,6 +51,8 @@ export interface StaffProfileCertificationsStaff {
 interface StaffProfileCertificationsTabProps {
   staff: StaffProfileCertificationsStaff
   organizationId: string | null
+  scrollTarget?: string | null
+  onScrollTargetHandled?: () => void
 }
 
 interface StaffCertification {
@@ -333,6 +335,8 @@ function StatusBadge({
 export default function StaffProfileCertificationsTab({
   staff,
   organizationId,
+  scrollTarget,
+  onScrollTargetHandled,
 }: StaffProfileCertificationsTabProps) {
   const { colors } = useProductConfig()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -566,6 +570,26 @@ export default function StaffProfileCertificationsTab({
   }, [loadCertificationsData])
 
   useEffect(() => {
+    if (!scrollTarget || loading) {
+      return
+    }
+
+    const frame = requestAnimationFrame(() => {
+      const target = document.querySelector(
+        `[data-compliance-scroll="${scrollTarget}"]`,
+      )
+      if (target instanceof HTMLElement) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+      onScrollTargetHandled?.()
+    })
+
+    return () => {
+      cancelAnimationFrame(frame)
+    }
+  }, [loading, onScrollTargetHandled, scrollTarget])
+
+  useEffect(() => {
     if (!toastMessage) {
       return
     }
@@ -757,6 +781,7 @@ export default function StaffProfileCertificationsTab({
     >
       {showBartenderBanner ? (
         <div
+          data-compliance-scroll="compliance-banner"
           className="mb-4 flex items-start justify-between gap-3"
           style={{
             backgroundColor: '#FEF3C7',
@@ -983,6 +1008,7 @@ export default function StaffProfileCertificationsTab({
             {certifications.map((cert) => (
               <div
                 key={cert.id}
+                data-compliance-scroll={`cert-${cert.id}`}
                 style={{
                   border: '1px solid #E5E7EB',
                   borderRadius: '8px',
@@ -1087,6 +1113,7 @@ export default function StaffProfileCertificationsTab({
             {requiredCourses.map((course) => (
               <div
                 key={course.templateId}
+                data-compliance-scroll={`required-course-${course.templateId}`}
                 style={{
                   border: '1px solid #E5E7EB',
                   borderRadius: '8px',

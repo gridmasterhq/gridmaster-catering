@@ -15,6 +15,11 @@ import StaffProfileHistoryTab from './StaffProfileHistoryTab'
 import StaffProfileCertificationsTab from './StaffProfileCertificationsTab'
 import StaffRatingBadge from '../shared/StaffRatingBadge'
 import { formatCoordinatorStaffName } from '../../lib/staffDisplayName'
+import {
+  fetchStaffComplianceIssues,
+  syncStaffComplianceActionItems,
+  type StaffComplianceIssue,
+} from '../../lib/staffCompliance'
 import { useMinimizablePanel } from '../../hooks/useMinimizablePanel'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
 import { supabase } from '../../lib/supabase'
@@ -72,7 +77,7 @@ function normalizeLoadedRoleName(roleName: string): string {
 
 type StaffStatus = 'active' | 'alumni' | 'not_active' | 'archived'
 
-type ProfileTab =
+export type ProfileTab =
   | 'history'
   | 'certifications'
   | 'availability'
@@ -108,6 +113,7 @@ export interface StaffProfileSessionState {
   tabLabel: string
   staff: StaffProfileStaffMember
   profileTab: ProfileTab
+  certificationsScrollTarget?: string | null
 }
 
 interface StaffProfilePanelProps {
@@ -345,10 +351,22 @@ export default function StaffProfilePanel({
     useState('')
   const [isSavingRoles, setIsSavingRoles] = useState(false)
   const [roleEditorError, setRoleEditorError] = useState<string | null>(null)
+  const [complianceIssues, setComplianceIssues] = useState<
+    StaffComplianceIssue[]
+  >([])
+  const [certificationsScrollTarget, setCertificationsScrollTarget] = useState<
+    string | null
+  >(session.certificationsScrollTarget ?? null)
 
   useEffect(() => {
     setStaff(session.staff)
   }, [session.staff])
+
+  useEffect(() => {
+    if (session.certificationsScrollTarget) {
+      setCertificationsScrollTarget(session.certificationsScrollTarget)
+    }
+  }, [session.certificationsScrollTarget])
 
   const handleRestore = useCallback(() => {
     onFocus()
@@ -490,6 +508,34 @@ export default function StaffProfilePanel({
     setOrganizationId(resolved)
     return resolved
   }
+
+  const refreshStaffCompliance = useCallback(async () => {
+    const orgId = await resolveOrganizationId()
+    if (!orgId) {
+      return
+    }
+
+    try {
+      const issues = await fetchStaffComplianceIssues(orgId, staff.phone)
+      setComplianceIssues(issues)
+      await syncStaffComplianceActionItems(
+        orgId,
+        staff.phone,
+        getStaffDisplayName(staff),
+        issues,
+      )
+    } catch (error) {
+      console.error('[StaffProfile] compliance sync unexpected error', error)
+    }
+  }, [staff])
+
+  useEffect(() => {
+    if (!organizationId) {
+      return
+    }
+
+    void refreshStaffCompliance()
+  }, [organizationId, refreshStaffCompliance])
 
   const loadRoleEditorRoles = async () => {
     setRoleEditorError(null)
@@ -670,12 +716,19 @@ export default function StaffProfilePanel({
       setEditorPrimaryRole('')
       setRoleEditorBaseline([])
       setRoleEditorPrimaryBaseline('')
+      void refreshStaffCompliance()
     } catch (error) {
       console.error('[StaffProfile] save roles unexpected error', error)
       setRoleEditorError('Failed to save roles — please try again.')
     } finally {
       setIsSavingRoles(false)
     }
+  }
+
+  const handleComplianceAlertClick = (scrollTarget: string) => {
+    setCertificationsScrollTarget(scrollTarget)
+    onProfileTabChange('certifications')
+    onFocus()
   }
 
   const headerTextButtonStyle: CSSProperties = {
@@ -879,7 +932,7 @@ export default function StaffProfilePanel({
               </div>
             </div>
 
-            <div className="flex shrink-0">
+            <div className="flex shrink-0 flex-col items-end">
               <button
                 type="button"
                 onClick={openRoleEditor}
@@ -887,6 +940,34 @@ export default function StaffProfilePanel({
               >
                 Change / Add Roles
               </button>
+              {complianceIssues.length > 0 ? (
+                <div
+                  className="mt-2 flex flex-col items-end"
+                  style={{ gap: '4px' }}
+                >
+                  {complianceIssues.map((issue) => (
+                    <button
+                      key={`${issue.type}:${issue.referenceKey}`}
+                      type="button"
+                      onClick={() =>
+                        handleComplianceAlertClick(issue.scrollTarget)
+                      }
+                      className="text-left hover:underline"
+                      style={{
+                        fontSize: '12px',
+                        color: '#C0392B',
+                        background: 'none',
+                        border: 'none',
+                        padding: 0,
+                        cursor: 'pointer',
+                        lineHeight: 1.3,
+                      }}
+                    >
+                      {issue.alertLabel}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </div>
           </div>
 
@@ -1070,6 +1151,8 @@ export default function StaffProfilePanel({
           <StaffProfileCertificationsTab
             staff={staff}
             organizationId={organizationId}
+            scrollTarget={certificationsScrollTarget}
+            onScrollTargetHandled={() => setCertificationsScrollTarget(null)}
           />
         ) : (
           <div className="flex min-h-0 flex-1 flex-col items-center justify-center py-16">

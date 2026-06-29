@@ -13,6 +13,7 @@ import {
   IconUsers,
 } from '@tabler/icons-react'
 import StaffProfilePanel, {
+  type ProfileTab,
   type StaffProfileSessionState,
 } from '../../components/catering/StaffProfilePanel'
 import PanelHeaderActions from '../../components/shared/PanelHeaderActions'
@@ -27,6 +28,7 @@ import { useMinimizablePanel } from '../../hooks/useMinimizablePanel'
 import { useTabManager } from '../../components/TabManager'
 import { useOverlay } from '../../components/shared/AppShell'
 import { supabase } from '../../lib/supabase'
+import { registerStaffProfileNavigation } from '../../lib/staffProfileNavigation'
 
 const NAVY = '#1B3A5C'
 const STAFF_PANEL_CONTENT_MAX_WIDTH_PX = 680
@@ -60,13 +62,6 @@ const ROLE_OPTIONS = [
 type StaffStatus = 'active' | 'alumni' | 'not_active' | 'archived'
 type FilterPill = 'all' | 'active' | 'priority' | 'archived' | 'not_active'
 type SortOption = 'name' | 'phone' | 'joined' | 'rating'
-type ProfileTab =
-  | 'history'
-  | 'certifications'
-  | 'availability'
-  | 'ai_summary'
-  | 'development'
-  | 'personal_note'
 
 interface StaffRoleRow {
   role: string
@@ -389,8 +384,35 @@ function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
     [],
   )
 
+  interface OpenStaffProfileOptions {
+    tab?: ProfileTab
+    scrollTarget?: string
+  }
+
   const openStaffProfile = useCallback(
-    (staff: StaffMember) => {
+    (staff: StaffMember, options?: OpenStaffProfileOptions) => {
+      const existingSession = profileSessions.find(
+        (session) => session.phone === staff.phone,
+      )
+
+      if (existingSession) {
+        setProfileSessions((previous) =>
+          previous.map((session) =>
+            session.id === existingSession.id
+              ? {
+                  ...session,
+                  staff,
+                  profileTab: options?.tab ?? session.profileTab,
+                  certificationsScrollTarget:
+                    options?.scrollTarget ?? session.certificationsScrollTarget,
+                }
+              : session,
+          ),
+        )
+        focusProfileSession(existingSession.id)
+        return
+      }
+
       if (isProfileInProgress(staff.phone)) {
         setDuplicateNoticePhone(staff.phone)
         return
@@ -413,7 +435,8 @@ function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
         tabId: getStaffProfileTabId(staff.phone),
         tabLabel: formatStaffProfileTabLabel(staff.display_name, staff.legal_name),
         staff,
-        profileTab: 'history',
+        profileTab: options?.tab ?? 'history',
+        certificationsScrollTarget: options?.scrollTarget ?? null,
       }
 
       setProfileSessions((previous) => [...previous, session])
@@ -423,12 +446,89 @@ function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
     },
     [
       canOpenNew,
+      focusProfileSession,
       foregroundProfileSessionId,
       isProfileInProgress,
       onFocus,
+      profileSessions,
       showMaxTabsNotice,
     ],
   )
+
+  const fetchStaffMemberByPhone = useCallback(
+    async (phone: string): Promise<StaffMember | null> => {
+      if (!organizationId) {
+        return null
+      }
+
+      const { data: staffRow, error } = await supabase
+        .from('staff')
+        .select(
+          'phone, legal_name, display_name, photo_url, status, captain_priority, average_rating, rating_count, starting_designation, experience_rating, is_priority, created_at',
+        )
+        .eq('organization_id', organizationId)
+        .eq('phone', phone)
+        .maybeSingle()
+
+      if (error || !staffRow) {
+        console.error('[StaffManagement] load staff by phone failed', error)
+        return null
+      }
+
+      const { data: rolesData, error: rolesError } = await supabase
+        .from('staff_roles')
+        .select('role_name, is_primary')
+        .eq('organization_id', organizationId)
+        .eq('staff_phone', phone)
+
+      if (rolesError) {
+        console.error('[StaffManagement] load staff_roles by phone failed', rolesError)
+      }
+
+      const staffRoles: StaffRoleRow[] = (rolesData ?? [])
+        .map((row) => ({
+          role: typeof row.role_name === 'string' ? row.role_name : '',
+          is_primary: Boolean(row.is_primary),
+        }))
+        .filter((role) => role.role.length > 0)
+
+      return {
+        phone: staffRow.phone as string,
+        legal_name: staffRow.legal_name as string,
+        display_name: (staffRow.display_name as string | null) ?? null,
+        photo_url: (staffRow.photo_url as string | null) ?? null,
+        status: staffRow.status as StaffStatus,
+        captain_priority: Boolean(staffRow.captain_priority),
+        average_rating: (staffRow.average_rating as number | null) ?? null,
+        rating_count: (staffRow.rating_count as number) ?? 0,
+        starting_designation: (staffRow.starting_designation as string | null) ?? null,
+        experience_rating: (staffRow.experience_rating as number | null) ?? null,
+        is_priority: Boolean(staffRow.is_priority),
+        created_at: staffRow.created_at as string,
+        staff_roles: staffRoles,
+      }
+    },
+    [organizationId],
+  )
+
+  useEffect(() => {
+    return registerStaffProfileNavigation((request) => {
+      void (async () => {
+        const member =
+          staffMembers.find((staff) => staff.phone === request.phone) ??
+          (await fetchStaffMemberByPhone(request.phone))
+
+        if (!member) {
+          return
+        }
+
+        openStaffProfile(member, {
+          tab: request.tab ?? 'certifications',
+          scrollTarget: request.scrollTarget,
+        })
+      })()
+    })
+  }, [fetchStaffMemberByPhone, openStaffProfile, staffMembers])
 
   const handleDuplicateProfileRestore = useCallback(() => {
     if (!duplicateNoticePhone) {
