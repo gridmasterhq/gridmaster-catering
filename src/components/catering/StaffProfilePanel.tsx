@@ -152,8 +152,8 @@ const profileTabs: {
   {
     id: 'availability',
     label: 'Availability',
-    subLabelLine1: 'Schedule',
-    subLabelLine2: 'Blackouts',
+    subLabelLine1: 'Schedule · Blackouts',
+    subLabelLine2: 'Recurring',
   },
   {
     id: 'ai_summary',
@@ -169,7 +169,7 @@ const profileTabs: {
   },
   {
     id: 'personal_note',
-    label: 'Personal Note',
+    label: 'Personnel Notes',
     subLabelLine1: 'Private notes',
     subLabelLine2: 'Coordinator only',
   },

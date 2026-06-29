@@ -604,12 +604,14 @@ function ActionItemsSnoozedPanel({
       />
 
       <div
-        className="fixed top-0 right-0 bottom-0 flex flex-col bg-white shadow-xl"
+        className="fixed top-0 bottom-0 flex flex-col bg-white shadow-xl"
         style={{
-          width: '100vw',
+          right: '40px',
+          width: 'min(480px, calc(100vw - 40px))',
           maxWidth: '480px',
           height: '100vh',
           zIndex: 301,
+          overflow: 'visible',
           transform: slideIn ? 'translateX(0)' : 'translateX(100%)',
           transition: 'transform 0.2s ease',
         }}
