@@ -474,10 +474,13 @@ function CalendarPage() {
       navigate('/')
     }
     window.setTimeout(() => {
-      document.getElementById('command-center-action-items')?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start',
-      })
+      const actionItems = document.getElementById('command-center-action-items')
+      if (actionItems) {
+        window.scrollTo({
+          top: actionItems.offsetTop - 60,
+          behavior: 'smooth',
+        })
+      }
     }, 300)
   }
 

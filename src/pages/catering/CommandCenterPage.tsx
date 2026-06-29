@@ -1304,13 +1304,11 @@ function CommandCenterPage() {
 
   const handleViewStaffProfile = (item: PersistedActionItemRow) => {
     const parsed = parseStaffProfileDeepLink(item.deep_link)
-    if (!parsed) {
-      return
-    }
+    if (!parsed) return
 
     openOverlay('staff')
 
-    window.setTimeout(() => {
+    setTimeout(() => {
       openStaffProfileNavigation({
         phone: parsed.phone,
         tab: parsed.tab ?? 'certifications',
