@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { IconChevronDown, IconChevronRight } from '@tabler/icons-react'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
 import { supabase } from '../../lib/supabase'
@@ -420,11 +420,6 @@ export default function StaffProfileCertificationsTab({
     border: `1px solid ${colors.brand_navy}`,
   }
 
-  const staffRolesKey = useMemo(
-    () => (staff.staff_roles ?? []).map((r) => r.role).sort().join(','),
-    [staff.staff_roles],
-  )
-
   const loadCertificationsData = useCallback(async () => {
     if (!organizationId) {
       setCertifications([])
@@ -599,7 +594,8 @@ export default function StaffProfileCertificationsTab({
 
     setLoading(false)
     onComplianceRefresh?.()
-  }, [organizationId, onComplianceRefresh, staff.phone, staffRolesKey])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- staff.staff_roles read via closure; unstable array ref must not trigger reload
+  }, [organizationId, staff.phone, onComplianceRefresh])
 
   useEffect(() => {
     void loadCertificationsData()
