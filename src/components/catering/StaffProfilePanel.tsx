@@ -11,6 +11,7 @@ import {
 } from '@tabler/icons-react'
 import PanelHeaderActions from '../shared/PanelHeaderActions'
 import { OVERLAY_PANEL_TAB_STACK_CLEARANCE_PX } from '../shared/OverlayPanel'
+import StaffProfileHistoryTab from './StaffProfileHistoryTab'
 import StaffRatingBadge from '../shared/StaffRatingBadge'
 import { formatCoordinatorStaffName } from '../../lib/staffDisplayName'
 import { useMinimizablePanel } from '../../hooks/useMinimizablePanel'
@@ -1062,12 +1063,16 @@ export default function StaffProfilePanel({
           })}
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col items-center justify-center py-16">
-          <IconClock size={32} color="#D1D5DB" stroke={1.5} />
-          <p className="mt-3" style={{ fontSize: '13px', color: '#6B7280' }}>
-            Coming soon
-          </p>
-        </div>
+        {profileTab === 'history' ? (
+          <StaffProfileHistoryTab staff={staff} organizationId={organizationId} />
+        ) : (
+          <div className="flex min-h-0 flex-1 flex-col items-center justify-center py-16">
+            <IconClock size={32} color="#D1D5DB" stroke={1.5} />
+            <p className="mt-3" style={{ fontSize: '13px', color: '#6B7280' }}>
+              Coming soon
+            </p>
+          </div>
+        )}
       </div>
     </>
   )
