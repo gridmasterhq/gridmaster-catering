@@ -16,13 +16,13 @@ import StaffProfilePanel, {
   type StaffProfileSessionState,
 } from '../../components/catering/StaffProfilePanel'
 import PanelHeaderActions from '../../components/shared/PanelHeaderActions'
+import StaffRatingBadge from '../../components/shared/StaffRatingBadge'
 import { formatCoordinatorStaffName } from '../../lib/staffDisplayName'
 import {
   formatStaffProfileTabLabel,
   getStaffProfileTabId,
 } from '../../lib/staffProfileTabs'
 import { useMinimizablePanel } from '../../hooks/useMinimizablePanel'
-import { useProductConfig } from '../../lib/hooks/useProductConfig'
 import { useTabManager } from '../../components/TabManager'
 import { useOverlay } from '../../components/shared/AppShell'
 import { supabase } from '../../lib/supabase'
@@ -120,22 +120,6 @@ function getPrimaryRole(staff: StaffMember): string {
 
 function getStaffDisplayName(staff: StaffMember): string {
   return formatCoordinatorStaffName(staff.display_name, staff.legal_name)
-}
-
-function formatStartingDesignation(value: string | null | undefined): string {
-  switch (value) {
-    case 'new':
-      return 'New'
-    case 'promising':
-      return 'Promising'
-    case 'experienced':
-      return 'Experienced'
-    case 'senior':
-    case 'senior_hire':
-      return 'Senior'
-    default:
-      return value?.trim() || 'New'
-  }
 }
 
 function formatPhoneToE164(raw: string): string {
@@ -236,88 +220,6 @@ function statusDotColor(status: StaffStatus): string {
     default:
       return '#9CA3AF'
   }
-}
-
-function ReadOnlyStars({
-  rating,
-  size = 12,
-}: {
-  rating: number
-  size?: number
-}) {
-  const { rating_floors } = useProductConfig()
-  const filled = Math.min(
-    Math.max(Math.round(rating), 0),
-    rating_floors.length,
-  )
-
-  return (
-    <span style={{ fontSize: `${size}px`, lineHeight: 1 }}>
-      {rating_floors.map((star) => (
-        <span
-          key={star}
-          style={{ color: star <= filled ? GOLD : '#D1D5DB' }}
-        >
-          {star <= filled ? '★' : '☆'}
-        </span>
-      ))}
-    </span>
-  )
-}
-
-function ExperienceRatingStars({
-  rating,
-  size = 12,
-}: {
-  rating: number
-  size?: number
-}) {
-  const filled = Math.min(Math.max(Math.round(rating), 1), 6)
-
-  return (
-    <span
-      className="inline-flex items-center"
-      style={{ fontSize: `${size}px`, lineHeight: 1, gap: '2px' }}
-    >
-      <span style={{ fontWeight: 700, color: '#C0392B' }}>E</span>
-      {[1, 2, 3, 4, 5, 6].map((star) => (
-        <span
-          key={star}
-          style={{ color: star <= filled ? GOLD : '#D1D5DB' }}
-        >
-          {star <= filled ? '★' : '☆'}
-        </span>
-      ))}
-    </span>
-  )
-}
-
-function StaffListCardRating({ staff }: { staff: StaffMember }) {
-  if (staff.rating_count >= 6 && staff.average_rating != null) {
-    return <ReadOnlyStars rating={staff.average_rating} />
-  }
-
-  const experienceRating = staff.experience_rating
-  if (
-    experienceRating != null &&
-    experienceRating >= 1 &&
-    experienceRating <= 6 &&
-    staff.rating_count < 6
-  ) {
-    return <ExperienceRatingStars rating={experienceRating} />
-  }
-
-  return (
-    <span
-      style={{
-        fontSize: '11px',
-        color: '#6B7280',
-        fontStyle: 'italic',
-      }}
-    >
-      {formatStartingDesignation(staff.starting_designation)}
-    </span>
-  )
 }
 
 function StaffPhoto({
@@ -1277,7 +1179,12 @@ function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
                     </p>
                   </div>
                   <div className="flex shrink-0 items-end">
-                    <StaffListCardRating staff={staff} />
+                    <StaffRatingBadge
+                      experience_rating={staff.experience_rating}
+                      rating_count={staff.rating_count}
+                      average_rating={staff.average_rating}
+                      variant="compact"
+                    />
                   </div>
                 </button>
               )

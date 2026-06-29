@@ -10,13 +10,13 @@ import {
   IconUser,
 } from '@tabler/icons-react'
 import PanelHeaderActions from '../shared/PanelHeaderActions'
+import StaffRatingBadge from '../shared/StaffRatingBadge'
 import { formatCoordinatorStaffName } from '../../lib/staffDisplayName'
 import { useMinimizablePanel } from '../../hooks/useMinimizablePanel'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
 import { useTabManager } from '../TabManager'
 
 const NAVY = '#1B3A5C'
-const GOLD = '#C9A84C'
 const STAFF_PROFILE_Z_INDEX = 302
 
 type StaffStatus = 'active' | 'alumni' | 'not_active' | 'archived'
@@ -128,82 +128,6 @@ function statusBadgeStyle(status: StaffStatus): CSSProperties {
     default:
       return { backgroundColor: '#F3F4F6', color: '#6B7280' }
   }
-}
-
-function ReadOnlyStars({
-  rating,
-  size = 12,
-}: {
-  rating: number
-  size?: number
-}) {
-  const { rating_floors } = useProductConfig()
-  const filled = Math.min(
-    Math.max(Math.round(rating), 0),
-    rating_floors.length,
-  )
-
-  return (
-    <span style={{ fontSize: `${size}px`, lineHeight: 1 }}>
-      {rating_floors.map((star) => (
-        <span
-          key={star}
-          style={{ color: star <= filled ? GOLD : '#D1D5DB' }}
-        >
-          {star <= filled ? '★' : '☆'}
-        </span>
-      ))}
-    </span>
-  )
-}
-
-function ExperienceRatingStars({
-  rating,
-  size = 14,
-}: {
-  rating: number
-  size?: number
-}) {
-  const filled = Math.min(Math.max(Math.round(rating), 1), 6)
-
-  return (
-    <span
-      className="inline-flex items-center"
-      style={{ fontSize: `${size}px`, lineHeight: 1, gap: '2px' }}
-    >
-      <span style={{ fontWeight: 700, color: '#C0392B' }}>E</span>
-      {[1, 2, 3, 4, 5, 6].map((star) => (
-        <span
-          key={star}
-          style={{ color: star <= filled ? GOLD : '#D1D5DB' }}
-        >
-          {star <= filled ? '★' : '☆'}
-        </span>
-      ))}
-    </span>
-  )
-}
-
-function StaffProfileHeaderRating({
-  staff,
-}: {
-  staff: StaffProfileStaffMember
-}) {
-  if (staff.rating_count >= 6 && staff.average_rating != null) {
-    return <ReadOnlyStars rating={staff.average_rating} size={14} />
-  }
-
-  const experienceRating = staff.experience_rating
-  if (
-    experienceRating != null &&
-    experienceRating >= 1 &&
-    experienceRating <= 6 &&
-    staff.rating_count < 6
-  ) {
-    return <ExperienceRatingStars rating={experienceRating} size={14} />
-  }
-
-  return null
 }
 
 function StaffPhoto({
@@ -474,7 +398,12 @@ export default function StaffProfilePanel({
                 {getPrimaryRole(staff)}
               </p>
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                <StaffProfileHeaderRating staff={staff} />
+                <StaffRatingBadge
+                  experience_rating={staff.experience_rating}
+                  rating_count={staff.rating_count}
+                  average_rating={staff.average_rating}
+                  variant="full"
+                />
                 <span
                   style={{
                     ...statusBadgeStyle(staff.status),
