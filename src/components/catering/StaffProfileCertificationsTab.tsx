@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { IconChevronDown, IconChevronRight } from '@tabler/icons-react'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
 import { supabase } from '../../lib/supabase'
 
@@ -14,7 +15,28 @@ const CERTIFICATION_TYPES = [
 
 const ALCOHOL_CERT_TYPES = new Set(['TIPS', 'TIPS On Premise', 'RAMP'])
 
+const ROLE_LABELS: Record<string, string> = {
+  server: 'Server',
+  bartender: 'Bartender',
+  bar_back: 'Bar Back',
+  food_runner: 'Food Runner',
+  captain: 'Captain',
+  cit: 'Captain In Training (CIT)',
+  setup_crew: 'Setup Crew',
+  breakdown_crew: 'Breakdown Crew',
+  line_cook: 'Line Cook',
+  prep_cook: 'Prep Cook',
+  dishwasher: 'Dishwasher',
+  kitchen_runner: 'Kitchen Runner',
+  sous_chef: 'Sous Chef',
+  lead_chef: 'Lead Chef',
+  driver: 'Driver',
+  ops_lead: 'Ops Lead',
+  trainer: 'Trainer',
+}
+
 type CertificationType = (typeof CERTIFICATION_TYPES)[number]
+type RequiredCourseStatus = 'not_started' | 'in_progress' | 'completed' | 'failed'
 
 interface StaffRoleRow {
   role: string
@@ -43,13 +65,41 @@ interface StaffCertification {
   created_at: string
 }
 
-interface CourseCompletion {
+interface CourseTemplateRow {
+  id: string
+  name: string
+  is_required_for_all: boolean
+  required_roles: string[] | null
+  assignment_type: string | null
+}
+
+interface CourseCompletionRow {
+  id: string
+  course_template_id: string
+  started_at: string | null
+  completed_at: string | null
+  test_score_percent: number | null
+  passed: boolean
+  retake_count: number
+  created_at: string
+  assignment_type: string | null
+}
+
+interface RequiredCourse {
+  templateId: string
+  courseName: string
+  status: RequiredCourseStatus
+  assignmentLabel: string
+}
+
+interface CompletedCourse {
   id: string
   courseName: string
   completedAt: string
   testScorePercent: number | null
   passed: boolean
   retakeCount: number
+  assignmentType: string | null
 }
 
 interface UploadFormState {
@@ -76,10 +126,27 @@ function normalizeRoleKey(roleName: string): string {
   return roleName.trim().toLowerCase().replace(/\s+/g, '_')
 }
 
+function formatRoleLabel(roleName: string): string {
+  const key = normalizeRoleKey(roleName)
+  if (ROLE_LABELS[key]) {
+    return ROLE_LABELS[key]
+  }
+
+  return roleName
+    .split('_')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+}
+
 function hasBartenderRole(roles: StaffRoleRow[] | null): boolean {
   return (roles ?? []).some(
     (role) => normalizeRoleKey(role.role) === 'bartender',
   )
+}
+
+function getStaffRoleKeys(roles: StaffRoleRow[] | null): string[] {
+  return (roles ?? []).map((role) => normalizeRoleKey(role.role))
 }
 
 function todayIsoDate(): string {
@@ -106,6 +173,19 @@ function isCertExpired(expiryDate: string | null): boolean {
   return expiryDate < todayIsoDate()
 }
 
+function isCertExpiringSoon(expiryDate: string | null): boolean {
+  if (!expiryDate || isCertExpired(expiryDate)) {
+    return false
+  }
+
+  const expiry = new Date(`${expiryDate}T12:00:00`)
+  const today = new Date(`${todayIsoDate()}T12:00:00`)
+  const thirtyDaysFromNow = new Date(today)
+  thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30)
+
+  return expiry <= thirtyDaysFromNow
+}
+
 function formatDisplayDate(isoDate: string): string {
   const date = new Date(isoDate)
   if (Number.isNaN(date.getTime())) {
@@ -127,6 +207,84 @@ function getCertDisplayName(cert: StaffCertification): string {
   return cert.cert_type
 }
 
+function templateAppliesToStaff(
+  template: CourseTemplateRow,
+  staffRoleKeys: string[],
+): boolean {
+  if (template.is_required_for_all) {
+    return true
+  }
+
+  const requiredRoles = template.required_roles ?? []
+  return requiredRoles.some((role) =>
+    staffRoleKeys.includes(normalizeRoleKey(role)),
+  )
+}
+
+function getAssignmentLabel(
+  template: CourseTemplateRow,
+  staffRoleKeys: string[],
+): string {
+  if (template.is_required_for_all) {
+    return 'Required for all staff'
+  }
+
+  const matchedRole = (template.required_roles ?? []).find((role) =>
+    staffRoleKeys.includes(normalizeRoleKey(role)),
+  )
+
+  if (matchedRole) {
+    return `Required for ${formatRoleLabel(matchedRole)}`
+  }
+
+  if (template.assignment_type?.trim()) {
+    return template.assignment_type.trim()
+  }
+
+  return 'Required course'
+}
+
+function getRequiredCourseStatus(
+  completion: CourseCompletionRow | undefined,
+): RequiredCourseStatus {
+  if (!completion) {
+    return 'not_started'
+  }
+
+  if (completion.started_at && !completion.completed_at) {
+    return 'in_progress'
+  }
+
+  if (completion.completed_at && completion.passed) {
+    return 'completed'
+  }
+
+  if (completion.completed_at && !completion.passed) {
+    return 'failed'
+  }
+
+  return 'not_started'
+}
+
+function getLatestCompletionByTemplate(
+  completions: CourseCompletionRow[],
+): Map<string, CourseCompletionRow> {
+  const byTemplate = new Map<string, CourseCompletionRow>()
+
+  for (const completion of completions) {
+    const existing = byTemplate.get(completion.course_template_id)
+    if (
+      !existing ||
+      new Date(completion.created_at).getTime() >
+        new Date(existing.created_at).getTime()
+    ) {
+      byTemplate.set(completion.course_template_id, completion)
+    }
+  }
+
+  return byTemplate
+}
+
 function SectionHeading({ children }: { children: string }) {
   const { colors } = useProductConfig()
 
@@ -143,6 +301,35 @@ function SectionHeading({ children }: { children: string }) {
   )
 }
 
+function StatusBadge({
+  label,
+  tone,
+}: {
+  label: string
+  tone: 'red' | 'amber' | 'green'
+}) {
+  const { colors } = useProductConfig()
+  const styles = {
+    red: { color: colors.brand_red, backgroundColor: '#FEE2E2' },
+    amber: { color: '#92400E', backgroundColor: '#FEF3C7' },
+    green: { color: '#166534', backgroundColor: '#DCFCE7' },
+  }[tone]
+
+  return (
+    <span
+      style={{
+        fontSize: '10px',
+        fontWeight: 600,
+        borderRadius: '4px',
+        padding: '2px 6px',
+        ...styles,
+      }}
+    >
+      {label}
+    </span>
+  )
+}
+
 export default function StaffProfileCertificationsTab({
   staff,
   organizationId,
@@ -151,7 +338,9 @@ export default function StaffProfileCertificationsTab({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [loading, setLoading] = useState(true)
   const [certifications, setCertifications] = useState<StaffCertification[]>([])
-  const [courses, setCourses] = useState<CourseCompletion[]>([])
+  const [requiredCourses, setRequiredCourses] = useState<RequiredCourse[]>([])
+  const [completedCourses, setCompletedCourses] = useState<CompletedCourse[]>([])
+  const [completedCoursesExpanded, setCompletedCoursesExpanded] = useState(false)
   const [bannerDismissed, setBannerDismissed] = useState(false)
   const [showUploadForm, setShowUploadForm] = useState(false)
   const [editingCertId, setEditingCertId] = useState<string | null>(null)
@@ -200,32 +389,41 @@ export default function StaffProfileCertificationsTab({
   const loadCertificationsData = useCallback(async () => {
     if (!organizationId) {
       setCertifications([])
-      setCourses([])
+      setRequiredCourses([])
+      setCompletedCourses([])
       setLoading(false)
       return
     }
 
     setLoading(true)
 
-    const [certificationsResult, coursesResult] = await Promise.all([
-      supabase
-        .from('staff_certifications')
-        .select(
-          'id, cert_type, cert_name, issued_date, expiry_date, issued_state, document_url, is_verified, created_at',
-        )
-        .eq('organization_id', organizationId)
-        .eq('staff_phone', staff.phone)
-        .order('created_at', { ascending: false }),
-      supabase
-        .from('course_completions')
-        .select(
-          'id, course_template_id, completed_at, test_score_percent, passed, retake_count',
-        )
-        .eq('organization_id', organizationId)
-        .eq('staff_phone', staff.phone)
-        .not('completed_at', 'is', null)
-        .order('completed_at', { ascending: false }),
-    ])
+    const staffRoleKeys = getStaffRoleKeys(staff.staff_roles)
+
+    const [certificationsResult, templatesResult, completionsResult] =
+      await Promise.all([
+        supabase
+          .from('staff_certifications')
+          .select(
+            'id, cert_type, cert_name, issued_date, expiry_date, issued_state, document_url, is_verified, created_at',
+          )
+          .eq('organization_id', organizationId)
+          .eq('staff_phone', staff.phone)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('course_templates')
+          .select(
+            'id, name, is_required_for_all, required_roles, assignment_type',
+          )
+          .eq('organization_id', organizationId),
+        supabase
+          .from('course_completions')
+          .select(
+            'id, course_template_id, started_at, completed_at, test_score_percent, passed, retake_count, created_at, assignment_type',
+          )
+          .eq('organization_id', organizationId)
+          .eq('staff_phone', staff.phone)
+          .order('created_at', { ascending: false }),
+      ])
 
     if (certificationsResult.error) {
       console.error(
@@ -258,63 +456,110 @@ export default function StaffProfileCertificationsTab({
       )
     }
 
-    const courseRows = coursesResult.error ? [] : (coursesResult.data ?? [])
-    if (coursesResult.error) {
-      console.error(
-        '[StaffProfileCertifications] load courses failed',
-        coursesResult.error,
-      )
-    }
-
-    const templateIds = [
-      ...new Set(
-        courseRows
-          .map((row) => row.course_template_id)
-          .filter((id): id is string => typeof id === 'string'),
-      ),
-    ]
-
-    const templatesById = new Map<string, string>()
-    if (templateIds.length > 0) {
-      const { data: templates } = await supabase
-        .from('course_templates')
-        .select('id, name')
-        .eq('organization_id', organizationId)
-        .in('id', templateIds)
-
-      for (const template of templates ?? []) {
-        if (typeof template.id === 'string') {
-          templatesById.set(
-            template.id,
-            typeof template.name === 'string' ? template.name : 'Course',
-          )
-        }
-      }
-    }
-
-    setCourses(
-      courseRows.map((row) => ({
+    const templates: CourseTemplateRow[] = (templatesResult.data ?? []).map(
+      (row) => ({
         id: row.id as string,
-        courseName:
+        name: typeof row.name === 'string' ? row.name : 'Course',
+        is_required_for_all: Boolean(row.is_required_for_all),
+        required_roles: Array.isArray(row.required_roles)
+          ? row.required_roles.filter(
+              (role): role is string => typeof role === 'string',
+            )
+          : null,
+        assignment_type:
+          typeof row.assignment_type === 'string'
+            ? row.assignment_type
+            : null,
+      }),
+    )
+
+    const completions: CourseCompletionRow[] = (completionsResult.data ?? []).map(
+      (row) => ({
+        id: row.id as string,
+        course_template_id:
           typeof row.course_template_id === 'string'
-            ? (templatesById.get(row.course_template_id) ?? 'Course')
-            : 'Course',
-        completedAt:
-          typeof row.completed_at === 'string'
-            ? row.completed_at
-            : new Date().toISOString(),
-        testScorePercent:
+            ? row.course_template_id
+            : '',
+        started_at:
+          typeof row.started_at === 'string' ? row.started_at : null,
+        completed_at:
+          typeof row.completed_at === 'string' ? row.completed_at : null,
+        test_score_percent:
           typeof row.test_score_percent === 'number'
             ? row.test_score_percent
             : null,
         passed: Boolean(row.passed),
-        retakeCount:
+        retake_count:
           typeof row.retake_count === 'number' ? row.retake_count : 0,
+        created_at:
+          typeof row.created_at === 'string'
+            ? row.created_at
+            : new Date().toISOString(),
+        assignment_type:
+          typeof row.assignment_type === 'string'
+            ? row.assignment_type
+            : null,
+      }),
+    )
+
+    if (templatesResult.error) {
+      console.error(
+        '[StaffProfileCertifications] load course templates failed',
+        templatesResult.error,
+      )
+    }
+
+    if (completionsResult.error) {
+      console.error(
+        '[StaffProfileCertifications] load course completions failed',
+        completionsResult.error,
+      )
+    }
+
+    const templatesById = new Map(templates.map((template) => [template.id, template]))
+    const latestCompletionByTemplate = getLatestCompletionByTemplate(completions)
+
+    const applicableTemplates = templates.filter((template) =>
+      templateAppliesToStaff(template, staffRoleKeys),
+    )
+
+    setRequiredCourses(
+      applicableTemplates.map((template) => ({
+        templateId: template.id,
+        courseName: template.name,
+        status: getRequiredCourseStatus(
+          latestCompletionByTemplate.get(template.id),
+        ),
+        assignmentLabel: getAssignmentLabel(template, staffRoleKeys),
       })),
     )
 
+    const completedRows = completions
+      .filter((row) => row.completed_at)
+      .sort(
+        (left, right) =>
+          new Date(right.completed_at ?? 0).getTime() -
+          new Date(left.completed_at ?? 0).getTime(),
+      )
+
+    setCompletedCourses(
+      completedRows.map((row) => {
+        const template = templatesById.get(row.course_template_id)
+        return {
+          id: row.id,
+          courseName: template?.name ?? 'Course',
+          completedAt: row.completed_at ?? row.created_at,
+          testScorePercent: row.test_score_percent,
+          passed: row.passed,
+          retakeCount: row.retake_count,
+          assignmentType:
+            row.assignment_type ?? template?.assignment_type ?? null,
+        }
+      }),
+    )
+
     setLoading(false)
-  }, [organizationId, staff.phone])
+  }, [organizationId, staff.phone, staff.staff_roles])
 
   useEffect(() => {
     void loadCertificationsData()
@@ -455,6 +700,42 @@ export default function StaffProfileCertificationsTab({
     resetUploadForm()
     setIsSavingCert(false)
     void loadCertificationsData()
+  }
+
+  const getRequiredStatusBadge = (status: RequiredCourseStatus) => {
+    switch (status) {
+      case 'not_started':
+        return <StatusBadge label="Not Started" tone="red" />
+      case 'in_progress':
+        return <StatusBadge label="In Progress" tone="amber" />
+      case 'completed':
+        return <StatusBadge label="Completed" tone="green" />
+      case 'failed':
+        return <StatusBadge label="Failed" tone="red" />
+    }
+  }
+
+  const getRequiredCourseAction = (status: RequiredCourseStatus) => {
+    if (status === 'completed') {
+      return null
+    }
+
+    const label =
+      status === 'not_started'
+        ? 'Start'
+        : status === 'in_progress'
+          ? 'Continue'
+          : 'Retake'
+
+    return (
+      <button
+        type="button"
+        onClick={() => setToastMessage('Coming soon')}
+        style={outlineButtonStyle}
+      >
+        {label}
+      </button>
+    )
   }
 
   if (loading) {
@@ -645,12 +926,16 @@ export default function StaffProfileCertificationsTab({
                 onClick={() => fileInputRef.current?.click()}
                 style={outlineButtonStyle}
               >
-                {uploadForm.pendingFile
-                  ? uploadForm.pendingFile.name
-                  : uploadForm.documentUrl
-                    ? 'Replace Certificate Document'
-                    : 'Upload Certificate Document'}
+                Upload Certificate Document
               </button>
+              {uploadForm.pendingFile ? (
+                <p
+                  className="mt-1"
+                  style={{ fontSize: '12px', color: colors.text_muted }}
+                >
+                  {uploadForm.pendingFile.name}
+                </p>
+              ) : null}
             </div>
 
             {formError ? (
@@ -732,32 +1017,14 @@ export default function StaffProfileCertificationsTab({
                     ) : null}
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                       {isCertExpired(cert.expiry_date) ? (
-                        <span
-                          style={{
-                            fontSize: '10px',
-                            fontWeight: 600,
-                            color: colors.brand_red,
-                            backgroundColor: '#FEE2E2',
-                            borderRadius: '4px',
-                            padding: '2px 6px',
-                          }}
-                        >
-                          Expired
-                        </span>
+                        <StatusBadge label="Expired" tone="red" />
+                      ) : null}
+                      {!isCertExpired(cert.expiry_date) &&
+                      isCertExpiringSoon(cert.expiry_date) ? (
+                        <StatusBadge label="Expiring Soon" tone="amber" />
                       ) : null}
                       {cert.is_verified ? (
-                        <span
-                          style={{
-                            fontSize: '10px',
-                            fontWeight: 600,
-                            color: '#166534',
-                            backgroundColor: '#DCFCE7',
-                            borderRadius: '4px',
-                            padding: '2px 6px',
-                          }}
-                        >
-                          Verified
-                        </span>
+                        <StatusBadge label="Verified" tone="green" />
                       ) : null}
                     </div>
                   </div>
@@ -788,8 +1055,8 @@ export default function StaffProfileCertificationsTab({
       </section>
 
       <section>
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <SectionHeading>Courses</SectionHeading>
+        <SectionHeading>Required Courses</SectionHeading>
+        <div className="mb-3 flex justify-end">
           <button
             type="button"
             onClick={() => setToastMessage('Coming soon')}
@@ -805,7 +1072,7 @@ export default function StaffProfileCertificationsTab({
           </button>
         </div>
 
-        {courses.length === 0 ? (
+        {requiredCourses.length === 0 ? (
           <p
             style={{
               fontSize: '13px',
@@ -813,53 +1080,126 @@ export default function StaffProfileCertificationsTab({
               color: colors.text_muted,
             }}
           >
-            No courses completed yet
+            No required courses assigned
           </p>
         ) : (
           <div className="flex flex-col" style={{ gap: '10px' }}>
-            {courses.map((course) => (
+            {requiredCourses.map((course) => (
               <div
-                key={course.id}
-                className="flex flex-wrap items-center gap-x-3 gap-y-1"
+                key={course.templateId}
                 style={{
-                  fontSize: '13px',
-                  borderBottom: '1px solid #F3F4F6',
-                  paddingBottom: '10px',
+                  border: '1px solid #E5E7EB',
+                  borderRadius: '8px',
+                  padding: '12px',
                 }}
               >
-                <span style={{ color: colors.text_body, fontWeight: 500 }}>
-                  {course.courseName}
-                </span>
-                <span style={{ color: colors.text_muted }}>
-                  {formatDisplayDate(course.completedAt)}
-                </span>
-                {course.testScorePercent != null ? (
-                  <span style={{ color: colors.text_muted }}>
-                    {course.testScorePercent}%
-                  </span>
-                ) : null}
-                <span
-                  style={{
-                    fontSize: '10px',
-                    fontWeight: 600,
-                    color: course.passed ? '#166534' : colors.brand_red,
-                    backgroundColor: course.passed ? '#DCFCE7' : '#FEE2E2',
-                    borderRadius: '4px',
-                    padding: '2px 6px',
-                  }}
-                >
-                  {course.passed ? 'Passed' : 'Failed'}
-                </span>
-                {course.retakeCount > 0 ? (
-                  <span style={{ fontSize: '11px', color: colors.text_muted }}>
-                    Retaken {course.retakeCount} time
-                    {course.retakeCount === 1 ? '' : 's'}
-                  </span>
-                ) : null}
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p
+                        style={{
+                          fontSize: '14px',
+                          fontWeight: 600,
+                          color: colors.brand_navy,
+                        }}
+                      >
+                        {course.courseName}
+                      </p>
+                      {getRequiredStatusBadge(course.status)}
+                    </div>
+                    <p
+                      className="mt-1"
+                      style={{ fontSize: '11px', color: colors.text_muted }}
+                    >
+                      {course.assignmentLabel}
+                    </p>
+                  </div>
+                  {getRequiredCourseAction(course.status)}
+                </div>
               </div>
             ))}
           </div>
         )}
+
+        <div style={{ marginTop: '20px' }}>
+          <button
+            type="button"
+            onClick={() => setCompletedCoursesExpanded((current) => !current)}
+            className="flex w-full items-center gap-2 border-none bg-transparent p-0"
+            style={{
+              fontSize: '13px',
+              fontWeight: 600,
+              color: colors.brand_navy,
+              cursor: 'pointer',
+              textAlign: 'left',
+            }}
+          >
+            {completedCoursesExpanded ? (
+              <IconChevronDown size={16} stroke={2} />
+            ) : (
+              <IconChevronRight size={16} stroke={2} />
+            )}
+            Completed Courses ({completedCourses.length})
+          </button>
+
+          {completedCoursesExpanded ? (
+            completedCourses.length === 0 ? (
+              <p
+                className="mt-3"
+                style={{
+                  fontSize: '13px',
+                  fontStyle: 'italic',
+                  color: colors.text_muted,
+                }}
+              >
+                No courses completed yet
+              </p>
+            ) : (
+              <div className="mt-3 flex flex-col" style={{ gap: '10px' }}>
+                {completedCourses.map((course) => (
+                  <div
+                    key={course.id}
+                    className="flex flex-col gap-1"
+                    style={{
+                      fontSize: '13px',
+                      borderBottom: '1px solid #F3F4F6',
+                      paddingBottom: '10px',
+                    }}
+                  >
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <span style={{ color: colors.text_body, fontWeight: 500 }}>
+                        {course.courseName}
+                      </span>
+                      <span style={{ color: colors.text_muted }}>
+                        {formatDisplayDate(course.completedAt)}
+                      </span>
+                      {course.testScorePercent != null ? (
+                        <span style={{ color: colors.text_muted }}>
+                          {course.testScorePercent}%
+                        </span>
+                      ) : null}
+                      <StatusBadge
+                        label={course.passed ? 'Passed' : 'Failed'}
+                        tone={course.passed ? 'green' : 'red'}
+                      />
+                      {course.retakeCount > 0 ? (
+                        <span style={{ fontSize: '11px', color: colors.text_muted }}>
+                          Retaken {course.retakeCount} time
+                          {course.retakeCount === 1 ? '' : 's'}
+                        </span>
+                      ) : null}
+                    </div>
+                    {course.assignmentType ? (
+                      <span style={{ fontSize: '11px', color: colors.text_muted }}>
+                        {course.assignmentType}
+                      </span>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            )
+          ) : null}
+        </div>
       </section>
 
       {toastMessage ? (
