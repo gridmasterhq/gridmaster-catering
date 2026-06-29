@@ -14,7 +14,12 @@ const CERTIFICATION_TYPES = [
   'Custom',
 ] as const
 
-const ALCOHOL_CERT_TYPES = new Set(['TIPS', 'TIPS On Premise', 'RAMP'])
+const ALCOHOL_CERT_TYPES = new Set([
+  'TIPS',
+  'TIPS On Premise',
+  'RAMP',
+  'ServSafe — Alcohol',
+])
 
 const OVERRIDE_REASON_OPTIONS = [
   'Staff does not serve alcohol',
@@ -73,6 +78,7 @@ interface StaffCertification {
   issued_state: string | null
   document_url: string | null
   is_verified: boolean
+  is_alcohol_cert: boolean
   created_at: string
 }
 
@@ -116,6 +122,7 @@ interface CompletedCourse {
 interface UploadFormState {
   certType: CertificationType
   customName: string
+  isAlcoholCert: boolean
   issuedDate: string
   expirationDate: string
   issuedState: string
@@ -126,6 +133,7 @@ interface UploadFormState {
 const EMPTY_UPLOAD_FORM: UploadFormState = {
   certType: 'Food Handler Card',
   customName: '',
+  isAlcoholCert: false,
   issuedDate: '',
   expirationDate: '',
   issuedState: '',
@@ -177,6 +185,10 @@ function isValidAlcoholCert(cert: StaffCertification): boolean {
 }
 
 function satisfiesAlcoholCertRequirement(cert: StaffCertification): boolean {
+  if (cert.is_alcohol_cert === true) {
+    return true
+  }
+
   const normalized = cert.cert_type.trim().toLowerCase()
   if (normalized === 'tips' || normalized === 'tips_override') {
     return true
@@ -438,7 +450,7 @@ export default function StaffProfileCertificationsTab({
         supabase
           .from('staff_certifications')
           .select(
-            'id, cert_type, cert_name, issued_date, expiry_date, issued_state, document_url, is_verified, created_at',
+            'id, cert_type, cert_name, issued_date, expiry_date, issued_state, document_url, is_verified, is_alcohol_cert, created_at',
           )
           .eq('organization_id', organizationId)
           .eq('staff_phone', staff.phone)
@@ -482,6 +494,7 @@ export default function StaffProfileCertificationsTab({
           document_url:
             typeof row.document_url === 'string' ? row.document_url : null,
           is_verified: Boolean(row.is_verified),
+          is_alcohol_cert: Boolean(row.is_alcohol_cert),
           created_at:
             typeof row.created_at === 'string'
               ? row.created_at
@@ -715,6 +728,7 @@ export default function StaffProfileCertificationsTab({
           ? (cert.cert_type as CertificationType)
           : 'Custom',
         customName: cert.cert_name ?? '',
+        isAlcoholCert: cert.is_alcohol_cert,
         issuedDate: cert.issued_date?.slice(0, 10) ?? '',
         expirationDate: cert.expiry_date?.slice(0, 10) ?? '',
         issuedState: cert.issued_state ?? '',
@@ -793,6 +807,8 @@ export default function StaffProfileCertificationsTab({
       expiry_date: uploadForm.expirationDate || null,
       issued_state: uploadForm.issuedState.trim().slice(0, 2) || null,
       document_url: documentUrl,
+      is_alcohol_cert:
+        uploadForm.certType === 'Custom' ? uploadForm.isAlcoholCert : false,
     }
 
     const { error } = editingCertId
@@ -1020,12 +1036,15 @@ export default function StaffProfileCertificationsTab({
               <select
                 id="cert-type"
                 value={uploadForm.certType}
-                onChange={(event) =>
+                onChange={(event) => {
+                  const nextCertType = event.target.value as CertificationType
                   setUploadForm((previous) => ({
                     ...previous,
-                    certType: event.target.value as CertificationType,
+                    certType: nextCertType,
+                    isAlcoholCert:
+                      nextCertType === 'Custom' ? previous.isAlcoholCert : false,
                   }))
-                }
+                }}
                 style={fieldInputStyle}
               >
                 {CERTIFICATION_TYPES.map((type) => (
@@ -1055,6 +1074,27 @@ export default function StaffProfileCertificationsTab({
                   style={fieldInputStyle}
                 />
               </div>
+            ) : null}
+
+            {uploadForm.certType === 'Custom' ? (
+              <label
+                htmlFor="cert-is-alcohol"
+                className="flex items-center gap-2"
+                style={{ fontSize: '13px', color: '#374151', cursor: 'pointer' }}
+              >
+                <input
+                  id="cert-is-alcohol"
+                  type="checkbox"
+                  checked={uploadForm.isAlcoholCert}
+                  onChange={(event) =>
+                    setUploadForm((previous) => ({
+                      ...previous,
+                      isAlcoholCert: event.target.checked,
+                    }))
+                  }
+                />
+                This certifies alcohol service (satisfies bartender requirement)
+              </label>
             ) : null}
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

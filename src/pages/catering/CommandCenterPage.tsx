@@ -1106,7 +1106,7 @@ function CommandCenterPage() {
 
       const { data: certs } = await supabase
         .from('staff_certifications')
-        .select('cert_type')
+        .select('cert_type, is_alcohol_cert')
         .eq('staff_phone', phone)
         .eq('organization_id', trimmedOrgId)
 
@@ -1114,7 +1114,11 @@ function CommandCenterPage() {
         (role) => role.role_name === 'bartender',
       )
       const hasTips = (certs ?? []).some(
-        (cert) => cert.cert_type === 'tips' || cert.cert_type === 'tips_override',
+        (cert) =>
+          cert.cert_type === 'tips' ||
+          cert.cert_type === 'tips_override' ||
+          cert.cert_type === 'ServSafe — Alcohol' ||
+          cert.is_alcohol_cert === true,
       )
 
       if (isBartender && !hasTips) {
