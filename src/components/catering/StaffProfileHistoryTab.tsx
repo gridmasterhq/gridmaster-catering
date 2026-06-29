@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { IconPencil } from '@tabler/icons-react'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
 import { formatCoordinatorStaffName } from '../../lib/staffDisplayName'
 import { supabase } from '../../lib/supabase'
@@ -98,6 +99,25 @@ function formatDisplayDate(isoDate: string): string {
     day: 'numeric',
     year: 'numeric',
   })
+}
+
+function toDateInputValue(isoDate: string): string {
+  const date = new Date(isoDate)
+  if (Number.isNaN(date.getTime())) {
+    return isoDate.slice(0, 10)
+  }
+
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function sortMilestones(items: MilestoneItem[]): MilestoneItem[] {
+  return [...items].sort(
+    (left, right) =>
+      new Date(right.date).getTime() - new Date(left.date).getTime(),
+  )
 }
 
 function formatMonthYear(isoDate: string): string {
@@ -244,6 +264,10 @@ export default function StaffProfileHistoryTab({
   const [events, setEvents] = useState<EventHistoryItem[]>([])
   const [visibleEventCount, setVisibleEventCount] = useState(10)
   const [monthFilter, setMonthFilter] = useState('all')
+  const [hireDate, setHireDate] = useState(staff.created_at)
+  const [isEditingHireDate, setIsEditingHireDate] = useState(false)
+  const [draftHireDate, setDraftHireDate] = useState('')
+  const [isSavingHireDate, setIsSavingHireDate] = useState(false)
 
   const loadHistory = useCallback(async () => {
     if (!organizationId) {
@@ -259,6 +283,7 @@ export default function StaffProfileHistoryTab({
     const thirteenMonthsStart = thirteenMonthsAgo.toISOString().slice(0, 10)
 
     const [
+      staffHireDateResult,
       allTimeCountResult,
       ytdCountResult,
       staffRolesResult,
@@ -266,6 +291,12 @@ export default function StaffProfileHistoryTab({
       ratingsResult,
       assignmentsResult,
     ] = await Promise.all([
+      supabase
+        .from('staff')
+        .select('hire_date, created_at')
+        .eq('organization_id', organizationId)
+        .eq('phone', staff.phone)
+        .maybeSingle(),
       supabase
         .from('event_staff_assignments')
         .select('id', { count: 'exact', head: true })
@@ -311,11 +342,21 @@ export default function StaffProfileHistoryTab({
     setTotalEventsAllTime(allTimeCountResult.count ?? 0)
     setTotalEventsYtd(ytdCountResult.count ?? 0)
 
+    const resolvedHireDate =
+      typeof staffHireDateResult.data?.hire_date === 'string'
+        ? staffHireDateResult.data.hire_date
+        : typeof staffHireDateResult.data?.created_at === 'string'
+          ? staffHireDateResult.data.created_at
+          : staff.created_at
+
+    setHireDate(resolvedHireDate)
+    setIsEditingHireDate(false)
+
     const nextMilestones: MilestoneItem[] = [
       {
         id: 'hire',
-        date: staff.created_at,
-        label: 'Joined',
+        date: resolvedHireDate,
+        label: 'Hire Date',
       },
     ]
 
@@ -395,11 +436,7 @@ export default function StaffProfileHistoryTab({
       }
     }
 
-    nextMilestones.sort(
-      (left, right) =>
-        new Date(right.date).getTime() - new Date(left.date).getTime(),
-    )
-    setMilestones(nextMilestones)
+    setMilestones(sortMilestones(nextMilestones))
 
     const ratingRows = ratingsResult.data ?? []
     const ratingEventIds = [
@@ -596,6 +633,50 @@ export default function StaffProfileHistoryTab({
     void loadHistory()
   }, [loadHistory])
 
+  const handleStartHireDateEdit = () => {
+    setDraftHireDate(toDateInputValue(hireDate))
+    setIsEditingHireDate(true)
+  }
+
+  const handleCancelHireDateEdit = () => {
+    setDraftHireDate(toDateInputValue(hireDate))
+    setIsEditingHireDate(false)
+  }
+
+  const handleSaveHireDate = async () => {
+    if (!organizationId || !draftHireDate) {
+      return
+    }
+
+    setIsSavingHireDate(true)
+
+    const { error } = await supabase
+      .from('staff')
+      .update({ hire_date: draftHireDate })
+      .eq('organization_id', organizationId)
+      .eq('phone', staff.phone)
+
+    if (error) {
+      console.error('[StaffProfileHistory] update hire_date failed', error)
+      setIsSavingHireDate(false)
+      return
+    }
+
+    const savedHireDate = new Date(`${draftHireDate}T12:00:00`).toISOString()
+    setHireDate(savedHireDate)
+    setMilestones((previous) =>
+      sortMilestones(
+        previous.map((milestone) =>
+          milestone.id === 'hire'
+            ? { ...milestone, date: savedHireDate, label: 'Hire Date' }
+            : milestone,
+        ),
+      ),
+    )
+    setIsEditingHireDate(false)
+    setIsSavingHireDate(false)
+  }
+
   const monthFilterOptions = useMemo(() => {
     const months = new Map<string, string>()
 
@@ -686,12 +767,86 @@ export default function StaffProfileHistoryTab({
                   }}
                 />
                 <div className="flex min-w-0 flex-1 gap-3">
-                  <span
-                    className="shrink-0"
-                    style={{ width: '96px', color: colors.text_muted }}
-                  >
-                    {formatDisplayDate(milestone.date)}
-                  </span>
+                  {milestone.id === 'hire' ? (
+                    <div
+                      className="flex shrink-0 items-center gap-1"
+                      style={{ minWidth: '96px' }}
+                    >
+                      {isEditingHireDate ? (
+                        <div className="flex flex-wrap items-center gap-2">
+                          <input
+                            type="date"
+                            value={draftHireDate}
+                            onChange={(event) =>
+                              setDraftHireDate(event.target.value)
+                            }
+                            disabled={isSavingHireDate}
+                            style={{
+                              fontSize: '12px',
+                              color: colors.text_body,
+                              border: '1px solid #E5E7EB',
+                              borderRadius: '6px',
+                              padding: '4px 6px',
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => void handleSaveHireDate()}
+                            disabled={isSavingHireDate || !draftHireDate}
+                            className="border-none bg-transparent p-0 hover:opacity-80"
+                            style={{
+                              fontSize: '12px',
+                              color: colors.brand_navy,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleCancelHireDateEdit}
+                            disabled={isSavingHireDate}
+                            className="border-none bg-transparent p-0 hover:opacity-80"
+                            style={{
+                              fontSize: '12px',
+                              color: colors.text_muted,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <span style={{ color: colors.text_muted }}>
+                            {formatDisplayDate(hireDate)}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={handleStartHireDateEdit}
+                            className="rounded p-0.5 hover:opacity-80"
+                            style={{
+                              color: colors.brand_navy,
+                              border: 'none',
+                              background: 'none',
+                              cursor: 'pointer',
+                              lineHeight: 0,
+                            }}
+                            aria-label="Edit hire date"
+                          >
+                            <IconPencil size={14} stroke={2} />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  ) : (
+                    <span
+                      className="shrink-0"
+                      style={{ width: '96px', color: colors.text_muted }}
+                    >
+                      {formatDisplayDate(milestone.date)}
+                    </span>
+                  )}
                   <span style={{ color: colors.text_body }}>{milestone.label}</span>
                 </div>
               </div>
