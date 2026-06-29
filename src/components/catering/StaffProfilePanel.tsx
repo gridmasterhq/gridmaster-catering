@@ -767,38 +767,23 @@ export default function StaffProfilePanel({
             onMinimize={handleMinimize}
             onClose={handleCloseProfile}
             leading={
-              <>
-                {hasEditableFields ? (
-                  <button
-                    type="button"
-                    style={{
-                      backgroundColor: '#ffffff',
-                      color: NAVY,
-                      fontSize: '12px',
-                      fontWeight: 500,
-                      borderRadius: '6px',
-                      padding: '6px 14px',
-                      border: 'none',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Save Changes
-                  </button>
-                ) : null}
-                {!hasUnsavedInlineEditsState ? (
-                  <button
-                    type="button"
-                    onClick={handleCloseProfile}
-                    className="border-none bg-transparent p-0"
-                    style={{
-                      ...headerTextButtonStyle,
-                      color: 'rgba(255,255,255,0.75)',
-                    }}
-                  >
-                    Close
-                  </button>
-                ) : null}
-              </>
+              hasEditableFields ? (
+                <button
+                  type="button"
+                  style={{
+                    backgroundColor: '#ffffff',
+                    color: NAVY,
+                    fontSize: '12px',
+                    fontWeight: 500,
+                    borderRadius: '6px',
+                    padding: '6px 14px',
+                    border: 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Save Changes
+                </button>
+              ) : undefined
             }
             replaceActions={
               hasUnsavedInlineEditsState ? (
