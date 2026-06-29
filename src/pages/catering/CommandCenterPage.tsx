@@ -283,6 +283,7 @@ function SnoozePopover({
 interface SnoozedItemRow {
   id: string
   event_id: string | null
+  action_item_id: string | null
   item_type: string
   snooze_until: string
   actionItem: {
@@ -375,7 +376,7 @@ function ActionItemsSnoozedPanel({
         const nowIso = new Date().toISOString()
         const { data, error } = await supabase
           .from('action_item_snoozes')
-          .select('id, event_id, item_type, snooze_until')
+          .select('id, event_id, action_item_id, item_type, snooze_until')
           .eq('organization_id', organizationId.trim())
           .gt('snooze_until', nowIso)
           .order('snooze_until', { ascending: true })
@@ -389,7 +390,11 @@ function ActionItemsSnoozedPanel({
           setSnoozedItems([])
         } else {
           const snoozeRows = data ?? []
-          const itemIds = snoozeRows
+          const actionItemIds = snoozeRows
+            .map((row) => row.action_item_id)
+            .filter((id): id is string => typeof id === 'string' && id.length > 0)
+
+          const legacyEventIds = snoozeRows
             .map((row) => row.event_id)
             .filter((id): id is string => typeof id === 'string' && id.length > 0)
 
@@ -398,11 +403,11 @@ function ActionItemsSnoozedPanel({
             NonNullable<SnoozedItemRow['actionItem']>
           >()
 
-          if (itemIds.length > 0) {
+          if (actionItemIds.length > 0) {
             const { data: actionItems, error: actionItemsError } = await supabase
               .from('action_items')
               .select('id, title, description, entity_id, deep_link, category')
-              .in('id', itemIds)
+              .in('id', actionItemIds)
 
             if (actionItemsError) {
               console.error(
@@ -429,17 +434,16 @@ function ActionItemsSnoozedPanel({
             }
           }
 
-          const unresolvedEventIds = itemIds.filter((id) => !actionItemsById.has(id))
           const eventsById = new Map<
             string,
             NonNullable<SnoozedItemRow['events']>[number]
           >()
 
-          if (unresolvedEventIds.length > 0) {
+          if (legacyEventIds.length > 0) {
             const { data: events, error: eventsError } = await supabase
               .from('events')
               .select('id, event_name, event_date, created_at, status')
-              .in('id', unresolvedEventIds)
+              .in('id', legacyEventIds)
 
             if (eventsError) {
               console.error(
@@ -468,6 +472,8 @@ function ActionItemsSnoozedPanel({
             snoozeRows.map((row) => {
               const eventId =
                 typeof row.event_id === 'string' ? row.event_id : null
+              const actionItemId =
+                typeof row.action_item_id === 'string' ? row.action_item_id : null
               const legacyEvent =
                 eventId && eventsById.has(eventId)
                   ? [eventsById.get(eventId)!]
@@ -476,11 +482,14 @@ function ActionItemsSnoozedPanel({
               return {
                 id: row.id as string,
                 event_id: eventId,
+                action_item_id: actionItemId,
                 item_type:
                   typeof row.item_type === 'string' ? row.item_type : '',
                 snooze_until:
                   typeof row.snooze_until === 'string' ? row.snooze_until : '',
-                actionItem: eventId ? actionItemsById.get(eventId) ?? null : null,
+                actionItem: actionItemId
+                  ? actionItemsById.get(actionItemId) ?? null
+                  : null,
                 events: legacyEvent,
               }
             }),
@@ -512,7 +521,7 @@ function ActionItemsSnoozedPanel({
       return next
     })
 
-    onRestored(row.event_id)
+    onRestored(row.action_item_id ?? row.event_id)
     setSnoozedItems((previous) => previous.filter((item) => item.id !== row.id))
 
     const { error } = await supabase
@@ -522,7 +531,7 @@ function ActionItemsSnoozedPanel({
 
     if (error) {
       console.error('[CommandCenter] snooze restore failed', error)
-      onRestoreUndone(row.event_id)
+      onRestoreUndone(row.action_item_id ?? row.event_id)
       setSnoozedItems((previous) => {
         const restored = [...previous, row]
         restored.sort(
@@ -1190,7 +1199,7 @@ function CommandCenterPage() {
       const nowIso = new Date().toISOString()
       const { data: snoozeData, error: snoozeError } = await supabase
         .from('action_item_snoozes')
-        .select('event_id')
+        .select('event_id, action_item_id')
         .eq('organization_id', organizationId.trim())
         .gt('snooze_until', nowIso)
 
@@ -1203,6 +1212,12 @@ function CommandCenterPage() {
         console.error('[CommandCenter] snoozed actions query failed', snoozeError)
       } else {
         for (const row of snoozeData ?? []) {
+          if (
+            typeof row.action_item_id === 'string' &&
+            row.action_item_id.length > 0
+          ) {
+            localSnoozedItemIds.add(row.action_item_id)
+          }
           if (typeof row.event_id === 'string' && row.event_id.length > 0) {
             localSnoozedItemIds.add(row.event_id)
           }
@@ -1601,7 +1616,7 @@ function CommandCenterPage() {
       const { error } = await supabase.from('action_item_snoozes').insert({
         organization_id: organizationId.trim(),
         item_type: item.category,
-        event_id: item.id,
+        action_item_id: item.id,
         snooze_until: snoozeUntil.toISOString(),
       })
 
