@@ -16,9 +16,9 @@ import { useActiveScreen, useOverlay } from '../../components/shared/AppShell'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
 import { formatDateForInput } from '../../lib/dateUtils'
 import {
-  loadOpenStaffComplianceActionItems,
-  STAFF_COMPLIANCE_ITEM_TYPE,
-  type StaffComplianceActionItemRow,
+  loadActiveActionItems,
+  STAFF_COMPLIANCE_CATEGORY,
+  type ActionItemRow,
 } from '../../lib/staffCompliance'
 import {
   openStaffProfileNavigation,
@@ -874,8 +874,8 @@ function CommandCenterPage() {
   const { openOverlay } = useOverlay()
   const [eventCount, setEventCount] = useState<number | null>(null)
   const [draftActionItems, setDraftActionItems] = useState<DraftActionEvent[]>([])
-  const [staffComplianceActionItems, setStaffComplianceActionItems] = useState<
-    StaffComplianceActionItemRow[]
+  const [persistedActionItems, setPersistedActionItems] = useState<
+    ActionItemRow[]
   >([])
   const [archivedEventIds, setArchivedEventIds] = useState<Set<string>>(new Set())
   const [snoozedEventIds, setSnoozedEventIds] = useState<Set<string>>(new Set())
@@ -1055,7 +1055,7 @@ function CommandCenterPage() {
     }
   }, [])
 
-  const fetchStaffComplianceActionItems = useCallback(async () => {
+  const fetchPersistedActionItems = useCallback(async () => {
     try {
       const {
         data: { user },
@@ -1064,29 +1064,27 @@ function CommandCenterPage() {
 
       if (userError) {
         console.error(
-          '[CommandCenter] staff compliance actions: getUser failed',
+          '[CommandCenter] persisted actions: getUser failed',
           userError,
         )
-        setStaffComplianceActionItems([])
+        setPersistedActionItems([])
         return
       }
 
       const organizationId = user?.user_metadata?.organization_id
       if (typeof organizationId !== 'string' || !organizationId.trim()) {
-        setStaffComplianceActionItems([])
+        setPersistedActionItems([])
         return
       }
 
-      const items = await loadOpenStaffComplianceActionItems(
-        organizationId.trim(),
-      )
-      setStaffComplianceActionItems(items)
+      const items = await loadActiveActionItems(organizationId.trim())
+      setPersistedActionItems(items)
     } catch (error) {
       console.error(
-        '[CommandCenter] staff compliance actions unexpected error',
+        '[CommandCenter] persisted actions unexpected error',
         error,
       )
-      setStaffComplianceActionItems([])
+      setPersistedActionItems([])
     }
   }, [])
 
@@ -1094,12 +1092,12 @@ function CommandCenterPage() {
     void fetchDraftActionItems()
     void fetchArchivedEventIds()
     void fetchDismissedEventIds()
-    void fetchStaffComplianceActionItems()
+    void fetchPersistedActionItems()
 
     const intervalId = window.setInterval(() => {
       void fetchDraftActionItems()
       void fetchDismissedEventIds()
-      void fetchStaffComplianceActionItems()
+      void fetchPersistedActionItems()
     }, DRAFT_ACTION_REFRESH_MS)
 
     return () => {
@@ -1109,7 +1107,7 @@ function CommandCenterPage() {
     fetchDraftActionItems,
     fetchArchivedEventIds,
     fetchDismissedEventIds,
-    fetchStaffComplianceActionItems,
+    fetchPersistedActionItems,
   ])
 
   useEffect(() => {
@@ -1176,22 +1174,20 @@ function CommandCenterPage() {
     return true
   })
 
-  const visibleStaffComplianceActionItems = staffComplianceActionItems.filter(
-    (item) => {
-      if (dismissedEventIds.has(item.id)) {
-        return false
-      }
-      if (snoozedEventIds.has(item.id)) {
-        return false
-      }
-      return true
-    },
-  )
+  const visiblePersistedActionItems = persistedActionItems.filter((item) => {
+    if (dismissedEventIds.has(item.id)) {
+      return false
+    }
+    if (snoozedEventIds.has(item.id)) {
+      return false
+    }
+    return true
+  })
 
   const actionItemCount =
-    visibleDraftActionItems.length + visibleStaffComplianceActionItems.length
+    visibleDraftActionItems.length + visiblePersistedActionItems.length
 
-  const handleViewStaffProfile = (item: StaffComplianceActionItemRow) => {
+  const handleViewStaffProfile = (item: ActionItemRow) => {
     const parsed = parseStaffProfileDeepLink(item.deep_link)
     if (!parsed) {
       return
@@ -1342,8 +1338,8 @@ function CommandCenterPage() {
     }
   }
 
-  const handleSnoozeStaffComplianceItem = async (
-    item: StaffComplianceActionItemRow,
+  const handleSnoozePersistedActionItem = async (
+    item: ActionItemRow,
     days: number,
   ) => {
     snoozedFetchGenerationRef.current += 1
@@ -1391,7 +1387,7 @@ function CommandCenterPage() {
 
       const { error } = await supabase.from('action_item_snoozes').insert({
         organization_id: organizationId.trim(),
-        item_type: STAFF_COMPLIANCE_ITEM_TYPE,
+        item_type: item.category,
         event_id: item.id,
         snooze_until: snoozeUntil.toISOString(),
       })
@@ -1427,9 +1423,7 @@ function CommandCenterPage() {
     }
   }
 
-  const handleDismissStaffComplianceItem = async (
-    item: StaffComplianceActionItemRow,
-  ) => {
+  const handleDismissPersistedActionItem = async (item: ActionItemRow) => {
     try {
       const {
         data: { user },
@@ -1464,7 +1458,7 @@ function CommandCenterPage() {
 
       const { error } = await supabase.from('action_item_dismissals').insert({
         organization_id: organizationId.trim(),
-        item_type: STAFF_COMPLIANCE_ITEM_TYPE,
+        item_type: item.category,
         event_id: item.id,
         dismissed_by: dismissedBy,
       })
@@ -1655,7 +1649,7 @@ function CommandCenterPage() {
             }
           />
           {visibleDraftActionItems.length === 0 &&
-          visibleStaffComplianceActionItems.length === 0 ? (
+          visiblePersistedActionItems.length === 0 ? (
             <BoxItemRow>
               <div
                 className="flex w-full items-center justify-center text-gray-400"
@@ -1798,7 +1792,7 @@ function CommandCenterPage() {
               </div>
               )
             })}
-            {visibleStaffComplianceActionItems.map((item) => (
+            {visiblePersistedActionItems.map((item) => (
               <div
                 key={item.id}
                 style={{
@@ -1847,29 +1841,31 @@ function CommandCenterPage() {
                   className="flex shrink-0 items-center"
                   style={{ gap: '12px' }}
                 >
-                  <button
-                    type="button"
-                    onClick={() => handleViewStaffProfile(item)}
-                    className="hover:underline"
-                    style={{
-                      fontSize: '12px',
-                      color: '#1B3A5C',
-                      cursor: 'pointer',
-                      background: 'none',
-                      border: 'none',
-                      padding: 0,
-                      textDecoration: 'underline',
-                    }}
-                  >
-                    View Profile
-                  </button>
+                  {item.category === STAFF_COMPLIANCE_CATEGORY ? (
+                    <button
+                      type="button"
+                      onClick={() => handleViewStaffProfile(item)}
+                      className="hover:underline"
+                      style={{
+                        fontSize: '12px',
+                        color: '#1B3A5C',
+                        cursor: 'pointer',
+                        background: 'none',
+                        border: 'none',
+                        padding: 0,
+                        textDecoration: 'underline',
+                      }}
+                    >
+                      View Profile
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     onClick={(clickEvent) => {
                       setSnoozePopover({
                         eventId: item.id,
                         anchorEl: clickEvent.currentTarget,
-                        itemType: STAFF_COMPLIANCE_ITEM_TYPE,
+                        itemType: item.category,
                       })
                     }}
                     style={{
@@ -1885,7 +1881,7 @@ function CommandCenterPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => void handleDismissStaffComplianceItem(item)}
+                    onClick={() => void handleDismissPersistedActionItem(item)}
                     style={{
                       fontSize: '12px',
                       color: '#6B7280',
@@ -2138,13 +2134,11 @@ function CommandCenterPage() {
           onClose={() => setSnoozePopover(null)}
           onSelect={(days) => {
             setSnoozePopover(null)
-            if (snoozePopover.itemType === STAFF_COMPLIANCE_ITEM_TYPE) {
-              const item = staffComplianceActionItems.find(
-                (entry) => entry.id === snoozePopover.eventId,
-              )
-              if (item) {
-                void handleSnoozeStaffComplianceItem(item, days)
-              }
+            const persistedItem = persistedActionItems.find(
+              (entry) => entry.id === snoozePopover.eventId,
+            )
+            if (persistedItem) {
+              void handleSnoozePersistedActionItem(persistedItem, days)
               return
             }
 

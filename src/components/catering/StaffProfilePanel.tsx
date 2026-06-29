@@ -16,7 +16,8 @@ import StaffProfileCertificationsTab from './StaffProfileCertificationsTab'
 import StaffRatingBadge from '../shared/StaffRatingBadge'
 import { formatCoordinatorStaffName } from '../../lib/staffDisplayName'
 import {
-  fetchStaffComplianceIssues,
+  detectStaffComplianceIssues,
+  loadStaffComplianceData,
   syncStaffComplianceActionItems,
   type StaffComplianceIssue,
 } from '../../lib/staffCompliance'
@@ -516,13 +517,13 @@ export default function StaffProfilePanel({
     }
 
     try {
-      const issues = await fetchStaffComplianceIssues(orgId, staff.phone)
-      setComplianceIssues(issues)
+      const data = await loadStaffComplianceData(orgId, staff.phone)
+      setComplianceIssues(detectStaffComplianceIssues(data))
       await syncStaffComplianceActionItems(
         orgId,
         staff.phone,
         getStaffDisplayName(staff),
-        issues,
+        data,
       )
     } catch (error) {
       console.error('[StaffProfile] compliance sync unexpected error', error)

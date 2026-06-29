@@ -1,13 +1,20 @@
 import { supabase } from './supabase'
-import { buildStaffProfileDeepLink } from './staffProfileNavigation'
+import { buildStaffCertificationsDeepLink } from './staffProfileNavigation'
 
 const ALCOHOL_CERT_TYPES = new Set(['TIPS', 'TIPS On Premise', 'RAMP'])
+export const STAFF_COMPLIANCE_CATEGORY = 'staff_compliance'
+export const STAFF_COMPLIANCE_ITEM_TYPE = STAFF_COMPLIANCE_CATEGORY
 
 export type StaffComplianceIssueType =
   | 'missing_alcohol_cert'
   | 'overdue_required_course'
   | 'cert_expiring_soon'
   | 'cert_expired'
+
+export type StaffComplianceEntityType =
+  | 'staff'
+  | 'staff_cert'
+  | 'course_completion'
 
 export type StaffCompliancePriority = 'high' | 'normal'
 
@@ -31,9 +38,13 @@ export interface CourseTemplateRow {
 }
 
 export interface CourseCompletionRow {
+  id: string
   course_template_id: string
+  assigned_at: string | null
+  deadline_at: string | null
   started_at: string | null
   completed_at: string | null
+  passed: boolean | null
   created_at: string
 }
 
@@ -44,6 +55,14 @@ export interface StaffComplianceIssue {
   alertLabel: string
   titleSuffix: string
   priority: StaffCompliancePriority
+}
+
+export interface StaffComplianceActionItemCondition {
+  entityType: StaffComplianceEntityType
+  entityId: string
+  title: string
+  priority: StaffCompliancePriority
+  deepLink: string
 }
 
 export interface StaffComplianceData {
@@ -157,11 +176,58 @@ function isRequiredCourseOverdue(
     return false
   }
 
-  const assignedAt = new Date(completion.created_at)
+  const assignedAt = new Date(completion.assigned_at ?? completion.created_at)
   const sevenDaysAgo = new Date()
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
 
   return assignedAt <= sevenDaysAgo
+}
+
+function getCourseName(
+  completion: CourseCompletionRow,
+  templatesById: Map<string, CourseTemplateRow>,
+): string {
+  return templatesById.get(completion.course_template_id)?.name ?? 'Course'
+}
+
+function isCourseNotStartedOverdue(completion: CourseCompletionRow): boolean {
+  if (completion.completed_at) {
+    return false
+  }
+
+  if (completion.passed !== null) {
+    return false
+  }
+
+  const assignedAt = new Date(completion.assigned_at ?? completion.created_at)
+  const sevenDaysAgo = new Date()
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+
+  return assignedAt < sevenDaysAgo
+}
+
+function isCourseDeadlineInFourDays(completion: CourseCompletionRow): boolean {
+  if (completion.completed_at) {
+    return false
+  }
+
+  if (!completion.deadline_at) {
+    return false
+  }
+
+  const deadlineDate = completion.deadline_at.slice(0, 10)
+  const today = todayIsoDate()
+
+  if (deadlineDate < today) {
+    return false
+  }
+
+  const deadline = new Date(`${deadlineDate}T12:00:00`)
+  const todayAtNoon = new Date(`${today}T12:00:00`)
+  const fourDaysFromNow = new Date(todayAtNoon)
+  fourDaysFromNow.setDate(fourDaysFromNow.getDate() + 4)
+
+  return deadline <= fourDaysFromNow
 }
 
 export function detectStaffComplianceIssues(
@@ -237,6 +303,89 @@ export function detectStaffComplianceIssues(
   return issues
 }
 
+export function detectStaffComplianceActionItemConditions(
+  data: StaffComplianceData,
+  staffPhone: string,
+  staffDisplayName: string,
+): StaffComplianceActionItemCondition[] {
+  const conditions: StaffComplianceActionItemCondition[] = []
+  const deepLink = buildStaffCertificationsDeepLink(staffPhone)
+  const templatesById = new Map(
+    data.courseTemplates.map((template) => [template.id, template]),
+  )
+
+  if (
+    hasBartenderRole(data.staffRoles) &&
+    !data.certifications.some(isValidAlcoholCert)
+  ) {
+    conditions.push({
+      entityType: 'staff',
+      entityId: staffPhone,
+      title: `${staffDisplayName} — No valid alcohol service cert on file`,
+      priority: 'high',
+      deepLink,
+    })
+  }
+
+  for (const cert of data.certifications) {
+    const certName = getCertDisplayName(cert)
+
+    if (isCertExpired(cert.expiry_date)) {
+      conditions.push({
+        entityType: 'staff_cert',
+        entityId: cert.id,
+        title: `${staffDisplayName} — Cert expired: ${certName}`,
+        priority: 'high',
+        deepLink,
+      })
+      continue
+    }
+
+    if (isCertExpiringSoon(cert.expiry_date)) {
+      conditions.push({
+        entityType: 'staff_cert',
+        entityId: cert.id,
+        title: `${staffDisplayName} — Cert expiring soon: ${certName}`,
+        priority: 'normal',
+        deepLink,
+      })
+    }
+  }
+
+  for (const completion of data.courseCompletions) {
+    const courseName = getCourseName(completion, templatesById)
+
+    if (isCourseDeadlineInFourDays(completion)) {
+      conditions.push({
+        entityType: 'course_completion',
+        entityId: completion.id,
+        title: `${staffDisplayName} — Course deadline in 4 days: ${courseName}`,
+        priority: 'high',
+        deepLink,
+      })
+      continue
+    }
+
+    if (isCourseNotStartedOverdue(completion)) {
+      conditions.push({
+        entityType: 'course_completion',
+        entityId: completion.id,
+        title: `${staffDisplayName} — Required course overdue: ${courseName}`,
+        priority: 'normal',
+        deepLink,
+      })
+    }
+  }
+
+  return conditions
+}
+
+function getActionItemConditionKey(
+  condition: StaffComplianceActionItemCondition,
+): string {
+  return `${condition.entityType}:${condition.entityId}`
+}
+
 export async function loadStaffComplianceData(
   organizationId: string,
   staffPhone: string,
@@ -259,7 +408,9 @@ export async function loadStaffComplianceData(
         .eq('organization_id', organizationId),
       supabase
         .from('course_completions')
-        .select('course_template_id, started_at, completed_at, created_at')
+        .select(
+          'id, course_template_id, assigned_at, deadline_at, started_at, completed_at, passed, created_at',
+        )
         .eq('organization_id', organizationId)
         .eq('staff_phone', staffPhone),
     ])
@@ -287,14 +438,20 @@ export async function loadStaffComplianceData(
         : null,
     })),
     courseCompletions: (completionsResult.data ?? []).map((row) => ({
+      id: row.id as string,
       course_template_id:
         typeof row.course_template_id === 'string'
           ? row.course_template_id
           : '',
+      assigned_at:
+        typeof row.assigned_at === 'string' ? row.assigned_at : null,
+      deadline_at:
+        typeof row.deadline_at === 'string' ? row.deadline_at : null,
       started_at:
         typeof row.started_at === 'string' ? row.started_at : null,
       completed_at:
         typeof row.completed_at === 'string' ? row.completed_at : null,
+      passed: typeof row.passed === 'boolean' ? row.passed : null,
       created_at:
         typeof row.created_at === 'string'
           ? row.created_at
@@ -311,49 +468,95 @@ export async function fetchStaffComplianceIssues(
   return detectStaffComplianceIssues(data)
 }
 
-export interface StaffComplianceActionItemRow {
+export interface ActionItemRow {
   id: string
-  staff_phone: string
-  issue_type: string
   category: string
+  entity_type: string
+  entity_id: string
   title: string
   priority: string
   deep_link: string
-  reference_key: string
+  auto_resolves: boolean
   status: string
+}
+
+export type StaffComplianceActionItemRow = ActionItemRow
+
+function isStaffScopedActionItem(
+  item: ActionItemRow,
+  staffPhone: string,
+  certIds: Set<string>,
+  completionIds: Set<string>,
+): boolean {
+  if (item.entity_type === 'staff' && item.entity_id === staffPhone) {
+    return true
+  }
+
+  if (item.entity_type === 'staff_cert' && certIds.has(item.entity_id)) {
+    return true
+  }
+
+  if (
+    item.entity_type === 'course_completion' &&
+    completionIds.has(item.entity_id)
+  ) {
+    return true
+  }
+
+  return false
 }
 
 export async function syncStaffComplianceActionItems(
   organizationId: string,
   staffPhone: string,
   staffDisplayName: string,
-  issues: StaffComplianceIssue[],
+  data?: StaffComplianceData,
 ): Promise<void> {
-  const issueKeys = new Set(
-    issues.map((issue) => `${issue.type}:${issue.referenceKey}`),
+  const complianceData =
+    data ?? (await loadStaffComplianceData(organizationId, staffPhone))
+  const conditions = detectStaffComplianceActionItemConditions(
+    complianceData,
+    staffPhone,
+    staffDisplayName,
+  )
+  const conditionKeys = new Set(conditions.map(getActionItemConditionKey))
+
+  const certIds = new Set(complianceData.certifications.map((cert) => cert.id))
+  const completionIds = new Set(
+    complianceData.courseCompletions.map((completion) => completion.id),
   )
 
-  const { data: openItems, error: openItemsError } = await supabase
+  const { data: activeItems, error: activeItemsError } = await supabase
     .from('action_items')
-    .select('id, issue_type, reference_key, status')
+    .select('id, entity_type, entity_id, status')
     .eq('organization_id', organizationId)
-    .eq('staff_phone', staffPhone)
-    .eq('category', 'staff_compliance')
-    .eq('status', 'open')
+    .eq('category', STAFF_COMPLIANCE_CATEGORY)
+    .eq('status', 'active')
 
-  if (openItemsError) {
+  if (activeItemsError) {
     console.error(
-      '[StaffCompliance] load open action items failed',
-      openItemsError,
+      '[StaffCompliance] load active action items failed',
+      activeItemsError,
     )
     return
   }
 
   const nowIso = new Date().toISOString()
 
-  for (const item of openItems ?? []) {
-    const key = `${item.issue_type}:${item.reference_key ?? ''}`
-    if (!issueKeys.has(key)) {
+  for (const item of activeItems ?? []) {
+    if (
+      !isStaffScopedActionItem(
+        item as ActionItemRow,
+        staffPhone,
+        certIds,
+        completionIds,
+      )
+    ) {
+      continue
+    }
+
+    const key = `${item.entity_type}:${item.entity_id}`
+    if (!conditionKeys.has(key)) {
       const { error } = await supabase
         .from('action_items')
         .update({
@@ -370,64 +573,60 @@ export async function syncStaffComplianceActionItems(
     }
   }
 
-  for (const issue of issues) {
-    const alreadyOpen = (openItems ?? []).some(
-      (item) =>
-        item.issue_type === issue.type &&
-        (item.reference_key ?? '') === issue.referenceKey,
+  for (const condition of conditions) {
+    const { error } = await supabase.from('action_items').upsert(
+      {
+        organization_id: organizationId,
+        category: STAFF_COMPLIANCE_CATEGORY,
+        entity_type: condition.entityType,
+        entity_id: condition.entityId,
+        title: condition.title,
+        priority: condition.priority,
+        deep_link: condition.deepLink,
+        auto_resolves: true,
+        status: 'active',
+        resolved_at: null,
+        updated_at: nowIso,
+      },
+      {
+        onConflict: 'organization_id,category,entity_type,entity_id',
+        ignoreDuplicates: false,
+      },
     )
 
-    if (alreadyOpen) {
-      continue
-    }
-
-    const { error } = await supabase.from('action_items').insert({
-      organization_id: organizationId,
-      staff_phone: staffPhone,
-      issue_type: issue.type,
-      category: 'staff_compliance',
-      title: `${staffDisplayName} — ${issue.titleSuffix}`,
-      priority: issue.priority,
-      deep_link: buildStaffProfileDeepLink(
-        staffPhone,
-        'certifications',
-        issue.scrollTarget,
-      ),
-      reference_key: issue.referenceKey,
-      status: 'open',
-    })
-
-    if (error && error.code !== '23505') {
-      console.error('[StaffCompliance] create action item failed', error)
+    if (error) {
+      console.error('[StaffCompliance] upsert action item failed', error)
     }
   }
 }
 
-export async function loadOpenStaffComplianceActionItems(
+export async function loadActiveActionItems(
   organizationId: string,
-): Promise<StaffComplianceActionItemRow[]> {
+): Promise<ActionItemRow[]> {
   const { data, error } = await supabase
     .from('action_items')
     .select(
-      'id, staff_phone, issue_type, category, title, priority, deep_link, reference_key, status',
+      'id, category, entity_type, entity_id, title, priority, deep_link, auto_resolves, status',
     )
     .eq('organization_id', organizationId)
-    .eq('category', 'staff_compliance')
-    .eq('status', 'open')
+    .eq('status', 'active')
     .order('created_at', { ascending: false })
 
   if (error) {
-    console.error(
-      '[StaffCompliance] load org action items failed',
-      error,
-    )
+    console.error('[StaffCompliance] load active action items failed', error)
     return []
   }
 
-  return (data ?? []) as StaffComplianceActionItemRow[]
+  return (data ?? []) as ActionItemRow[]
 }
 
-export const STAFF_COMPLIANCE_ITEM_TYPE = 'staff_compliance'
+/** @deprecated Use loadActiveActionItems */
+export async function loadOpenStaffComplianceActionItems(
+  organizationId: string,
+): Promise<ActionItemRow[]> {
+  const items = await loadActiveActionItems(organizationId)
+  return items.filter((item) => item.category === STAFF_COMPLIANCE_CATEGORY)
+}
 
 export function getStaffComplianceActionItemKey(actionItemId: string): string {
   return `staff-compliance:${actionItemId}`

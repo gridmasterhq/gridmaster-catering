@@ -1,18 +1,18 @@
 CREATE TABLE public.action_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID NOT NULL,
-  staff_phone TEXT NOT NULL,
-  issue_type TEXT NOT NULL,
-  category TEXT NOT NULL DEFAULT 'staff_compliance',
+  category TEXT NOT NULL,
+  entity_type TEXT NOT NULL,
+  entity_id TEXT NOT NULL,
   title TEXT NOT NULL,
   priority TEXT NOT NULL CHECK (priority IN ('high', 'normal')),
   deep_link TEXT NOT NULL,
-  reference_key TEXT NOT NULL DEFAULT '',
-  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'resolved')),
+  auto_resolves BOOLEAN NOT NULL DEFAULT false,
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'resolved')),
   resolved_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE (organization_id, staff_phone, issue_type, reference_key)
+  UNIQUE (organization_id, category, entity_type, entity_id)
 );
 
 ALTER TABLE public.action_items ENABLE ROW LEVEL SECURITY;
