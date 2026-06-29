@@ -1310,13 +1310,13 @@ function CommandCenterPage() {
 
     openOverlay('staff')
 
-    window.requestAnimationFrame(() => {
+    window.setTimeout(() => {
       openStaffProfileNavigation({
         phone: parsed.phone,
         tab: parsed.tab ?? 'certifications',
         scrollTarget: parsed.scroll,
       })
-    })
+    }, 150)
   }
 
   const handleSnoozeComplianceActionItem = async (
@@ -1661,7 +1661,7 @@ function CommandCenterPage() {
         className="grid grid-cols-2"
         style={{ gap: '10px' }}
       >
-        <div id="command-center-action-items">
+        <div id="command-center-action-items" style={{ scrollMarginTop: 60 }}>
         <CommandCenterBox fullWidth>
           <BoxHeader
             label={labels.cc_action_items}

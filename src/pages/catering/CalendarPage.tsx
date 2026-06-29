@@ -4,6 +4,7 @@ import {
   useState,
   type MouseEvent,
 } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import type { EventType } from '../../lib/productConfig'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
 import { useOverlay, useActiveScreen, type NewEventOpenMode } from '../../components/shared/AppShell'
@@ -286,6 +287,8 @@ function isWithinNext30Days(eventDate: Date, today: Date): boolean {
 function CalendarPage() {
   const { labels, navigation, event_types } = useProductConfig()
   const { setActiveScreen } = useActiveScreen()
+  const navigate = useNavigate()
+  const location = useLocation()
 
   const eventTypeColorMap = useMemo(
     () => new Map(event_types.map((type) => [type.value, type])),
@@ -374,10 +377,19 @@ function CalendarPage() {
       return isWithinNext30Days(parseEventDate(event.event_date), today)
     })
 
+    const allUpcoming = events.filter((event) => {
+      if (event.is_cancelled) {
+        return false
+      }
+      return parseEventDate(event.event_date) >= today
+    })
+
     return {
       upcoming: upcoming.length,
-      needsAttention: upcoming.filter((event) => event.status === 'draft')
-        .length,
+      needsAttention: allUpcoming.filter(
+        (event) =>
+          event.status === 'draft' || event.status === 'needs_attention',
+      ).length,
       fullyStaffed: upcoming.filter((event) => event.status === 'confirmed')
         .length,
     }
@@ -427,7 +439,7 @@ function CalendarPage() {
     setActiveDate(startOfDay(new Date()))
   }
 
-  const { openOverlay } = useOverlay()
+  const { openOverlay, closeOverlay } = useOverlay()
 
   const openNewEventOverlay = (
     mode?: NewEventOpenMode,
@@ -457,6 +469,10 @@ function CalendarPage() {
 
   const handleNeedsAttentionClick = () => {
     setActiveScreen('cc')
+    closeOverlay()
+    if (location.pathname !== '/') {
+      navigate('/')
+    }
     window.setTimeout(() => {
       document.getElementById('command-center-action-items')?.scrollIntoView({
         behavior: 'smooth',
