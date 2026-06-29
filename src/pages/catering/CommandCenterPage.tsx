@@ -54,7 +54,7 @@ const EVENT_ACTION_ITEM_CATEGORIES = new Set([
 ])
 
 const STAFF_ACTION_ITEM_CATEGORIES = new Set([
-  'staff_compliance',
+  STAFF_COMPLIANCE_CATEGORY,
   'cert_expiring',
   'course_overdue',
 ])
@@ -862,16 +862,6 @@ const headerStyle: CSSProperties = {
   fontWeight: 500,
 }
 
-const itemRowStyle: CSSProperties = {
-  padding: '7px 12px',
-  fontSize: '11px',
-  borderBottom: '0.5px solid #f3f4f6',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  gap: '6px',
-}
-
 const countBadgeStyle: CSSProperties = {
   backgroundColor: 'rgba(0, 0, 0, 0.08)',
   borderRadius: '10px',
@@ -914,35 +904,6 @@ function BoxHeader({ label, backgroundColor, color, right }: BoxHeaderProps) {
     <div style={{ ...headerStyle, backgroundColor, color }}>
       <span>{label}</span>
       {right ?? null}
-    </div>
-  )
-}
-
-interface BoxItemRowProps {
-  children: ReactNode
-  onClick?: () => void
-}
-
-function BoxItemRow({ children, onClick }: BoxItemRowProps) {
-  return (
-    <div
-      className="hover:bg-gray-50"
-      style={itemRowStyle}
-      onClick={onClick}
-      onKeyDown={
-        onClick
-          ? (event) => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault()
-                onClick()
-              }
-            }
-          : undefined
-      }
-      role={onClick ? 'button' : undefined}
-      tabIndex={onClick ? 0 : undefined}
-    >
-      {children}
     </div>
   )
 }
