@@ -914,10 +914,10 @@ export default function StaffProfilePanel({
                   return (
                     <div
                       key={role.roleName}
-                      className="flex items-center gap-2"
+                      className="flex items-center"
                       style={{ fontSize: '13px', color: colors.text_body }}
                     >
-                      <label className="flex min-w-0 flex-1 items-center gap-2">
+                      <label className="flex shrink-0 items-center gap-2">
                         <input
                           type="checkbox"
                           checked={isChecked}
@@ -935,6 +935,7 @@ export default function StaffProfilePanel({
                             borderRadius: '4px',
                             padding: '2px 6px',
                             flexShrink: 0,
+                            marginLeft: '12px',
                           }}
                         >
                           Primary
@@ -951,6 +952,7 @@ export default function StaffProfilePanel({
                             color: colors.text_muted,
                             cursor: 'pointer',
                             flexShrink: 0,
+                            marginLeft: '12px',
                           }}
                         >
                           Set as Primary
