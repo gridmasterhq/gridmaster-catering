@@ -18,7 +18,7 @@ import { formatCoordinatorStaffName } from '../../lib/staffDisplayName'
 import {
   detectStaffComplianceIssues,
   loadStaffComplianceData,
-  syncStaffComplianceActionItems,
+  syncBartenderTipsComplianceForStaff,
   type StaffComplianceIssue,
 } from '../../lib/staffCompliance'
 import { useMinimizablePanel } from '../../hooks/useMinimizablePanel'
@@ -519,11 +519,12 @@ export default function StaffProfilePanel({
     try {
       const data = await loadStaffComplianceData(orgId, staff.phone)
       setComplianceIssues(detectStaffComplianceIssues(data))
-      await syncStaffComplianceActionItems(
+      await syncBartenderTipsComplianceForStaff(
         orgId,
         staff.phone,
         getStaffDisplayName(staff),
-        data,
+        data.staffRoles,
+        data.certifications,
       )
     } catch (error) {
       console.error('[StaffProfile] compliance sync unexpected error', error)
