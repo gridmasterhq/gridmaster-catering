@@ -20,24 +20,39 @@ import { useTabManager } from '../TabManager'
 const NAVY = '#1B3A5C'
 const STAFF_PROFILE_Z_INDEX = 302
 
-const ROLE_OPTIONS = [
-  'Server',
-  'Bartender',
-  'Bar Back',
-  'Food Runner',
-  'Captain',
-  'CIT',
-  'Setup Crew',
-  'Breakdown Crew',
-  'Line Cook',
-  'Prep Cook',
-  'Dishwasher',
-  'Kitchen Runner',
-  'Sous Chef',
-  'Lead Chef',
-  'Driver',
-  'Ops Lead',
-] as const
+const ROLE_EDITOR_OPTIONS: { roleName: string; label: string }[] = [
+  { roleName: 'Server', label: 'Server' },
+  { roleName: 'Bartender', label: 'Bartender' },
+  { roleName: 'Bar Back', label: 'Bar Back' },
+  { roleName: 'Food Runner', label: 'Food Runner' },
+  { roleName: 'Captain', label: 'Captain' },
+  { roleName: 'cit', label: 'Captain In Training (CIT)' },
+  { roleName: 'Setup Crew', label: 'Setup Crew' },
+  { roleName: 'Breakdown Crew', label: 'Breakdown Crew' },
+  { roleName: 'Line Cook', label: 'Line Cook' },
+  { roleName: 'Prep Cook', label: 'Prep Cook' },
+  { roleName: 'Dishwasher', label: 'Dishwasher' },
+  { roleName: 'Kitchen Runner', label: 'Kitchen Runner' },
+  { roleName: 'Sous Chef', label: 'Sous Chef' },
+  { roleName: 'Lead Chef', label: 'Lead Chef' },
+  { roleName: 'Driver', label: 'Driver' },
+  { roleName: 'Ops Lead', label: 'Ops Lead' },
+  { roleName: 'trainer', label: 'Trainer' },
+]
+
+function normalizeLoadedRoleName(roleName: string): string {
+  const trimmed = roleName.trim()
+  const lower = trimmed.toLowerCase()
+
+  if (lower === 'cit') {
+    return 'cit'
+  }
+  if (lower === 'trainer') {
+    return 'trainer'
+  }
+
+  return trimmed
+}
 
 type StaffStatus = 'active' | 'alumni' | 'not_active' | 'archived'
 
@@ -336,12 +351,64 @@ export default function StaffProfilePanel({
   }
 
   const openRoleEditor = () => {
-    const currentRoles = normalizeStaffRoles(staff.staff_roles).map(
-      (row) => row.role,
-    )
-    setEditorRoles(currentRoles)
+    void loadRoleEditorRoles()
+  }
+
+  const resolveOrganizationId = async (): Promise<string | null> => {
+    if (organizationId) {
+      return organizationId
+    }
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    const orgId = user?.user_metadata?.organization_id
+    if (typeof orgId !== 'string' || !orgId.trim()) {
+      return null
+    }
+
+    const resolved = orgId.trim()
+    setOrganizationId(resolved)
+    return resolved
+  }
+
+  const loadRoleEditorRoles = async () => {
     setRoleEditorError(null)
     setShowRoleEditor(true)
+
+    const orgId = await resolveOrganizationId()
+    if (!orgId) {
+      setEditorRoles(
+        normalizeStaffRoles(staff.staff_roles).map((row) =>
+          normalizeLoadedRoleName(row.role),
+        ),
+      )
+      return
+    }
+
+    const { data, error } = await supabase
+      .from('staff_roles')
+      .select('role_name')
+      .eq('organization_id', orgId)
+      .eq('staff_phone', staff.phone)
+
+    if (error) {
+      console.error('[StaffProfile] load staff_roles failed', error)
+      setEditorRoles(
+        normalizeStaffRoles(staff.staff_roles).map((row) =>
+          normalizeLoadedRoleName(row.role),
+        ),
+      )
+      return
+    }
+
+    setEditorRoles(
+      (data ?? []).map((row) =>
+        normalizeLoadedRoleName(
+          typeof row.role_name === 'string' ? row.role_name : '',
+        ),
+      ),
+    )
   }
 
   const cancelRoleEditor = () => {
@@ -358,7 +425,8 @@ export default function StaffProfilePanel({
   }
 
   const handleSaveRoles = async () => {
-    if (!organizationId) {
+    const orgId = await resolveOrganizationId()
+    if (!orgId) {
       return
     }
 
@@ -372,17 +440,21 @@ export default function StaffProfilePanel({
 
     try {
       const previousRoles = normalizeStaffRoles(staff.staff_roles)
-      const previousPrimary =
-        previousRoles.find((row) => row.is_primary)?.role ?? previousRoles[0]?.role
+      const previousPrimary = normalizeLoadedRoleName(
+        previousRoles.find((row) => row.is_primary)?.role ??
+          previousRoles[0]?.role ??
+          '',
+      )
       const primaryRole =
         previousPrimary && editorRoles.includes(previousPrimary)
           ? previousPrimary
           : editorRoles[0]
+      const trainerIsPrimary = primaryRole === 'trainer'
 
       const { error: deleteError } = await supabase
         .from('staff_roles')
         .delete()
-        .eq('organization_id', organizationId)
+        .eq('organization_id', orgId)
         .eq('staff_phone', staff.phone)
 
       if (deleteError) {
@@ -393,7 +465,7 @@ export default function StaffProfilePanel({
 
       const roleRows = editorRoles.map((role) => ({
         staff_phone: staff.phone,
-        organization_id: organizationId,
+        organization_id: orgId,
         role_name: role,
         is_primary: role === primaryRole,
       }))
@@ -404,6 +476,23 @@ export default function StaffProfilePanel({
 
       if (insertError) {
         console.error('[StaffProfile] insert staff_roles failed', insertError)
+        setRoleEditorError('Failed to save roles — please try again.')
+        return
+      }
+
+      const { error: staffUpdateError } = await supabase
+        .from('staff')
+        .update({
+          is_trainer: trainerIsPrimary,
+          trainer_designated_at: trainerIsPrimary
+            ? new Date().toISOString()
+            : null,
+        })
+        .eq('organization_id', orgId)
+        .eq('phone', staff.phone)
+
+      if (staffUpdateError) {
+        console.error('[StaffProfile] update trainer status failed', staffUpdateError)
         setRoleEditorError('Failed to save roles — please try again.')
         return
       }
@@ -651,18 +740,18 @@ export default function StaffProfilePanel({
                 className="flex flex-col"
                 style={{ gap: '8px', maxHeight: '200px', overflowY: 'auto' }}
               >
-                {ROLE_OPTIONS.map((role) => (
+                {ROLE_EDITOR_OPTIONS.map((role) => (
                   <label
-                    key={role}
+                    key={role.roleName}
                     className="flex items-center gap-2"
                     style={{ fontSize: '13px', color: colors.text_body }}
                   >
                     <input
                       type="checkbox"
-                      checked={editorRoles.includes(role)}
-                      onChange={() => toggleEditorRole(role)}
+                      checked={editorRoles.includes(role.roleName)}
+                      onChange={() => toggleEditorRole(role.roleName)}
                     />
-                    {role}
+                    {role.label}
                   </label>
                 ))}
               </div>
