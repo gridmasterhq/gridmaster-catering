@@ -47,6 +47,18 @@ interface DraftActionEvent {
 
 const DRAFT_EVENT_ITEM_TYPE = 'draft_event'
 
+const EVENT_ACTION_ITEM_CATEGORIES = new Set([
+  'draft_event',
+  'understaffed_risk',
+  'staff_dropout',
+])
+
+const STAFF_ACTION_ITEM_CATEGORIES = new Set([
+  'staff_compliance',
+  'cert_expiring',
+  'course_overdue',
+])
+
 function getTwoDaysFromTodayDate(): string {
   const date = new Date()
   date.setDate(date.getDate() + 2)
@@ -112,25 +124,41 @@ function getDraftActionTitle(event: DraftActionEvent): string {
     : event.event_name
 }
 
-function isSystemResolvableItemType(itemType: string): boolean {
-  return itemType === DRAFT_EVENT_ITEM_TYPE
+function buildDraftEventActionItemPayload(
+  organizationId: string,
+  event: DraftActionEvent,
+) {
+  return {
+    organization_id: organizationId,
+    category: DRAFT_EVENT_ITEM_TYPE,
+    priority: 'high' as const,
+    status: 'open',
+    title: getDraftActionTitle(event),
+    description: getDraftActionSubtext(event),
+    entity_type: 'event',
+    entity_id: event.id,
+    deep_link: `/event/${event.id}`,
+    auto_resolves: true,
+  }
 }
 
-function isSnoozeFiltered(
-  event: DraftActionEvent,
-  snoozedEventIds: Set<string>,
+function isPersistedActionItemVisible(
+  item: PersistedActionItemRow,
+  snoozedItemIds: Set<string>,
+  draftEventDatesByEntityId: Record<string, string>,
 ): boolean {
-  if (!snoozedEventIds.has(event.id)) {
-    return false
+  if (!snoozedItemIds.has(item.id)) {
+    return true
   }
 
-  if (
-    isEventDateWithinTwoDays(event.event_date)
-  ) {
-    return false
+  if (item.category === DRAFT_EVENT_ITEM_TYPE && item.entity_id) {
+    const eventDate = draftEventDatesByEntityId[item.entity_id]
+    if (eventDate && isEventDateWithinTwoDays(eventDate)) {
+      return true
+    }
   }
 
-  return true
+  return false
 }
 
 function getSnoozeWakeUpLabel(snoozeUntil: string): string {
@@ -242,6 +270,13 @@ interface SnoozedItemRow {
   event_id: string | null
   item_type: string
   snooze_until: string
+  actionItem: {
+    title: string
+    description: string | null
+    entity_id: string
+    deep_link: string
+    category: string
+  } | null
   events: {
     id: string
     event_name: string
@@ -325,9 +360,7 @@ function ActionItemsSnoozedPanel({
         const nowIso = new Date().toISOString()
         const { data, error } = await supabase
           .from('action_item_snoozes')
-          .select(
-            'id, event_id, item_type, snooze_until, events(id, event_name, event_date, created_at, status)',
-          )
+          .select('id, event_id, item_type, snooze_until')
           .eq('organization_id', organizationId.trim())
           .gt('snooze_until', nowIso)
           .order('snooze_until', { ascending: true })
@@ -340,22 +373,101 @@ function ActionItemsSnoozedPanel({
           console.error('[CommandCenter] snoozed panel load failed', error)
           setSnoozedItems([])
         } else {
+          const snoozeRows = data ?? []
+          const itemIds = snoozeRows
+            .map((row) => row.event_id)
+            .filter((id): id is string => typeof id === 'string' && id.length > 0)
+
+          const actionItemsById = new Map<
+            string,
+            NonNullable<SnoozedItemRow['actionItem']>
+          >()
+
+          if (itemIds.length > 0) {
+            const { data: actionItems, error: actionItemsError } = await supabase
+              .from('action_items')
+              .select('id, title, description, entity_id, deep_link, category')
+              .in('id', itemIds)
+
+            if (actionItemsError) {
+              console.error(
+                '[CommandCenter] snoozed panel action items load failed',
+                actionItemsError,
+              )
+            } else {
+              for (const row of actionItems ?? []) {
+                if (typeof row.id !== 'string') {
+                  continue
+                }
+                actionItemsById.set(row.id, {
+                  title: typeof row.title === 'string' ? row.title : 'Unknown item',
+                  description:
+                    typeof row.description === 'string' ? row.description : null,
+                  entity_id:
+                    typeof row.entity_id === 'string' ? row.entity_id : '',
+                  deep_link:
+                    typeof row.deep_link === 'string' ? row.deep_link : '',
+                  category:
+                    typeof row.category === 'string' ? row.category : '',
+                })
+              }
+            }
+          }
+
+          const unresolvedEventIds = itemIds.filter((id) => !actionItemsById.has(id))
+          const eventsById = new Map<
+            string,
+            NonNullable<SnoozedItemRow['events']>[number]
+          >()
+
+          if (unresolvedEventIds.length > 0) {
+            const { data: events, error: eventsError } = await supabase
+              .from('events')
+              .select('id, event_name, event_date, created_at, status')
+              .in('id', unresolvedEventIds)
+
+            if (eventsError) {
+              console.error(
+                '[CommandCenter] snoozed panel events load failed',
+                eventsError,
+              )
+            } else {
+              for (const row of events ?? []) {
+                if (typeof row.id === 'string') {
+                  eventsById.set(row.id, {
+                    id: row.id,
+                    event_name:
+                      typeof row.event_name === 'string' ? row.event_name : '',
+                    event_date:
+                      typeof row.event_date === 'string' ? row.event_date : '',
+                    created_at:
+                      typeof row.created_at === 'string' ? row.created_at : '',
+                    status: typeof row.status === 'string' ? row.status : '',
+                  })
+                }
+              }
+            }
+          }
+
           setSnoozedItems(
-            (data ?? []).map((row) => {
-              const rawEvents = row.events as
-                | SnoozedItemRow['events']
-                | NonNullable<SnoozedItemRow['events']>[number]
-                | null
+            snoozeRows.map((row) => {
+              const eventId =
+                typeof row.event_id === 'string' ? row.event_id : null
+              const legacyEvent =
+                eventId && eventsById.has(eventId)
+                  ? [eventsById.get(eventId)!]
+                  : null
 
               return {
-                ...row,
-                events:
-                  rawEvents == null
-                    ? null
-                    : Array.isArray(rawEvents)
-                      ? rawEvents
-                      : [rawEvents],
-              } as SnoozedItemRow
+                id: row.id as string,
+                event_id: eventId,
+                item_type:
+                  typeof row.item_type === 'string' ? row.item_type : '',
+                snooze_until:
+                  typeof row.snooze_until === 'string' ? row.snooze_until : '',
+                actionItem: eventId ? actionItemsById.get(eventId) ?? null : null,
+                events: legacyEvent,
+              }
             }),
           )
         }
@@ -547,24 +659,34 @@ function ActionItemsSnoozedPanel({
             </div>
           ) : (
             snoozedItems.map((snoozeItem) => {
-              const title = snoozeItem.events?.[0]?.event_name
-                ? getDraftActionTitle({
-                    id: snoozeItem.events[0].id,
-                    event_name: snoozeItem.events[0].event_name,
-                    event_date: snoozeItem.events[0].event_date,
-                    created_at: snoozeItem.events[0].created_at,
-                    status: snoozeItem.events[0].status,
-                  })
-                : 'Unknown event'
-              const reasonSubtext = snoozeItem.events?.[0]?.event_name
-                ? getDraftActionSubtext({
-                    id: snoozeItem.events[0].id,
-                    event_name: snoozeItem.events[0].event_name,
-                    event_date: snoozeItem.events[0].event_date,
-                    created_at: snoozeItem.events[0].created_at,
-                    status: snoozeItem.events[0].status,
-                  })
-                : null
+              const legacyEvent = snoozeItem.events?.[0]
+              const title = snoozeItem.actionItem?.title
+                ? snoozeItem.actionItem.title
+                : legacyEvent?.event_name
+                  ? getDraftActionTitle({
+                      id: legacyEvent.id,
+                      event_name: legacyEvent.event_name,
+                      event_date: legacyEvent.event_date,
+                      created_at: legacyEvent.created_at,
+                      status: legacyEvent.status,
+                    })
+                  : 'Unknown item'
+              const reasonSubtext = snoozeItem.actionItem?.description
+                ? snoozeItem.actionItem.description
+                : legacyEvent?.event_name
+                  ? getDraftActionSubtext({
+                      id: legacyEvent.id,
+                      event_name: legacyEvent.event_name,
+                      event_date: legacyEvent.event_date,
+                      created_at: legacyEvent.created_at,
+                      status: legacyEvent.status,
+                    })
+                  : null
+              const reviewEventId =
+                snoozeItem.actionItem &&
+                EVENT_ACTION_ITEM_CATEGORIES.has(snoozeItem.actionItem.category)
+                  ? snoozeItem.actionItem.entity_id
+                  : legacyEvent?.id ?? null
 
               return (
                 <div
@@ -578,11 +700,11 @@ function ActionItemsSnoozedPanel({
                   }}
                 >
                   <div className="min-w-0 flex-1">
-                    {snoozeItem.event_id ? (
+                    {reviewEventId ? (
                       <button
                         type="button"
                         onClick={() =>
-                          window.open(`/event/${snoozeItem.event_id}`, '_blank')
+                          window.open(`/event/${reviewEventId}`, '_blank')
                         }
                         className="text-left hover:underline"
                         style={{
@@ -825,6 +947,137 @@ function BoxItemRow({ children, onClick }: BoxItemRowProps) {
   )
 }
 
+interface ActionItemsColumnProps {
+  columnLabel: string
+  items: PersistedActionItemRow[]
+  expanded: boolean
+  onToggleExpand: () => void
+  actionItemErrors: Record<string, string>
+  renderActions: (item: PersistedActionItemRow) => ReactNode
+}
+
+function ActionItemsColumn({
+  columnLabel,
+  items,
+  expanded,
+  onToggleExpand,
+  actionItemErrors,
+  renderActions,
+}: ActionItemsColumnProps) {
+  const visibleLimit = expanded ? 12 : 6
+  const visibleItems = items.slice(0, visibleLimit)
+  const showMoreLink = items.length > 6 && !expanded
+  const showScroll = expanded && items.length > 6
+
+  return (
+    <div
+      style={{
+        ...boxStyle,
+        border: 'none',
+        borderRadius: '6px',
+        overflow: 'hidden',
+      }}
+    >
+      <BoxHeader
+        label={columnLabel}
+        backgroundColor="#fee2e2"
+        color="#991b1b"
+      />
+      {items.length === 0 ? (
+        <p
+          className="text-center italic text-gray-400"
+          style={{ fontSize: '12px', padding: '24px 12px' }}
+        >
+          You&apos;re all caught up!
+        </p>
+      ) : (
+        <>
+          <div
+            style={{
+              maxHeight: showScroll ? '320px' : undefined,
+              overflowY: showScroll ? 'auto' : undefined,
+            }}
+          >
+            {visibleItems.map((item) => (
+              <div
+                key={item.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  padding: '10px 12px',
+                  borderBottom: '0.5px solid #f3f4f6',
+                }}
+              >
+                <span
+                  aria-hidden="true"
+                  style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    backgroundColor: '#C0392B',
+                    flexShrink: 0,
+                  }}
+                />
+                <div className="min-w-0 flex-1">
+                  <p
+                    style={{
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      color: '#1B3A5C',
+                      lineHeight: 1.3,
+                    }}
+                  >
+                    {item.title}
+                  </p>
+                  {actionItemErrors[item.id] ? (
+                    <p
+                      style={{
+                        fontSize: '12px',
+                        color: '#ef4444',
+                        marginTop: '4px',
+                        lineHeight: 1.3,
+                      }}
+                    >
+                      {actionItemErrors[item.id]}
+                    </p>
+                  ) : null}
+                </div>
+                <div
+                  className="flex shrink-0 items-center"
+                  style={{ gap: '12px' }}
+                >
+                  {renderActions(item)}
+                </div>
+              </div>
+            ))}
+          </div>
+          {showMoreLink ? (
+            <div style={{ padding: '10px 12px', textAlign: 'center' }}>
+              <button
+                type="button"
+                onClick={onToggleExpand}
+                className="hover:underline"
+                style={{
+                  fontSize: '12px',
+                  color: '#1B3A5C',
+                  cursor: 'pointer',
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  fontWeight: 500,
+                }}
+              >
+                Show more
+              </button>
+            </div>
+          ) : null}
+        </>
+      )}
+    </div>
+  )
+}
+
 interface ToolGridItemProps {
   icon: Icon
   title: string
@@ -882,62 +1135,24 @@ function CommandCenterPage() {
   const { setActiveScreen } = useActiveScreen()
   const { openOverlay } = useOverlay()
   const [eventCount, setEventCount] = useState<number | null>(null)
-  const [draftActionItems, setDraftActionItems] = useState<DraftActionEvent[]>([])
   const [persistedActionItems, setPersistedActionItems] = useState<
     PersistedActionItemRow[]
   >([])
-  const [archivedEventIds, setArchivedEventIds] = useState<Set<string>>(new Set())
+  const [draftEventDatesByEntityId, setDraftEventDatesByEntityId] = useState<
+    Record<string, string>
+  >({})
   const [snoozedEventIds, setSnoozedEventIds] = useState<Set<string>>(new Set())
-  const [dismissedEventIds, setDismissedEventIds] = useState<Set<string>>(new Set())
   const [actionItemErrors, setActionItemErrors] = useState<Record<string, string>>({})
+  const [eventActionItemsExpanded, setEventActionItemsExpanded] = useState(false)
+  const [staffActionItemsExpanded, setStaffActionItemsExpanded] = useState(false)
   const [snoozePopover, setSnoozePopover] = useState<{
-    eventId: string
+    itemId: string
     anchorEl: HTMLElement
-    itemType?: string
   } | null>(null)
   const [snoozedPanelOpen, setSnoozedPanelOpen] = useState(false)
   const snoozedFetchGenerationRef = useRef(0)
 
-  const fetchArchivedEventIds = useCallback(async () => {
-    try {
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser()
-
-      if (userError) {
-        console.error('[CommandCenter] archived actions: getUser failed', userError)
-        return
-      }
-
-      const organizationId = user?.user_metadata?.organization_id
-      if (typeof organizationId !== 'string' || !organizationId.trim()) {
-        return
-      }
-
-      const { data, error } = await supabase
-        .from('action_item_archives')
-        .select('event_id')
-        .eq('organization_id', organizationId.trim())
-
-      if (error) {
-        console.error('[CommandCenter] archived actions query failed', error)
-        return
-      }
-
-      const ids = new Set<string>()
-      for (const row of data ?? []) {
-        if (typeof row.event_id === 'string' && row.event_id.length > 0) {
-          ids.add(row.event_id)
-        }
-      }
-      setArchivedEventIds(ids)
-    } catch (error) {
-      console.error('[CommandCenter] archived actions unexpected error', error)
-    }
-  }, [])
-
-  const fetchDraftActionItems = useCallback(async () => {
+  const fetchSnoozedItemIds = useCallback(async () => {
     const fetchGenerationAtStart = snoozedFetchGenerationRef.current
 
     try {
@@ -947,120 +1162,140 @@ function CommandCenterPage() {
       } = await supabase.auth.getUser()
 
       if (userError) {
-        console.error('[CommandCenter] draft actions: getUser failed', userError)
-        setDraftActionItems([])
+        console.error('[CommandCenter] snoozed actions: getUser failed', userError)
         return
       }
 
       const organizationId = user?.user_metadata?.organization_id
       if (typeof organizationId !== 'string' || !organizationId.trim()) {
-        console.error(
-          '[CommandCenter] draft actions: missing organization_id in user_metadata',
-          user?.user_metadata,
-        )
-        setDraftActionItems([])
         return
       }
 
-      const orgId = organizationId.trim()
       const nowIso = new Date().toISOString()
       const { data: snoozeData, error: snoozeError } = await supabase
         .from('action_item_snoozes')
         .select('event_id')
-        .eq('organization_id', orgId)
+        .eq('organization_id', organizationId.trim())
         .gt('snooze_until', nowIso)
 
       if (fetchGenerationAtStart !== snoozedFetchGenerationRef.current) {
         return
       }
 
-      const localSnoozedEventIds = new Set<string>()
+      const localSnoozedItemIds = new Set<string>()
       if (snoozeError) {
         console.error('[CommandCenter] snoozed actions query failed', snoozeError)
       } else {
         for (const row of snoozeData ?? []) {
           if (typeof row.event_id === 'string' && row.event_id.length > 0) {
-            localSnoozedEventIds.add(row.event_id)
+            localSnoozedItemIds.add(row.event_id)
           }
         }
       }
 
-      setSnoozedEventIds(localSnoozedEventIds)
-
-      const fortyEightHoursAgo = new Date(
-        Date.now() - 48 * 60 * 60 * 1000,
-      ).toISOString()
-      const twoDaysFromNow = new Date(
-        Date.now() + 2 * 24 * 60 * 60 * 1000,
-      )
-        .toISOString()
-        .split('T')[0]
-
-      const { data, error } = await supabase
-        .from('events')
-        .select('id, event_name, event_date, created_at, status')
-        .eq('organization_id', orgId)
-        .eq('status', 'draft')
-        .or(`created_at.lte.${fortyEightHoursAgo},event_date.lte.${twoDaysFromNow}`)
-        .order('event_date', { ascending: true })
-
-      if (fetchGenerationAtStart !== snoozedFetchGenerationRef.current) {
-        return
-      }
-
-      if (error) {
-        console.error('[CommandCenter] draft actions query failed', error)
-        setDraftActionItems([])
-        return
-      }
-
-      const drafts = (data ?? []) as DraftActionEvent[]
-      const activeDrafts = drafts.filter(
-        (event) => !isSnoozeFiltered(event, localSnoozedEventIds),
-      )
-      setDraftActionItems(activeDrafts)
+      setSnoozedEventIds(localSnoozedItemIds)
     } catch (error) {
-      console.error('[CommandCenter] draft actions unexpected error', error)
-      setDraftActionItems([])
+      console.error('[CommandCenter] snoozed actions unexpected error', error)
     }
   }, [])
 
-  const fetchDismissedEventIds = useCallback(async () => {
-    try {
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser()
+  const syncDraftEventActionItems = useCallback(async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+    const orgId = session?.user?.user_metadata?.organization_id
 
-      if (userError) {
-        console.error('[CommandCenter] dismissed actions: getUser failed', userError)
-        return
+    if (typeof orgId !== 'string' || !orgId.trim()) {
+      return
+    }
+
+    const trimmedOrgId = orgId.trim()
+    const today = formatDateForInput(new Date())
+    const fortyEightHoursAgo = new Date(
+      Date.now() - 48 * 60 * 60 * 1000,
+    ).toISOString()
+    const twoDaysFromNow = getTwoDaysFromTodayDate()
+
+    const { data: events, error: eventsError } = await supabase
+      .from('events')
+      .select('id, event_name, event_date, created_at, status, is_cancelled')
+      .eq('organization_id', trimmedOrgId)
+      .eq('status', 'draft')
+      .eq('is_cancelled', false)
+      .gte('event_date', today)
+      .or(`created_at.lte.${fortyEightHoursAgo},event_date.lte.${twoDaysFromNow}`)
+
+    if (eventsError) {
+      console.error('[CommandCenter] draft event sync query failed', eventsError)
+      return
+    }
+
+    const qualifyingEvents = (events ?? []).map((row) => ({
+      id: row.id as string,
+      event_name:
+        typeof row.event_name === 'string' ? row.event_name : 'Untitled event',
+      event_date:
+        typeof row.event_date === 'string' ? row.event_date : today,
+      created_at:
+        typeof row.created_at === 'string'
+          ? row.created_at
+          : new Date().toISOString(),
+      status: typeof row.status === 'string' ? row.status : 'draft',
+    })) as DraftActionEvent[]
+
+    const qualifyingIds = new Set(qualifyingEvents.map((event) => event.id))
+    const datesByEntityId: Record<string, string> = {}
+    for (const event of qualifyingEvents) {
+      datesByEntityId[event.id] = event.event_date
+    }
+    setDraftEventDatesByEntityId(datesByEntityId)
+
+    for (const event of qualifyingEvents) {
+      const { error: upsertError } = await supabase.from('action_items').upsert(
+        buildDraftEventActionItemPayload(trimmedOrgId, event),
+        { onConflict: 'organization_id,entity_id,category' },
+      )
+
+      if (upsertError) {
+        console.error(
+          '[CommandCenter] draft event action item upsert failed',
+          upsertError,
+        )
+      }
+    }
+
+    const { data: existingDraftItems, error: existingError } = await supabase
+      .from('action_items')
+      .select('id, entity_id')
+      .eq('organization_id', trimmedOrgId)
+      .eq('category', DRAFT_EVENT_ITEM_TYPE)
+
+    if (existingError) {
+      console.error(
+        '[CommandCenter] draft event action item cleanup query failed',
+        existingError,
+      )
+      return
+    }
+
+    for (const row of existingDraftItems ?? []) {
+      const entityId = typeof row.entity_id === 'string' ? row.entity_id : ''
+      const itemId = typeof row.id === 'string' ? row.id : ''
+      if (!entityId || !itemId || qualifyingIds.has(entityId)) {
+        continue
       }
 
-      const organizationId = user?.user_metadata?.organization_id
-      if (typeof organizationId !== 'string' || !organizationId.trim()) {
-        return
-      }
+      const { error: deleteError } = await supabase
+        .from('action_items')
+        .delete()
+        .eq('id', itemId)
 
-      const { data, error } = await supabase
-        .from('action_item_dismissals')
-        .select('event_id')
-        .eq('organization_id', organizationId.trim())
-
-      if (error) {
-        console.error('[CommandCenter] dismissed actions query failed', error)
-        return
+      if (deleteError) {
+        console.error(
+          '[CommandCenter] draft event action item delete failed',
+          deleteError,
+        )
       }
-
-      const ids = new Set<string>()
-      for (const row of data ?? []) {
-        if (typeof row.event_id === 'string' && row.event_id.length > 0) {
-          ids.add(row.event_id)
-        }
-      }
-      setDismissedEventIds(ids)
-    } catch (error) {
-      console.error('[CommandCenter] dismissed actions unexpected error', error)
     }
   }, [])
 
@@ -1192,21 +1427,19 @@ function CommandCenterPage() {
   }, [])
 
   useEffect(() => {
-    void fetchDraftActionItems()
-    void fetchArchivedEventIds()
-    void fetchDismissedEventIds()
-
     void (async () => {
+      await syncDraftEventActionItems()
       await runComplianceScan()
       await fetchOpenActionItems()
+      await fetchSnoozedItemIds()
     })()
 
     const intervalId = window.setInterval(() => {
-      void fetchDraftActionItems()
-      void fetchDismissedEventIds()
       void (async () => {
+        await syncDraftEventActionItems()
         await runComplianceScan()
         await fetchOpenActionItems()
+        await fetchSnoozedItemIds()
       })()
     }, DRAFT_ACTION_REFRESH_MS)
 
@@ -1214,11 +1447,10 @@ function CommandCenterPage() {
       window.clearInterval(intervalId)
     }
   }, [
-    fetchDraftActionItems,
-    fetchArchivedEventIds,
-    fetchDismissedEventIds,
     fetchOpenActionItems,
+    fetchSnoozedItemIds,
     runComplianceScan,
+    syncDraftEventActionItems,
   ])
 
   useEffect(() => {
@@ -1272,35 +1504,24 @@ function CommandCenterPage() {
   const competingEventsLabel =
     navigation.red.find((item) => item.id === 'competing_events')?.label ?? ''
 
-  const visibleDraftActionItems = draftActionItems.filter((event) => {
-    if (archivedEventIds.has(event.id)) {
-      return false
-    }
-    if (dismissedEventIds.has(event.id)) {
-      return false
-    }
-    if (isSnoozeFiltered(event, snoozedEventIds)) {
-      return false
-    }
-    return true
-  })
+  const visibleOpenActionItems = persistedActionItems.filter((item) =>
+    isPersistedActionItemVisible(
+      item,
+      snoozedEventIds,
+      draftEventDatesByEntityId,
+    ),
+  )
 
-  const visibleOpenActionItems = persistedActionItems.filter((item) => {
-    if (dismissedEventIds.has(item.id)) {
-      return false
-    }
-    if (snoozedEventIds.has(item.id)) {
-      return false
-    }
-    return true
-  })
+  const visibleEventActionItems = visibleOpenActionItems.filter((item) =>
+    EVENT_ACTION_ITEM_CATEGORIES.has(item.category),
+  )
 
-  const visibleStaffComplianceActionItems = visibleOpenActionItems.filter(
-    (item) => item.category === STAFF_COMPLIANCE_CATEGORY,
+  const visibleStaffActionItems = visibleOpenActionItems.filter((item) =>
+    STAFF_ACTION_ITEM_CATEGORIES.has(item.category),
   )
 
   const actionItemCount =
-    visibleDraftActionItems.length + visibleOpenActionItems.length
+    visibleEventActionItems.length + visibleStaffActionItems.length
 
   const handleViewStaffProfile = (item: PersistedActionItemRow) => {
     const parsed = parseStaffProfileDeepLink(item.deep_link)
@@ -1317,7 +1538,7 @@ function CommandCenterPage() {
     }, 150)
   }
 
-  const handleSnoozeComplianceActionItem = async (
+  const handleSnoozePersistedActionItem = async (
     item: PersistedActionItemRow,
     days: number,
   ) => {
@@ -1339,10 +1560,7 @@ function CommandCenterPage() {
       } = await supabase.auth.getUser()
 
       if (userError) {
-        console.error(
-          '[CommandCenter] snooze compliance: getUser failed',
-          userError,
-        )
+        console.error('[CommandCenter] snooze action: getUser failed', userError)
         revertSnooze()
         setActionItemErrors((previous) => ({
           ...previous,
@@ -1366,13 +1584,13 @@ function CommandCenterPage() {
 
       const { error } = await supabase.from('action_item_snoozes').insert({
         organization_id: organizationId.trim(),
-        item_type: STAFF_COMPLIANCE_CATEGORY,
+        item_type: item.category,
         event_id: item.id,
         snooze_until: snoozeUntil.toISOString(),
       })
 
       if (error) {
-        console.error('[CommandCenter] snooze compliance insert failed', error)
+        console.error('[CommandCenter] snooze action insert failed', error)
         revertSnooze()
         setActionItemErrors((previous) => ({
           ...previous,
@@ -1387,148 +1605,11 @@ function CommandCenterPage() {
         return next
       })
     } catch (error) {
-      console.error('[CommandCenter] snooze compliance unexpected error', error)
-      revertSnooze()
-      setActionItemErrors((previous) => ({
-        ...previous,
-        [item.id]: 'Snooze failed — try again',
-      }))
-    }
-  }
-
-  const handleSnoozeActionItem = async (event: DraftActionEvent, days: number) => {
-    snoozedFetchGenerationRef.current += 1
-    setSnoozedEventIds((previous) => new Set(previous).add(event.id))
-
-    const revertSnooze = () => {
-      setSnoozedEventIds((previous) => {
-        const next = new Set(previous)
-        next.delete(event.id)
-        return next
-      })
-    }
-
-    try {
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser()
-
-      if (userError) {
-        console.error('[CommandCenter] snooze action: getUser failed', userError)
-        revertSnooze()
-        setActionItemErrors((previous) => ({
-          ...previous,
-          [event.id]: 'Snooze failed — try again',
-        }))
-        return
-      }
-
-      const organizationId = user?.user_metadata?.organization_id
-      if (typeof organizationId !== 'string' || !organizationId.trim()) {
-        revertSnooze()
-        setActionItemErrors((previous) => ({
-          ...previous,
-          [event.id]: 'Snooze failed — try again',
-        }))
-        return
-      }
-
-      const snoozeUntil = new Date()
-      snoozeUntil.setDate(snoozeUntil.getDate() + days)
-
-      const { error } = await supabase.from('action_item_snoozes').insert({
-        organization_id: organizationId.trim(),
-        item_type: DRAFT_EVENT_ITEM_TYPE,
-        event_id: event.id,
-        snooze_until: snoozeUntil.toISOString(),
-      })
-
-      if (error) {
-        console.error('[CommandCenter] snooze action insert failed', error)
-        revertSnooze()
-        setActionItemErrors((previous) => ({
-          ...previous,
-          [event.id]: 'Snooze failed — try again',
-        }))
-        return
-      }
-
-      setActionItemErrors((previous) => {
-        const next = { ...previous }
-        delete next[event.id]
-        return next
-      })
-    } catch (error) {
       console.error('[CommandCenter] snooze action unexpected error', error)
       revertSnooze()
       setActionItemErrors((previous) => ({
         ...previous,
-        [event.id]: 'Snooze failed — try again',
-      }))
-    }
-  }
-
-  const handleDismissActionItem = async (
-    event: DraftActionEvent,
-    itemType: string,
-  ) => {
-    try {
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser()
-
-      if (userError) {
-        console.error('[CommandCenter] dismiss action: getUser failed', userError)
-        setActionItemErrors((previous) => ({
-          ...previous,
-          [event.id]: 'Dismiss failed — try again',
-        }))
-        return
-      }
-
-      const organizationId = user?.user_metadata?.organization_id
-      if (typeof organizationId !== 'string' || !organizationId.trim()) {
-        setActionItemErrors((previous) => ({
-          ...previous,
-          [event.id]: 'Dismiss failed — try again',
-        }))
-        return
-      }
-
-      const dismissedBy =
-        (typeof user?.phone === 'string' && user.phone.trim()) ||
-        user?.id ||
-        null
-
-      const { error } = await supabase.from('action_item_dismissals').insert({
-        organization_id: organizationId.trim(),
-        item_type: itemType,
-        event_id: event.id,
-        dismissed_by: dismissedBy,
-      })
-
-      if (error) {
-        console.error('[CommandCenter] dismiss action insert failed', error)
-        setActionItemErrors((previous) => ({
-          ...previous,
-          [event.id]: 'Dismiss failed — try again',
-        }))
-        return
-      }
-
-      setDismissedEventIds((previous) => new Set(previous).add(event.id))
-      setActionItemErrors((previous) => {
-        const next = { ...previous }
-        delete next[event.id]
-        return next
-      })
-    } catch (error) {
-      console.error('[CommandCenter] dismiss action unexpected error', error)
-      setActionItemErrors((previous) => ({
-        ...previous,
-        [event.id]: 'Dismiss failed — try again',
+        [item.id]: 'Snooze failed — try again',
       }))
     }
   }
@@ -1689,96 +1770,25 @@ function CommandCenterPage() {
               </div>
             }
           />
-          {visibleDraftActionItems.length === 0 &&
-          visibleStaffComplianceActionItems.length === 0 ? (
-            <BoxItemRow>
-              <div
-                className="flex w-full items-center justify-center text-gray-400"
-                style={{ gap: '6px', fontSize: '11px', padding: '17px 0' }}
-              >
-                <span
-                  style={{
-                    width: '6px',
-                    height: '6px',
-                    borderRadius: '50%',
-                    backgroundColor: '#ef4444',
-                    flexShrink: 0,
-                  }}
-                  aria-hidden="true"
-                />
-                <span>{labels.cc_no_open_action_items}</span>
-                <span aria-hidden="true">·</span>
-                <span>{labels.cc_all_clear_subtext}</span>
-              </div>
-            </BoxItemRow>
-          ) : (
-            <>
-            {visibleDraftActionItems.map((event) => {
-              const itemType = DRAFT_EVENT_ITEM_TYPE
-              const showDismiss = !isSystemResolvableItemType(itemType)
-
-              return (
-              <div
-                key={event.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  padding: '10px 12px',
-                  borderBottom: '0.5px solid #f3f4f6',
-                }}
-              >
-                <span
-                  aria-hidden="true"
-                  style={{
-                    width: '8px',
-                    height: '8px',
-                    borderRadius: '50%',
-                    backgroundColor: '#C0392B',
-                    flexShrink: 0,
-                  }}
-                />
-                <div className="min-w-0 flex-1">
-                  <p
-                    style={{
-                      fontSize: '13px',
-                      fontWeight: 500,
-                      color: '#1B3A5C',
-                      lineHeight: 1.3,
-                    }}
-                  >
-                    {getDraftActionTitle(event)}
-                  </p>
-                  <p
-                    style={{
-                      fontSize: '12px',
-                      color: '#6b7280',
-                      marginTop: '2px',
-                      lineHeight: 1.3,
-                    }}
-                  >
-                    {getDraftActionSubtext(event)}
-                  </p>
-                  {actionItemErrors[event.id] ? (
-                    <p
-                      style={{
-                        fontSize: '12px',
-                        color: '#ef4444',
-                        marginTop: '4px',
-                        lineHeight: 1.3,
-                      }}
-                    >
-                      {actionItemErrors[event.id]}
-                    </p>
-                  ) : null}
-                </div>
-                <div
-                  className="flex shrink-0 items-center"
-                  style={{ gap: '12px' }}
-                >
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: '10px',
+              padding: '10px',
+            }}
+          >
+            <ActionItemsColumn
+              columnLabel="Event Action Items"
+              items={visibleEventActionItems}
+              expanded={eventActionItemsExpanded}
+              onToggleExpand={() => setEventActionItemsExpanded(true)}
+              actionItemErrors={actionItemErrors}
+              renderActions={(item) => (
+                <>
                   <button
                     type="button"
-                    onClick={() => window.open(`/event/${event.id}`, '_blank')}
+                    onClick={() => window.open(item.deep_link, '_blank')}
                     className="hover:underline"
                     style={{
                       fontSize: '12px',
@@ -1795,9 +1805,8 @@ function CommandCenterPage() {
                     type="button"
                     onClick={(clickEvent) => {
                       setSnoozePopover({
-                        eventId: event.id,
+                        itemId: item.id,
                         anchorEl: clickEvent.currentTarget,
-                        itemType: DRAFT_EVENT_ITEM_TYPE,
                       })
                     }}
                     style={{
@@ -1811,65 +1820,17 @@ function CommandCenterPage() {
                   >
                     Snooze
                   </button>
-                  {showDismiss ? (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        void handleDismissActionItem(event, itemType)
-                      }
-                      style={{
-                        fontSize: '12px',
-                        color: '#6B7280',
-                        cursor: 'pointer',
-                        background: 'none',
-                        border: 'none',
-                        padding: 0,
-                      }}
-                    >
-                      Dismiss
-                    </button>
-                  ) : null}
-                </div>
-              </div>
-              )
-            })}
-            {visibleStaffComplianceActionItems.map((item) => (
-              <div
-                key={item.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  padding: '10px 12px',
-                  borderBottom: '0.5px solid #f3f4f6',
-                }}
-              >
-                <span
-                  aria-hidden="true"
-                  style={{
-                    width: '8px',
-                    height: '8px',
-                    borderRadius: '50%',
-                    backgroundColor: '#C0392B',
-                    flexShrink: 0,
-                  }}
-                />
-                <div className="min-w-0 flex-1">
-                  <p
-                    style={{
-                      fontSize: '13px',
-                      fontWeight: 500,
-                      color: '#1B3A5C',
-                      lineHeight: 1.3,
-                    }}
-                  >
-                    {item.title}
-                  </p>
-                </div>
-                <div
-                  className="flex shrink-0 items-center"
-                  style={{ gap: '12px' }}
-                >
+                </>
+              )}
+            />
+            <ActionItemsColumn
+              columnLabel="Staff Action Items"
+              items={visibleStaffActionItems}
+              expanded={staffActionItemsExpanded}
+              onToggleExpand={() => setStaffActionItemsExpanded(true)}
+              actionItemErrors={actionItemErrors}
+              renderActions={(item) => (
+                <>
                   <button
                     type="button"
                     onClick={() => handleViewStaffProfile(item)}
@@ -1890,9 +1851,8 @@ function CommandCenterPage() {
                     type="button"
                     onClick={(clickEvent) => {
                       setSnoozePopover({
-                        eventId: item.id,
+                        itemId: item.id,
                         anchorEl: clickEvent.currentTarget,
-                        itemType: STAFF_COMPLIANCE_CATEGORY,
                       })
                     }}
                     style={{
@@ -1906,11 +1866,10 @@ function CommandCenterPage() {
                   >
                     Snooze
                   </button>
-                </div>
-              </div>
-            ))}
-            </>
-          )}
+                </>
+              )}
+            />
+          </div>
         </CommandCenterBox>
         </div>
 
@@ -2149,21 +2108,11 @@ function CommandCenterPage() {
           onSelect={(days) => {
             setSnoozePopover(null)
 
-            if (snoozePopover.itemType === STAFF_COMPLIANCE_CATEGORY) {
-              const complianceItem = persistedActionItems.find(
-                (entry) => entry.id === snoozePopover.eventId,
-              )
-              if (complianceItem) {
-                void handleSnoozeComplianceActionItem(complianceItem, days)
-              }
-              return
-            }
-
-            const event = draftActionItems.find(
-              (entry) => entry.id === snoozePopover.eventId,
+            const item = persistedActionItems.find(
+              (entry) => entry.id === snoozePopover.itemId,
             )
-            if (event) {
-              void handleSnoozeActionItem(event, days)
+            if (item) {
+              void handleSnoozePersistedActionItem(item, days)
             }
           }}
         />
