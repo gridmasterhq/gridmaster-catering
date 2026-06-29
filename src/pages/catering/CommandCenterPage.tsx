@@ -1300,10 +1300,13 @@ function CommandCenterPage() {
     }
 
     openOverlay('staff')
-    openStaffProfileNavigation({
-      phone: parsed.phone,
-      tab: parsed.tab,
-      scrollTarget: parsed.scroll,
+
+    window.requestAnimationFrame(() => {
+      openStaffProfileNavigation({
+        phone: parsed.phone,
+        tab: parsed.tab ?? 'certifications',
+        scrollTarget: parsed.scroll,
+      })
     })
   }
 

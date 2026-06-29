@@ -21,11 +21,21 @@ export interface StaffProfileDeepLink {
 type OpenStaffProfileHandler = (request: StaffProfileOpenRequest) => void
 
 let openStaffProfileHandler: OpenStaffProfileHandler | null = null
+let pendingStaffProfileRequest: StaffProfileOpenRequest | null = null
 
 export function registerStaffProfileNavigation(
   handler: OpenStaffProfileHandler,
 ): () => void {
   openStaffProfileHandler = handler
+
+  if (pendingStaffProfileRequest) {
+    const request = pendingStaffProfileRequest
+    pendingStaffProfileRequest = null
+    window.setTimeout(() => {
+      handler(request)
+    }, 200)
+  }
+
   return () => {
     if (openStaffProfileHandler === handler) {
       openStaffProfileHandler = null
@@ -36,7 +46,12 @@ export function registerStaffProfileNavigation(
 export function openStaffProfileNavigation(
   request: StaffProfileOpenRequest,
 ): void {
-  openStaffProfileHandler?.(request)
+  if (openStaffProfileHandler) {
+    openStaffProfileHandler(request)
+    return
+  }
+
+  pendingStaffProfileRequest = request
 }
 
 export function buildStaffCertificationsDeepLink(phone: string): string {
