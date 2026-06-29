@@ -81,6 +81,7 @@ interface StaffMember {
   experience_rating: number | null
   is_priority: boolean
   created_at: string
+  basic_availability: string | null
   staff_roles: StaffRoleRow[] | null
 }
 
@@ -464,7 +465,7 @@ function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
       const { data: staffRow, error } = await supabase
         .from('staff')
         .select(
-          'phone, legal_name, display_name, photo_url, status, captain_priority, average_rating, rating_count, starting_designation, experience_rating, is_priority, created_at',
+          'phone, legal_name, display_name, photo_url, status, captain_priority, average_rating, rating_count, starting_designation, experience_rating, is_priority, created_at, basic_availability',
         )
         .eq('organization_id', organizationId)
         .eq('phone', phone)
@@ -505,6 +506,8 @@ function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
         experience_rating: (staffRow.experience_rating as number | null) ?? null,
         is_priority: Boolean(staffRow.is_priority),
         created_at: staffRow.created_at as string,
+        basic_availability:
+          (staffRow.basic_availability as string | null) ?? null,
         staff_roles: staffRoles,
       }
     },
@@ -587,7 +590,7 @@ function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
     const { data: staffData, error } = await supabase
       .from('staff')
       .select(
-        'phone, legal_name, display_name, photo_url, status, captain_priority, average_rating, rating_count, starting_designation, experience_rating, is_priority, created_at',
+        'phone, legal_name, display_name, photo_url, status, captain_priority, average_rating, rating_count, starting_designation, experience_rating, is_priority, created_at, basic_availability',
       )
       .eq('organization_id', orgId)
 
@@ -643,6 +646,7 @@ function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
       experience_rating: (row.experience_rating as number | null) ?? null,
       is_priority: Boolean(row.is_priority),
       created_at: row.created_at as string,
+      basic_availability: (row.basic_availability as string | null) ?? null,
       staff_roles: rolesByPhone.get(row.phone as string) ?? [],
     }))
 

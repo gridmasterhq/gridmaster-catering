@@ -13,6 +13,7 @@ import PanelHeaderActions from '../shared/PanelHeaderActions'
 import { OVERLAY_PANEL_TAB_STACK_CLEARANCE_PX } from '../shared/OverlayPanel'
 import StaffProfileHistoryTab from './StaffProfileHistoryTab'
 import StaffProfileCertificationsTab from './StaffProfileCertificationsTab'
+import StaffProfileAvailabilityTab from './StaffProfileAvailabilityTab'
 import StaffRatingBadge from '../shared/StaffRatingBadge'
 import { formatCoordinatorStaffName } from '../../lib/staffDisplayName'
 import {
@@ -104,6 +105,7 @@ export interface StaffProfileStaffMember {
   experience_rating: number | null
   is_priority: boolean
   created_at: string
+  basic_availability: string | null
   staff_roles: StaffRoleRow[] | null
 }
 
@@ -538,6 +540,13 @@ export default function StaffProfilePanel({
   const handleComplianceRefresh = useCallback(() => {
     void refreshStaffCompliance()
   }, [refreshStaffCompliance])
+
+  const handleBasicAvailabilityChange = useCallback((value: string) => {
+    setStaff((previous) => ({
+      ...previous,
+      basic_availability: value,
+    }))
+  }, [])
 
   const staffRoleSignature = (staff.staff_roles ?? [])
     .map((role) => `${role.role}:${role.is_primary ? '1' : '0'}`)
@@ -1169,6 +1178,12 @@ export default function StaffProfilePanel({
             scrollTarget={certificationsScrollTarget}
             onScrollTargetHandled={handleCertificationsScrollTargetHandled}
             onComplianceRefresh={handleComplianceRefresh}
+          />
+        ) : profileTab === 'availability' ? (
+          <StaffProfileAvailabilityTab
+            staff={staff}
+            organizationId={organizationId}
+            onBasicAvailabilityChange={handleBasicAvailabilityChange}
           />
         ) : (
           <div className="flex min-h-0 flex-1 flex-col items-center justify-center py-16">
