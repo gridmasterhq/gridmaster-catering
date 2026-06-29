@@ -6,7 +6,7 @@ import {
 } from 'react'
 import type { EventType } from '../../lib/productConfig'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
-import { useOverlay, type NewEventOpenMode } from '../../components/shared/AppShell'
+import { useOverlay, useActiveScreen, type NewEventOpenMode } from '../../components/shared/AppShell'
 import DayContextMenu from '../../components/DayContextMenu'
 import { supabase } from '../../lib/supabase'
 
@@ -285,6 +285,7 @@ function isWithinNext30Days(eventDate: Date, today: Date): boolean {
 
 function CalendarPage() {
   const { labels, navigation, event_types } = useProductConfig()
+  const { setActiveScreen } = useActiveScreen()
 
   const eventTypeColorMap = useMemo(
     () => new Map(event_types.map((type) => [type.value, type])),
@@ -454,6 +455,16 @@ function CalendarPage() {
     window.open(`/event/${eventId}`, '_blank')
   }
 
+  const handleNeedsAttentionClick = () => {
+    setActiveScreen('cc')
+    window.setTimeout(() => {
+      document.getElementById('command-center-action-items')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      })
+    }, 300)
+  }
+
   if (loading) {
     return (
       <div className="flex min-h-[calc(100vh-3rem)] flex-1 items-center justify-center bg-brand-light-blue">
@@ -476,12 +487,18 @@ function CalendarPage() {
             </span>
             <span className="text-sm text-gray-500">{labels.upcoming_events}</span>
           </div>
-          <div className="flex items-center justify-center gap-2 rounded-lg border border-status-neutral bg-white px-4 py-2">
-            <span className="text-2xl font-bold text-brand-navy">
-              {stats.needsAttention}
-            </span>
-            <span className="text-sm text-gray-500">{labels.needs_attention}</span>
-          </div>
+          <button
+            type="button"
+            onClick={handleNeedsAttentionClick}
+            className="group cursor-pointer border-none bg-transparent p-0 text-left"
+          >
+            <div className="flex items-center justify-center gap-2 rounded-lg border border-status-neutral bg-white px-4 py-2 group-hover:border-[#1B3A5C]">
+              <span className="text-2xl font-bold text-brand-navy">
+                {stats.needsAttention}
+              </span>
+              <span className="text-sm text-gray-500">{labels.needs_attention}</span>
+            </div>
+          </button>
           <div className="flex items-center justify-center gap-2 rounded-lg border border-status-neutral bg-white px-4 py-2">
             <span className="text-2xl font-bold text-brand-navy">
               {stats.fullyStaffed}

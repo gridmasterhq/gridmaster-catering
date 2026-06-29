@@ -1654,6 +1654,7 @@ function CommandCenterPage() {
         className="grid grid-cols-2"
         style={{ gap: '10px' }}
       >
+        <div id="command-center-action-items">
         <CommandCenterBox fullWidth>
           <BoxHeader
             label={labels.cc_action_items}
@@ -1906,6 +1907,7 @@ function CommandCenterPage() {
             </>
           )}
         </CommandCenterBox>
+        </div>
 
         <CommandCenterBox fullWidth>
           <BoxHeader
