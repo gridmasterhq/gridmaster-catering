@@ -20,38 +20,48 @@ import { useTabManager } from '../TabManager'
 const NAVY = '#1B3A5C'
 const STAFF_PROFILE_Z_INDEX = 302
 
+const SCHEMA_ROLE_NAMES = new Set([
+  'server',
+  'bartender',
+  'bar_back',
+  'food_runner',
+  'captain',
+  'cit',
+  'setup_crew',
+  'breakdown_crew',
+  'line_cook',
+  'prep_cook',
+  'dishwasher',
+  'kitchen_runner',
+  'sous_chef',
+  'lead_chef',
+  'driver',
+  'ops_lead',
+  'trainer',
+])
+
 const ROLE_EDITOR_OPTIONS: { roleName: string; label: string }[] = [
-  { roleName: 'Server', label: 'Server' },
-  { roleName: 'Bartender', label: 'Bartender' },
-  { roleName: 'Bar Back', label: 'Bar Back' },
-  { roleName: 'Food Runner', label: 'Food Runner' },
-  { roleName: 'Captain', label: 'Captain' },
+  { roleName: 'server', label: 'Server' },
+  { roleName: 'bartender', label: 'Bartender' },
+  { roleName: 'bar_back', label: 'Bar Back' },
+  { roleName: 'food_runner', label: 'Food Runner' },
+  { roleName: 'captain', label: 'Captain' },
   { roleName: 'cit', label: 'Captain In Training (CIT)' },
-  { roleName: 'Setup Crew', label: 'Setup Crew' },
-  { roleName: 'Breakdown Crew', label: 'Breakdown Crew' },
-  { roleName: 'Line Cook', label: 'Line Cook' },
-  { roleName: 'Prep Cook', label: 'Prep Cook' },
-  { roleName: 'Dishwasher', label: 'Dishwasher' },
-  { roleName: 'Kitchen Runner', label: 'Kitchen Runner' },
-  { roleName: 'Sous Chef', label: 'Sous Chef' },
-  { roleName: 'Lead Chef', label: 'Lead Chef' },
-  { roleName: 'Driver', label: 'Driver' },
-  { roleName: 'Ops Lead', label: 'Ops Lead' },
+  { roleName: 'setup_crew', label: 'Setup Crew' },
+  { roleName: 'breakdown_crew', label: 'Breakdown Crew' },
+  { roleName: 'line_cook', label: 'Line Cook' },
+  { roleName: 'prep_cook', label: 'Prep Cook' },
+  { roleName: 'dishwasher', label: 'Dishwasher' },
+  { roleName: 'kitchen_runner', label: 'Kitchen Runner' },
+  { roleName: 'sous_chef', label: 'Sous Chef' },
+  { roleName: 'lead_chef', label: 'Lead Chef' },
+  { roleName: 'driver', label: 'Driver' },
+  { roleName: 'ops_lead', label: 'Ops Lead' },
   { roleName: 'trainer', label: 'Trainer' },
 ]
 
 function normalizeLoadedRoleName(roleName: string): string {
-  const trimmed = roleName.trim()
-  const lower = trimmed.toLowerCase()
-
-  if (lower === 'cit') {
-    return 'cit'
-  }
-  if (lower === 'trainer') {
-    return 'trainer'
-  }
-
-  return trimmed
+  return roleName.trim().toLowerCase().replace(/\s+/g, '_')
 }
 
 type StaffStatus = 'active' | 'alumni' | 'not_active' | 'archived'
@@ -379,9 +389,13 @@ export default function StaffProfilePanel({
     const orgId = await resolveOrganizationId()
     if (!orgId) {
       setEditorRoles(
-        normalizeStaffRoles(staff.staff_roles).map((row) =>
-          normalizeLoadedRoleName(row.role),
-        ),
+        [
+          ...new Set(
+            normalizeStaffRoles(staff.staff_roles)
+              .map((row) => normalizeLoadedRoleName(row.role))
+              .filter((role) => role.length > 0 && SCHEMA_ROLE_NAMES.has(role)),
+          ),
+        ],
       )
       return
     }
@@ -395,20 +409,26 @@ export default function StaffProfilePanel({
     if (error) {
       console.error('[StaffProfile] load staff_roles failed', error)
       setEditorRoles(
-        normalizeStaffRoles(staff.staff_roles).map((row) =>
-          normalizeLoadedRoleName(row.role),
-        ),
+        [
+          ...new Set(
+            normalizeStaffRoles(staff.staff_roles)
+              .map((row) => normalizeLoadedRoleName(row.role))
+              .filter((role) => role.length > 0 && SCHEMA_ROLE_NAMES.has(role)),
+          ),
+        ],
       )
       return
     }
 
-    setEditorRoles(
-      (data ?? []).map((row) =>
+    const loadedRoles = (data ?? [])
+      .map((row) =>
         normalizeLoadedRoleName(
           typeof row.role_name === 'string' ? row.role_name : '',
         ),
-      ),
-    )
+      )
+      .filter((role) => role.length > 0 && SCHEMA_ROLE_NAMES.has(role))
+
+    setEditorRoles([...new Set(loadedRoles)])
   }
 
   const cancelRoleEditor = () => {
