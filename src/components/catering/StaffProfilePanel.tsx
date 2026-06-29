@@ -98,29 +98,44 @@ interface StaffProfilePanelProps {
 const profileTabs: {
   id: ProfileTab
   label: string
-  subLabel: string
+  subLabelLine1: string
+  subLabelLine2: string
 }[] = [
-  { id: 'history', label: 'History', subLabel: 'Events · Ratings · Milestones' },
+  {
+    id: 'history',
+    label: 'History',
+    subLabelLine1: 'Events · Ratings',
+    subLabelLine2: 'Milestones',
+  },
   {
     id: 'certifications',
     label: 'Certifications',
-    subLabel: 'Certs · Courses · Grades',
+    subLabelLine1: 'Certs · Courses',
+    subLabelLine2: 'Grades',
   },
   {
     id: 'availability',
     label: 'Availability',
-    subLabel: 'Schedule · Blackouts',
+    subLabelLine1: 'Schedule',
+    subLabelLine2: 'Blackouts',
   },
-  { id: 'ai_summary', label: 'AI Summary', subLabel: 'Analysis · History' },
+  {
+    id: 'ai_summary',
+    label: 'AI Summary',
+    subLabelLine1: 'Analysis',
+    subLabelLine2: 'History',
+  },
   {
     id: 'development',
     label: 'Development',
-    subLabel: 'CIT · Training · Growth',
+    subLabelLine1: 'CIT · Training',
+    subLabelLine2: 'Growth',
   },
   {
     id: 'personal_note',
     label: 'Personal Note',
-    subLabel: 'Private coordinator notes',
+    subLabelLine1: 'Private notes',
+    subLabelLine2: 'Coordinator only',
   },
 ]
 
@@ -763,7 +778,7 @@ export default function StaffProfilePanel({
         </div>
 
         <div
-          className="flex shrink-0 overflow-x-auto"
+          className="flex shrink-0"
           style={{
             backgroundColor: '#ffffff',
             borderBottom: '1px solid #E5E7EB',
@@ -776,16 +791,15 @@ export default function StaffProfilePanel({
                 key={tab.id}
                 type="button"
                 onClick={() => onProfileTabChange(tab.id)}
-                className="flex flex-col items-start"
+                className="flex min-w-0 flex-1 flex-col items-center"
                 style={{
-                  padding: '10px 14px',
+                  padding: '8px 4px',
                   border: 'none',
                   background: 'none',
                   cursor: 'pointer',
                   borderBottom: isActive
                     ? `2px solid ${colors.brand_navy}`
                     : '2px solid transparent',
-                  minWidth: 'max-content',
                 }}
               >
                 <span
@@ -793,21 +807,34 @@ export default function StaffProfilePanel({
                     fontSize: '12px',
                     fontWeight: 500,
                     color: isActive ? colors.brand_navy : colors.text_muted,
-                    whiteSpace: 'nowrap',
+                    textAlign: 'center',
+                    lineHeight: 1.2,
                   }}
                 >
                   {tab.label}
                 </span>
                 <span
                   style={{
-                    fontSize: '11px',
+                    fontSize: '10px',
                     fontStyle: 'italic',
                     color: colors.text_muted,
-                    whiteSpace: 'nowrap',
+                    textAlign: 'center',
+                    lineHeight: 1.2,
                     marginTop: '2px',
                   }}
                 >
-                  {tab.subLabel}
+                  {tab.subLabelLine1}
+                </span>
+                <span
+                  style={{
+                    fontSize: '10px',
+                    fontStyle: 'italic',
+                    color: colors.text_muted,
+                    textAlign: 'center',
+                    lineHeight: 1.2,
+                  }}
+                >
+                  {tab.subLabelLine2}
                 </span>
               </button>
             )
