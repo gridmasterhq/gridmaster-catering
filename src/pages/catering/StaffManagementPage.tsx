@@ -15,7 +15,7 @@ import {
 import StaffProfilePanel, {
   type ProfileTab,
   type StaffProfileSessionState,
-} from '../../components/catering/StaffProfilePanel'
+} from '../../components/shared/StaffProfilePanel'
 import OverlayPanel from '../../components/shared/OverlayPanel'
 import StaffRatingBadge from '../../components/shared/StaffRatingBadge'
 import { formatCoordinatorStaffName } from '../../lib/staffDisplayName'
@@ -1230,7 +1230,7 @@ function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
           <form
             onSubmit={(event) => void handleAddStaff(event)}
             className="min-h-0 flex-1 overflow-y-auto"
-            style={{ padding: '16px' }}
+            style={{ padding: '16px', backgroundColor: colors.brand_light_blue }}
           >
               <div style={{ marginBottom: '16px' }}>
                 <label htmlFor="staff-legal-name" style={fieldLabelStyle}>
