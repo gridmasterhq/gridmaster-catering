@@ -510,9 +510,11 @@ async function fetchStaffSummaryContext(
   const upcomingBlackouts = (blackoutsResult?.data ?? []).map((row) => {
     const start =
       typeof row.vacation_start === 'string' ? row.vacation_start : ''
-    const end =
-      typeof row.vacation_end === 'string' ? row.vacation_end : 'open-ended'
-    return `${start} to ${end}`
+    const end = row.vacation_end
+    if (end == null || (typeof end === 'string' && !end.trim())) {
+      return `${start} (single day)`
+    }
+    return `${start} – ${end}`
   })
 
   const incompleteCourses = (incompleteCoursesResult?.data ?? []).map((row) => {
@@ -933,54 +935,42 @@ export default function StaffProfileAISummaryTab({
             >
               Generating…
             </p>
-          ) : savedSummary ? (
+          ) : (
             <>
               <button
                 type="button"
                 onClick={() => void generateSummary()}
                 disabled={isGenerating}
-                className="border-none bg-transparent p-0 underline"
                 style={{
-                  color: colors.brand_navy,
-                  cursor: isGenerating ? 'not-allowed' : 'pointer',
-                  fontSize: '13px',
                   width: '100%',
                   textAlign: 'center',
+                  backgroundColor: colors.brand_navy,
+                  color: '#ffffff',
+                  borderRadius: '8px',
+                  padding: '10px 16px',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  border: 'none',
+                  cursor: isGenerating ? 'not-allowed' : 'pointer',
                 }}
               >
-                Regenerate
+                {savedSummary
+                  ? 'Run an Updated Analysis'
+                  : `Generate Summary for ${staffFirstName}`}
               </button>
-              <p
-                style={{
-                  fontSize: '11px',
-                  color: '#9CA3AF',
-                  marginTop: '6px',
-                  textAlign: 'center',
-                }}
-              >
-                Generated {formatGeneratedDate(savedSummary.generatedAt)}
-              </p>
+              {savedSummary ? (
+                <p
+                  style={{
+                    fontSize: '11px',
+                    color: '#9CA3AF',
+                    marginTop: '6px',
+                    textAlign: 'center',
+                  }}
+                >
+                  Generated {formatGeneratedDate(savedSummary.generatedAt)}
+                </p>
+              ) : null}
             </>
-          ) : (
-            <button
-              type="button"
-              onClick={() => void generateSummary()}
-              disabled={isGenerating}
-              style={{
-                width: '100%',
-                textAlign: 'center',
-                backgroundColor: colors.brand_navy,
-                color: '#ffffff',
-                borderRadius: '8px',
-                padding: '10px 16px',
-                fontSize: '13px',
-                fontWeight: 500,
-                border: 'none',
-                cursor: isGenerating ? 'not-allowed' : 'pointer',
-              }}
-            >
-              Generate Summary for {staffFirstName}
-            </button>
           )}
         </div>
       </div>
