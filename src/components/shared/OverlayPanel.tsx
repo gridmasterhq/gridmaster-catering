@@ -187,20 +187,27 @@ export default function OverlayPanel({
           pointerEvents: isMinimized ? 'none' : 'auto',
         }}
       >
-        <header className="flex shrink-0 items-center justify-between border-b border-gray-200 px-4 py-3">
+        <header
+          className="flex shrink-0 items-center justify-between px-4 py-3"
+          style={{
+            backgroundColor: colors.brand_navy,
+            borderBottom: '1px solid rgba(255,255,255,0.15)',
+          }}
+        >
           <h2
             style={{
               fontSize: '16px',
               fontWeight: 600,
-              color: colors.brand_navy,
+              color: '#ffffff',
             }}
           >
             {title}
           </h2>
           <PanelHeaderActions
+            variant="dark"
             onClose={handleRequestClose}
             onMinimize={isFormPanel ? minimize : undefined}
-            iconColor={colors.brand_navy}
+            iconColor="#ffffff"
             replaceActions={
               isFormPanel && showConfirmDialog ? (
                 <div className="flex items-center gap-3">
