@@ -173,7 +173,6 @@ async function fetchStaffSummaryContext(
   organizationId: string,
 ): Promise<Record<string, unknown>> {
   const todayIso = new Date().toISOString().slice(0, 10)
-  const yearStart = `${new Date().getFullYear()}-01-01`
 
   const safeStaffRecord = async () => {
     try {
@@ -210,41 +209,27 @@ async function fetchStaffSummaryContext(
 
   const safeEventCounts = async () => {
     try {
-      const allTimeCountResult = await supabase
+      const { count: totalCount, error: e1 } = await supabase
         .from('event_staff_assignments')
-        .select('id', { count: 'exact', head: true })
-        .eq('organization_id', organizationId)
+        .select('*', { count: 'exact', head: true })
         .eq('staff_phone', staffPhone)
-        .eq('status', 'confirmed')
-      if (allTimeCountResult.error) throw allTimeCountResult.error
+        .eq('organization_id', organizationId)
+        .eq('assignment_status', 'confirmed')
 
-      const ytdCountResult = await supabase
+      if (e1) throw e1
+
+      const startOfYear = new Date(new Date().getFullYear(), 0, 1).toISOString()
+      const { count: ytdCount, error: e2 } = await supabase
         .from('event_staff_assignments')
-        .select('id', { count: 'exact', head: true })
-        .eq('organization_id', organizationId)
+        .select('*', { count: 'exact', head: true })
         .eq('staff_phone', staffPhone)
-        .eq('status', 'confirmed')
-        .gte('confirmed_at', yearStart)
+        .eq('organization_id', organizationId)
+        .eq('assignment_status', 'confirmed')
+        .gte('confirmed_at', startOfYear)
 
-      let ytdConfirmedCount = 0
-      if (!ytdCountResult.error) {
-        ytdConfirmedCount = ytdCountResult.count ?? 0
-      } else {
-        const ytdFallback = await supabase
-          .from('event_staff_assignments')
-          .select('id, events!inner(event_date)', { count: 'exact', head: true })
-          .eq('organization_id', organizationId)
-          .eq('staff_phone', staffPhone)
-          .eq('status', 'confirmed')
-          .gte('events.event_date', yearStart)
-        if (ytdFallback.error) throw ytdFallback.error
-        ytdConfirmedCount = ytdFallback.count ?? 0
-      }
+      if (e2) throw e2
 
-      return {
-        allTimeCount: allTimeCountResult.count ?? 0,
-        ytdConfirmedCount,
-      }
+      return { total: totalCount ?? 0, ytd: ytdCount ?? 0 }
     } catch (err) {
       console.error('[StaffProfileAISummary] query failed: eventCounts', err)
       return null
@@ -253,17 +238,22 @@ async function fetchStaffSummaryContext(
 
   const safeFutureAssignments = async () => {
     try {
-      const result = await supabase
+      const today = new Date().toISOString().split('T')[0]
+      const { data, error } = await supabase
         .from('event_staff_assignments')
-        .select('role, events!inner(event_date)')
-        .eq('organization_id', organizationId)
+        .select('role, events(event_date)')
         .eq('staff_phone', staffPhone)
-        .eq('status', 'confirmed')
-        .gt('events.event_date', todayIso)
-        .order('event_date', { referencedTable: 'events', ascending: true })
+        .eq('organization_id', organizationId)
+        .eq('assignment_status', 'confirmed')
         .limit(10)
-      if (result.error) throw result.error
-      return result
+
+      if (error) throw error
+
+      return (data ?? []).filter((row) => {
+        const events = row.events as { event_date?: string } | null
+        const eventDate = events?.event_date
+        return Boolean(eventDate && eventDate >= today)
+      })
     } catch (err) {
       console.error(
         '[StaffProfileAISummary] query failed: futureAssignments',
@@ -432,7 +422,6 @@ async function fetchStaffSummaryContext(
   }
 
   const staffResult = staffRecordResult
-  const ytdConfirmedCount = eventCountsResult.ytdConfirmedCount
 
   const timesRows = timesSummaryResult?.data ?? []
   const timesSummaryText =
@@ -493,11 +482,9 @@ async function fetchStaffSummaryContext(
     return line
   })
 
-  const futureAssignments = (futureAssignmentsResult?.data ?? []).map((row) => {
-    const events = row.events as { event_date?: string } | { event_date?: string }[] | null
-    const eventDate = Array.isArray(events)
-      ? events[0]?.event_date
-      : events?.event_date
+  const futureAssignments = (futureAssignmentsResult ?? []).map((row) => {
+    const events = row.events as { event_date?: string } | null
+    const eventDate = events?.event_date
     const role = typeof row.role === 'string' ? formatRoleLabel(row.role) : 'Staff'
     return `${eventDate ?? 'TBD'} — ${role}`
   })
@@ -566,8 +553,8 @@ async function fetchStaffSummaryContext(
       is_primary: row.is_primary,
     })),
     event_counts: {
-      confirmed_all_time: eventCountsResult.allTimeCount,
-      confirmed_ytd: ytdConfirmedCount,
+      confirmed_all_time: eventCountsResult.total,
+      confirmed_ytd: eventCountsResult.ytd,
     },
     future_assignments: futureAssignments,
     times_summary: timesSummaryText,
