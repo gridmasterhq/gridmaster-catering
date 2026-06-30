@@ -81,7 +81,7 @@ export default function OrgSettingsPanel({
       dismissable={true}
       onClose={onClose}
     >
-      <div style={{ padding: '16px' }}>
+      <div style={{ padding: '16px', backgroundColor: colors.brand_light_blue }}>
         <h3
           style={{
             fontSize: '12px',
