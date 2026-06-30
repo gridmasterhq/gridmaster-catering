@@ -78,7 +78,7 @@ export default function OrgSettingsPanel({
     <OverlayPanel
       isOpen={isOpen}
       title="Settings"
-      dismissable
+      dismissable={true}
       onClose={onClose}
     >
       <div style={{ padding: '16px' }}>
