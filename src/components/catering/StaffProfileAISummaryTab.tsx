@@ -168,6 +168,27 @@ async function callAnthropicApi(
   return textBlock.text.trim()
 }
 
+async function requireSupabaseResult<
+  T extends { error: unknown },
+>(resultPromise: PromiseLike<T>): Promise<T> {
+  const result = await resultPromise
+  if (result.error) {
+    throw result.error
+  }
+  return result
+}
+
+function getSettledValue<T>(
+  results: PromiseSettledResult<T>[],
+  index: number,
+): T {
+  const result = results[index]
+  if (result.status !== 'fulfilled') {
+    throw new Error('Failed to load staff data')
+  }
+  return result.value
+}
+
 async function fetchStaffSummaryContext(
   staffPhone: string,
   organizationId: string,
@@ -175,39 +196,47 @@ async function fetchStaffSummaryContext(
   const todayIso = new Date().toISOString().slice(0, 10)
   const yearStart = `${new Date().getFullYear()}-01-01`
 
-  const [
-    staffResult,
-    rolesResult,
-    allTimeCountResult,
-    ytdCountResult,
-    futureAssignmentsResult,
-    timesSummaryResult,
-    ratingsResult,
-    certificationsResult,
-    incompleteCoursesResult,
-    weeklyAvailabilityResult,
-    blackoutsResult,
-    actionItemsResult,
-  ] = await Promise.all([
-    supabase
-      .from('staff')
-      .select(
-        'legal_name, display_name, basic_availability, coordinator_notes, average_rating, rating_count, experience_rating',
-      )
-      .eq('phone', staffPhone)
-      .eq('organization_id', organizationId)
-      .maybeSingle(),
-    supabase
-      .from('staff_roles')
-      .select('role_name, is_primary')
-      .eq('staff_phone', staffPhone)
-      .eq('organization_id', organizationId),
-    supabase
-      .from('event_staff_assignments')
-      .select('id', { count: 'exact', head: true })
-      .eq('organization_id', organizationId)
-      .eq('staff_phone', staffPhone)
-      .eq('status', 'confirmed'),
+  const queryNames = [
+    'staffRecord',
+    'roles',
+    'allTimeEventCount',
+    'ytdEventCount',
+    'futureAssignments',
+    'timesSummary',
+    'ratings',
+    'certifications',
+    'incompleteCourses',
+    'weeklyAvailability',
+    'blackouts',
+    'actionItems',
+  ] as const
+
+  const results = await Promise.allSettled([
+    requireSupabaseResult(
+      supabase
+        .from('staff')
+        .select(
+          'legal_name, display_name, basic_availability, coordinator_notes, average_rating, rating_count, experience_rating',
+        )
+        .eq('phone', staffPhone)
+        .eq('organization_id', organizationId)
+        .maybeSingle(),
+    ),
+    requireSupabaseResult(
+      supabase
+        .from('staff_roles')
+        .select('role_name, is_primary')
+        .eq('staff_phone', staffPhone)
+        .eq('organization_id', organizationId),
+    ),
+    requireSupabaseResult(
+      supabase
+        .from('event_staff_assignments')
+        .select('id', { count: 'exact', head: true })
+        .eq('organization_id', organizationId)
+        .eq('staff_phone', staffPhone)
+        .eq('status', 'confirmed'),
+    ),
     supabase
       .from('event_staff_assignments')
       .select('id', { count: 'exact', head: true })
@@ -215,80 +244,104 @@ async function fetchStaffSummaryContext(
       .eq('staff_phone', staffPhone)
       .eq('status', 'confirmed')
       .gte('confirmed_at', yearStart),
-    supabase
-      .from('event_staff_assignments')
-      .select('role, events!inner(event_date)')
-      .eq('organization_id', organizationId)
-      .eq('staff_phone', staffPhone)
-      .eq('status', 'confirmed')
-      .gt('events.event_date', todayIso)
-      .order('event_date', { referencedTable: 'events', ascending: true })
-      .limit(10),
-    supabase
-      .from('staff_times_summary')
-      .select('role, total_minutes_alltime, total_minutes_ytd, pct_of_total')
-      .eq('staff_phone', staffPhone)
-      .eq('organization_id', organizationId),
-    supabase
-      .from('ratings')
-      .select(
-        'stars, notes, role_at_event, section_name, rater_role, is_disputed, dispute_reason, created_at',
-      )
-      .eq('staff_phone', staffPhone)
-      .eq('organization_id', organizationId)
-      .order('created_at', { ascending: false })
-      .limit(20),
-    supabase
-      .from('staff_certifications')
-      .select('cert_type, expiry_date, is_verified, is_alcohol_cert')
-      .eq('staff_phone', staffPhone)
-      .eq('organization_id', organizationId),
-    supabase
-      .from('course_completions')
-      .select('course_template_id, completed_at, course_templates(course_name)')
-      .eq('staff_phone', staffPhone)
-      .eq('organization_id', organizationId)
-      .is('completed_at', null),
-    supabase
-      .from('staff_weekly_availability')
-      .select('day_of_week, status, available_after_time')
-      .eq('staff_phone', staffPhone)
-      .eq('organization_id', organizationId),
-    supabase
-      .from('staff_availability')
-      .select('vacation_start, vacation_end')
-      .eq('staff_phone', staffPhone)
-      .eq('organization_id', organizationId)
-      .eq('record_type', 'vacation_block')
-      .gte('vacation_start', todayIso)
-      .order('vacation_start', { ascending: true })
-      .limit(10),
-    supabase
-      .from('action_items')
-      .select('category, title, description')
-      .eq('entity_id', staffPhone)
-      .eq('organization_id', organizationId)
-      .is('resolved_at', null),
+    requireSupabaseResult(
+      supabase
+        .from('event_staff_assignments')
+        .select('role, events!inner(event_date)')
+        .eq('organization_id', organizationId)
+        .eq('staff_phone', staffPhone)
+        .eq('status', 'confirmed')
+        .gt('events.event_date', todayIso)
+        .order('event_date', { referencedTable: 'events', ascending: true })
+        .limit(10),
+    ),
+    requireSupabaseResult(
+      supabase
+        .from('staff_times_summary')
+        .select('role, total_minutes_alltime, total_minutes_ytd, pct_of_total')
+        .eq('staff_phone', staffPhone)
+        .eq('organization_id', organizationId),
+    ),
+    requireSupabaseResult(
+      supabase
+        .from('ratings')
+        .select(
+          'stars, notes, role_at_event, section_name, rater_role, is_disputed, dispute_reason, created_at',
+        )
+        .eq('staff_phone', staffPhone)
+        .eq('organization_id', organizationId)
+        .order('created_at', { ascending: false })
+        .limit(20),
+    ),
+    requireSupabaseResult(
+      supabase
+        .from('staff_certifications')
+        .select('cert_type, expiry_date, is_verified, is_alcohol_cert')
+        .eq('staff_phone', staffPhone)
+        .eq('organization_id', organizationId),
+    ),
+    requireSupabaseResult(
+      supabase
+        .from('course_completions')
+        .select('course_template_id, completed_at, course_templates(course_name)')
+        .eq('staff_phone', staffPhone)
+        .eq('organization_id', organizationId)
+        .is('completed_at', null),
+    ),
+    requireSupabaseResult(
+      supabase
+        .from('staff_weekly_availability')
+        .select('day_of_week, status, available_after_time')
+        .eq('staff_phone', staffPhone)
+        .eq('organization_id', organizationId),
+    ),
+    requireSupabaseResult(
+      supabase
+        .from('staff_availability')
+        .select('vacation_start, vacation_end')
+        .eq('staff_phone', staffPhone)
+        .eq('organization_id', organizationId)
+        .eq('record_type', 'vacation_block')
+        .gte('vacation_start', todayIso)
+        .order('vacation_start', { ascending: true })
+        .limit(10),
+    ),
+    requireSupabaseResult(
+      supabase
+        .from('action_items')
+        .select('category, title, description')
+        .eq('entity_id', staffPhone)
+        .eq('organization_id', organizationId)
+        .is('resolved_at', null),
+    ),
   ])
 
-  const criticalErrors = [
-    staffResult.error,
-    rolesResult.error,
-    allTimeCountResult.error,
-    futureAssignmentsResult.error,
-    timesSummaryResult.error,
-    ratingsResult.error,
-    certificationsResult.error,
-    incompleteCoursesResult.error,
-    weeklyAvailabilityResult.error,
-    blackoutsResult.error,
-    actionItemsResult.error,
-  ].filter(Boolean)
+  results.forEach((result, index) => {
+    if (result.status === 'rejected') {
+      console.error(
+        `[StaffProfileAISummary] query failed: ${queryNames[index]}`,
+        result.reason,
+      )
+    }
+  })
 
-  if (criticalErrors.length > 0) {
-    console.error('[StaffProfileAISummary] data fetch failed', criticalErrors)
+  const anyFailed = results.some((result) => result.status === 'rejected')
+  if (anyFailed) {
     throw new Error('Failed to load staff data')
   }
+
+  const staffResult = getSettledValue(results, 0)
+  const rolesResult = getSettledValue(results, 1)
+  const allTimeCountResult = getSettledValue(results, 2)
+  const ytdCountResult = getSettledValue(results, 3)
+  const futureAssignmentsResult = getSettledValue(results, 4)
+  const timesSummaryResult = getSettledValue(results, 5)
+  const ratingsResult = getSettledValue(results, 6)
+  const certificationsResult = getSettledValue(results, 7)
+  const incompleteCoursesResult = getSettledValue(results, 8)
+  const weeklyAvailabilityResult = getSettledValue(results, 9)
+  const blackoutsResult = getSettledValue(results, 10)
+  const actionItemsResult = getSettledValue(results, 11)
 
   let ytdConfirmedCount = 0
   if (!ytdCountResult.error) {
