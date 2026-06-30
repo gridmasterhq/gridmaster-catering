@@ -600,6 +600,7 @@ function CalendarPage() {
             <button
               type="button"
               className="rounded bg-brand-navy px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+              style={{ marginRight: '40px' }}
               onClick={handleNewEvent}
             >
               {newEventLabel}

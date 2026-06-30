@@ -1086,7 +1086,10 @@ function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
 
         <div
           className="relative min-h-0 flex-1 overflow-y-auto"
-          style={{ backgroundColor: colors.brand_light_blue }}
+          style={{
+            backgroundColor: colors.brand_light_blue,
+            padding: '10px 0 16px 0',
+          }}
         >
           {loading ? (
             <div
@@ -1128,14 +1131,16 @@ function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
                   key={staff.phone}
                   type="button"
                   onClick={() => openStaffProfile(staff)}
-                  className="flex w-full items-center hover:bg-[#F9FAFB]"
+                  className="flex items-center hover:bg-[#F9FAFB]"
                   style={{
                     gap: '8px',
-                    padding: '12px 16px',
-                    borderBottom: '1px solid #F3F4F6',
+                    width: 'calc(100% - 32px)',
+                    margin: '0 16px 6px 16px',
+                    padding: '8px 12px',
+                    backgroundColor: '#ffffff',
+                    borderRadius: '8px',
+                    border: '1px solid #E5E7EB',
                     cursor: 'pointer',
-                    border: 'none',
-                    background: 'none',
                     textAlign: 'left',
                   }}
                 >

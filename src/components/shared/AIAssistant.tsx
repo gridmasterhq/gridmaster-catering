@@ -494,7 +494,7 @@ export default function AIAssistant({ onOpenStaffOverlay }: AIAssistantProps) {
         <form
           onSubmit={handleSubmit}
           className="flex h-full items-center gap-2"
-          style={{ paddingLeft: '16px', paddingRight: '16px' }}
+          style={{ paddingLeft: '40px', paddingRight: '40px' }}
         >
           <span
             className="flex shrink-0 items-center gap-1.5 whitespace-nowrap"
