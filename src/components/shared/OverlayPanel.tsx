@@ -4,6 +4,32 @@ import { useProductConfig } from '../../lib/hooks/useProductConfig'
 import { FormPanelContext } from './FormPanelContext'
 import PanelHeaderActions from './PanelHeaderActions'
 
+/**
+ * SHARED COMPONENT — GridMaster HQ Global Right-Side Panel
+ *
+ * This is the standard panel component for ALL right-side overlay panels
+ * across every GridMaster HQ product: Catering, Venues, Gigs, Stay, HQ Centers.
+ *
+ * Every new panel in any GridMaster HQ product must use this component.
+ * Never build a custom panel header — always use OverlayPanel + PanelHeaderActions.
+ *
+ * Panel behavior (locked):
+ *
+ * - Slides in from the right
+ *
+ * - dismissable=true: backdrop click closes, ESC closes, chevron minimizes to tab stack
+ *
+ * - dismissable=false (forms): backdrop click minimizes, ESC shows confirm dialog
+ *
+ * - Tab stack clearance: 40px right offset so tabs are never obscured
+ *
+ * - Minimize: panel slides off screen, tab appears in right-side tab stack
+ *
+ * - Restore: tab click brings panel back with all state intact
+ *
+ * - Close (X): fully unmounts panel and clears state
+ */
+
 /** Right inset so panel content clears the 32px minimized-tab stack. */
 export const OVERLAY_PANEL_TAB_STACK_CLEARANCE_PX = 40
 

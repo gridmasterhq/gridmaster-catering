@@ -7,12 +7,7 @@ import {
   useRef,
   useState,
 } from 'react'
-import {
-  IconChevronLeft,
-  IconChevronRight,
-  IconRobot,
-  IconSend,
-} from '@tabler/icons-react'
+import { IconRobot, IconSend } from '@tabler/icons-react'
 import {
   answerAssistantQuestion,
   isDbOnlyQuestion,
@@ -23,11 +18,7 @@ import {
 } from '../../lib/aiAssistant'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
 import { openStaffProfileNavigation } from '../../lib/staffProfileNavigation'
-import PanelHeaderActions from './PanelHeaderActions'
-import {
-  OVERLAY_PANEL_MAX_WIDTH_PX,
-  OVERLAY_PANEL_TAB_STACK_CLEARANCE_PX,
-} from './OverlayPanel'
+import OverlayPanel from './OverlayPanel'
 
 interface AIAssistantProps {
   onOpenStaffOverlay: () => void
@@ -74,39 +65,6 @@ function buildCompletedTurns(messages: ThreadMessage[]): ConversationTurn[] {
       role: message.role,
       content: message.text,
     }))
-}
-
-function PanelChevronButton({
-  direction,
-  disabled,
-  onClick,
-  iconColor,
-  ariaLabel,
-}: {
-  direction: 'left' | 'right'
-  disabled?: boolean
-  onClick?: () => void
-  iconColor: string
-  ariaLabel: string
-}) {
-  const Icon = direction === 'left' ? IconChevronLeft : IconChevronRight
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      aria-label={ariaLabel}
-      className={`rounded p-1 ${
-        disabled
-          ? 'cursor-not-allowed opacity-30'
-          : 'cursor-pointer hover:bg-gray-100'
-      }`}
-      style={{ color: iconColor, border: 'none', background: 'none' }}
-    >
-      <Icon size={20} stroke={2} />
-    </button>
-  )
 }
 
 function ThinkingDots() {
@@ -192,7 +150,6 @@ export default function AIAssistant({ onOpenStaffOverlay }: AIAssistantProps) {
   const [question, setQuestion] = useState('')
   const [followUpQuestion, setFollowUpQuestion] = useState('')
   const [panelOpen, setPanelOpen] = useState(false)
-  const [slideIn, setSlideIn] = useState(false)
   const [examplesOpen, setExamplesOpen] = useState(false)
   const [emptyInputMessage, setEmptyInputMessage] = useState(false)
   const [recentQuestions, setRecentQuestions] = useState<string[]>([])
@@ -206,21 +163,6 @@ export default function AIAssistant({ onOpenStaffOverlay }: AIAssistantProps) {
   conversationIndexRef.current = conversationIndex
   const currentConversation =
     conversationIndex >= 0 ? conversations[conversationIndex] : null
-
-  useEffect(() => {
-    if (!panelOpen) {
-      setSlideIn(false)
-      return
-    }
-
-    const frame = requestAnimationFrame(() => {
-      setSlideIn(true)
-    })
-
-    return () => {
-      cancelAnimationFrame(frame)
-    }
-  }, [panelOpen])
 
   useEffect(() => {
     threadEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -245,23 +187,6 @@ export default function AIAssistant({ onOpenStaffOverlay }: AIAssistantProps) {
       document.removeEventListener('mousedown', handlePointerDown)
     }
   }, [examplesOpen])
-
-  useEffect(() => {
-    if (!panelOpen) {
-      return
-    }
-
-    function handleKeyDown(event: globalThis.KeyboardEvent) {
-      if (event.key === 'Escape') {
-        setPanelOpen(false)
-      }
-    }
-
-    document.addEventListener('keydown', handleKeyDown)
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [panelOpen])
 
   useEffect(() => {
     return () => {
@@ -545,13 +470,14 @@ export default function AIAssistant({ onOpenStaffOverlay }: AIAssistantProps) {
     }
   }
 
-  const handleBack = () => {
-    if (conversationIndex > 0) {
-      setConversationIndex(conversationIndex - 1)
-    }
-  }
+  const handlePanelClose = useCallback(() => {
+    setPanelOpen(false)
+  }, [])
 
-  const canGoBack = conversationIndex > 0
+  const handlePanelRestore = useCallback(() => {
+    setPanelOpen(true)
+  }, [])
+
   const staffDirectory = currentConversation?.context?.staffDirectory ?? []
 
   return (
@@ -680,66 +606,21 @@ export default function AIAssistant({ onOpenStaffOverlay }: AIAssistantProps) {
         ) : null}
       </div>
 
-      {panelOpen ? (
-        <>
-          <button
-            type="button"
-            aria-label="Close AI assistant panel"
-            onClick={() => setPanelOpen(false)}
-            className="fixed inset-0 border-none"
-            style={{
-              backgroundColor: 'rgba(0, 0, 0, 0.3)',
-              zIndex: 300,
-              cursor: 'default',
-            }}
-          />
-
-          <div
-            className="fixed top-0 right-0 bottom-0 flex w-full flex-col bg-white shadow-xl"
-            style={{
-              maxWidth: `${OVERLAY_PANEL_MAX_WIDTH_PX}px`,
-              paddingRight: `${OVERLAY_PANEL_TAB_STACK_CLEARANCE_PX}px`,
-              boxSizing: 'border-box',
-              zIndex: 301,
-              transform: slideIn ? 'translateX(0)' : 'translateX(100%)',
-              transition: 'transform 0.2s ease',
-            }}
-          >
-            <header className="flex shrink-0 items-center justify-between border-b border-gray-200 px-4 py-3">
-              <div className="flex min-w-0 flex-1 items-center gap-1">
-                <PanelChevronButton
-                  direction="left"
-                  disabled={!canGoBack}
-                  onClick={handleBack}
-                  iconColor={colors.brand_navy}
-                  ariaLabel="Previous conversation"
-                />
-                <h2
-                  className="flex min-w-0 items-center gap-2 truncate px-1"
-                  style={{
-                    fontSize: '16px',
-                    fontWeight: 600,
-                    color: colors.brand_navy,
-                  }}
-                >
-                  <IconRobot size={18} stroke={2} aria-hidden="true" />
-                  AI Assistant
-                </h2>
-                <PanelChevronButton
-                  direction="right"
-                  disabled
-                  iconColor={colors.brand_navy}
-                  ariaLabel="Next conversation"
-                />
-              </div>
-              <PanelHeaderActions
-                onClose={() => setPanelOpen(false)}
-                iconColor={colors.brand_navy}
-              />
-            </header>
-
-            <div className="flex min-h-0 flex-1 flex-col">
-              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+      <OverlayPanel
+        isOpen={panelOpen}
+        title="AI Assistant"
+        dismissable
+        tabId="ai-assistant"
+        tabLabel="AI Assistant"
+        tabColor="#1B3A5C"
+        onClose={handlePanelClose}
+        onPanelRestore={handlePanelRestore}
+      >
+        <div
+          className="flex flex-col"
+          style={{ minHeight: 'calc(100vh - 53px)' }}
+        >
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
                 {currentConversation?.messages.length ? (
                   <div className="flex flex-col gap-4">
                     {currentConversation.messages.map((message) => {
@@ -951,54 +832,49 @@ export default function AIAssistant({ onOpenStaffOverlay }: AIAssistantProps) {
                 )}
               </div>
 
-              {currentConversation?.messages.length ? (
-                <div
-                  className="shrink-0 border-t border-gray-200 px-4 py-3"
-                  style={{ backgroundColor: '#ffffff' }}
+          {currentConversation?.messages.length ? (
+            <div
+              className="shrink-0 border-t border-gray-200 px-4 py-3"
+              style={{ backgroundColor: '#ffffff' }}
+            >
+              <form onSubmit={handleFollowUpSubmit} className="relative">
+                <input
+                  type="text"
+                  value={followUpQuestion}
+                  onChange={(event) =>
+                    setFollowUpQuestion(event.target.value)
+                  }
+                  onKeyDown={handleFollowUpKeyDown}
+                  placeholder="Ask a follow-up question..."
+                  className="w-full outline-none"
+                  style={{
+                    height: '36px',
+                    fontSize: '13px',
+                    padding: '0 40px 0 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #E5E7EB',
+                    backgroundColor: '#ffffff',
+                    color: '#1F2937',
+                  }}
+                />
+                <button
+                  type="submit"
+                  aria-label="Send follow-up"
+                  className="absolute top-1/2 right-2 -translate-y-1/2 rounded p-1 hover:bg-gray-100"
+                  style={{
+                    color: colors.brand_navy,
+                    border: 'none',
+                    background: 'none',
+                    cursor: 'pointer',
+                  }}
                 >
-                  <form
-                    onSubmit={handleFollowUpSubmit}
-                    className="relative"
-                  >
-                    <input
-                      type="text"
-                      value={followUpQuestion}
-                      onChange={(event) =>
-                        setFollowUpQuestion(event.target.value)
-                      }
-                      onKeyDown={handleFollowUpKeyDown}
-                      placeholder="Ask a follow-up question..."
-                      className="w-full outline-none"
-                      style={{
-                        height: '36px',
-                        fontSize: '13px',
-                        padding: '0 40px 0 12px',
-                        borderRadius: '8px',
-                        border: '1px solid #E5E7EB',
-                        backgroundColor: '#ffffff',
-                        color: '#1F2937',
-                      }}
-                    />
-                    <button
-                      type="submit"
-                      aria-label="Send follow-up"
-                      className="absolute top-1/2 right-2 -translate-y-1/2 rounded p-1 hover:bg-gray-100"
-                      style={{
-                        color: colors.brand_navy,
-                        border: 'none',
-                        background: 'none',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <IconSend size={18} stroke={2} />
-                    </button>
-                  </form>
-                </div>
-              ) : null}
+                  <IconSend size={18} stroke={2} />
+                </button>
+              </form>
             </div>
-          </div>
-        </>
-      ) : null}
+          ) : null}
+        </div>
+      </OverlayPanel>
     </>
   )
 }
