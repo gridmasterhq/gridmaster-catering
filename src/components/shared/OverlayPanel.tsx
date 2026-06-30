@@ -170,7 +170,7 @@ export default function OverlayPanel({
             className="fixed inset-0 border-none"
             style={{
               backgroundColor: 'rgba(0, 0, 0, 0.3)',
-              zIndex: 300,
+              zIndex: 899,
               cursor: 'default',
             }}
           />
@@ -182,7 +182,7 @@ export default function OverlayPanel({
             className="fixed inset-0 border-none"
             style={{
               backgroundColor: 'rgba(0, 0, 0, 0.3)',
-              zIndex: 300,
+              zIndex: 899,
               cursor: 'default',
             }}
           />
@@ -195,7 +195,7 @@ export default function OverlayPanel({
           maxWidth: `${panelMaxWidthPx}px`,
           paddingRight: `${OVERLAY_PANEL_TAB_STACK_CLEARANCE_PX}px`,
           boxSizing: 'border-box',
-          zIndex: 301,
+          zIndex: 900,
           transform: panelVisible ? 'translateX(0)' : 'translateX(100%)',
           transition: 'transform 0.2s ease',
           pointerEvents: isMinimized ? 'none' : 'auto',

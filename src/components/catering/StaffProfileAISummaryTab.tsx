@@ -7,8 +7,10 @@ import {
   useState,
 } from 'react'
 import { IconBrain, IconCheck } from '@tabler/icons-react'
+import { useOrgTimezone } from '../../hooks/useOrgTimezone'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
 import { supabase } from '../../lib/supabase'
+import { formatInOrgTz } from '../../utils/formatTime'
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
 const ANTHROPIC_MODEL = 'claude-sonnet-4-6'
@@ -84,29 +86,39 @@ function formatGeneratedDate(iso: string): string {
   })
 }
 
-function formatRatingDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
+const CONTEXT_DATE_FORMAT = 'MMM d, yyyy'
+const CONTEXT_TIME_FORMAT = 'h:mm a'
+
+function formatContextDate(iso: string, timezone: string): string {
+  return formatInOrgTz(iso, CONTEXT_DATE_FORMAT, timezone)
 }
 
-function formatBlackoutContextDate(iso: string): string {
-  return new Date(`${iso.slice(0, 10)}T12:00:00`).toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
+function formatContextAvailabilityTime(
+  timeValue: string,
+  timezone: string,
+): string {
+  const trimmed = timeValue.trim()
+  if (!trimmed) {
+    return trimmed
+  }
+
+  if (trimmed.includes('T') || /^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
+    return formatInOrgTz(trimmed, CONTEXT_TIME_FORMAT, timezone)
+  }
+
+  const today = formatInOrgTz(new Date(), 'yyyy-MM-dd', timezone)
+  const timePart = trimmed.slice(0, 8)
+  return formatInOrgTz(`${today}T${timePart}`, CONTEXT_TIME_FORMAT, timezone)
 }
 
 function formatBlackoutContextEntry(
   vacationStart: unknown,
   vacationEnd: unknown,
+  timezone: string,
 ): string {
   const startLabel =
     typeof vacationStart === 'string' && vacationStart.trim()
-      ? formatBlackoutContextDate(vacationStart)
+      ? formatContextDate(vacationStart, timezone)
       : 'Unknown date'
   const hasEnd =
     vacationEnd != null &&
@@ -117,7 +129,7 @@ function formatBlackoutContextEntry(
     return `${startLabel} (single day)`
   }
 
-  return `${startLabel} – ${formatBlackoutContextDate(vacationEnd)}`
+  return `${startLabel} – ${formatContextDate(vacationEnd, timezone)}`
 }
 
 function formatRoleLabel(role: string): string {
@@ -199,6 +211,7 @@ async function callAnthropicApi(
 async function fetchStaffSummaryContext(
   staffPhone: string,
   organizationId: string,
+  timezone: string,
 ): Promise<Record<string, unknown>> {
   const todayIso = new Date().toISOString().slice(0, 10)
 
@@ -476,7 +489,7 @@ async function fetchStaffSummaryContext(
   const captainNotes = (ratingsResult?.data ?? []).map((row) => {
     const date =
       typeof row.created_at === 'string'
-        ? formatRatingDate(row.created_at)
+        ? formatContextDate(row.created_at, timezone)
         : 'Unknown date'
     const role =
       typeof row.role_at_event === 'string'
@@ -514,7 +527,11 @@ async function fetchStaffSummaryContext(
     const events = row.events as { event_date?: string } | null
     const eventDate = events?.event_date
     const role = typeof row.role === 'string' ? formatRoleLabel(row.role) : 'Staff'
-    return `${eventDate ?? 'TBD'} — ${role}`
+    const formattedDate =
+      typeof eventDate === 'string' && eventDate.trim()
+        ? formatContextDate(eventDate, timezone)
+        : 'TBD'
+    return `${formattedDate} — ${role}`
   })
 
   const weeklyAvailability = (weeklyAvailabilityResult?.data ?? []).map((row) => {
@@ -530,13 +547,13 @@ async function fetchStaffSummaryContext(
         ? row.available_after_time
         : null
     if (status === 'available_after' && afterTime) {
-      return `${dayName}: available after ${afterTime}`
+      return `${dayName}: available after ${formatContextAvailabilityTime(afterTime, timezone)}`
     }
     return `${dayName}: ${status.replace(/_/g, ' ')}`
   })
 
   const upcomingBlackouts = (blackoutsResult?.data ?? []).map((row) =>
-    formatBlackoutContextEntry(row.vacation_start, row.vacation_end),
+    formatBlackoutContextEntry(row.vacation_start, row.vacation_end, timezone),
   )
 
   const incompleteCourses = (incompleteCoursesResult?.data ?? []).map((row) => {
@@ -631,6 +648,7 @@ export default function StaffProfileAISummaryTab({
   staffFirstName,
 }: StaffProfileAISummaryTabProps) {
   const { colors } = useProductConfig()
+  const { timezone } = useOrgTimezone()
   const [loadingSaved, setLoadingSaved] = useState(true)
   const [savedSummary, setSavedSummary] = useState<SavedSummaryRow | null>(null)
   const [contextSnapshot, setContextSnapshot] = useState<Record<
@@ -744,6 +762,7 @@ export default function StaffProfileAISummaryTab({
       const contextObject = await fetchStaffSummaryContext(
         staffPhone,
         organizationId,
+        timezone,
       )
       setContextSnapshot(contextObject)
 
@@ -789,7 +808,7 @@ export default function StaffProfileAISummaryTab({
     } finally {
       setIsGenerating(false)
     }
-  }, [organizationId, saveSummaryToDb, staffFirstName, staffPhone])
+  }, [organizationId, saveSummaryToDb, staffFirstName, staffPhone, timezone])
 
   const handleFollowUpSubmit = useCallback(
     async (event?: FormEvent, questionOverride?: string) => {

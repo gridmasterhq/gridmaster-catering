@@ -37,6 +37,7 @@ import {
 } from './ExpertModeToggle'
 import { useTabManager } from '../TabManager'
 import OverlayPanel from './OverlayPanel'
+import OrgSettingsPanel from './OrgSettingsPanel'
 import UniformsPage from '../../pages/settings/UniformsPage'
 import NoteTemplatesPage from '../../pages/settings/NoteTemplatesPage'
 import RolesPage from '../../pages/RolesPage'
@@ -170,7 +171,7 @@ const sidebarStyle: CSSProperties = {
   backgroundColor: '#ffffff',
   borderRight: '0.5px solid #e5e7eb',
   overflowY: 'auto',
-  zIndex: 201,
+  zIndex: 899,
   transition: 'transform 0.2s ease',
 }
 
@@ -513,6 +514,8 @@ function SidebarNavItems({
                 openOverlay('gridmaster-templates')
               } else if (itemId === 'ai_template_builder') {
                 openOverlay('ai-template-builder')
+              } else if (itemId === 'settings') {
+                openOverlay('settings')
               }
               onClose()
             }}
@@ -739,7 +742,8 @@ function AppShell({ children }: AppShellProps) {
   const showGenericOverlay =
     activeOverlay !== null &&
     activeOverlay !== 'staff' &&
-    activeOverlay !== 'new-event'
+    activeOverlay !== 'new-event' &&
+    activeOverlay !== 'settings'
 
   const screenLabelStyle = useCallback(
     (screen: ActiveScreen): CSSProperties => {
@@ -793,7 +797,10 @@ function AppShell({ children }: AppShellProps) {
       }}
     >
     <div className="min-h-screen flex flex-col" style={themeVars}>
-      <header className="fixed top-0 left-0 right-0 z-30 flex h-12 w-full">
+      <header
+        className="fixed top-0 left-0 right-0 flex h-12 w-full"
+        style={{ zIndex: 1000 }}
+      >
         <section className="flex flex-1 items-center gap-10 bg-[var(--shell-brand-red)] px-16">
           <button
             type="button"
@@ -900,7 +907,7 @@ function AppShell({ children }: AppShellProps) {
                   position: 'absolute',
                   right: 0,
                   top: '100%',
-                  zIndex: 200,
+                  zIndex: 899,
                   minWidth: '140px',
                   backgroundColor: '#ffffff',
                   border: '1px solid #e5e7eb',
@@ -973,7 +980,7 @@ function AppShell({ children }: AppShellProps) {
             position: 'fixed',
             inset: 0,
             backgroundColor: 'rgba(0, 0, 0, 0.3)',
-            zIndex: 200,
+            zIndex: 898,
             border: 'none',
             cursor: 'default',
           }}
@@ -1040,6 +1047,10 @@ function AppShell({ children }: AppShellProps) {
       ) : null}
 
       <NewEventOrchestrator />
+
+      {activeOverlay === 'settings' ? (
+        <OrgSettingsPanel isOpen onClose={closeOverlay} />
+      ) : null}
 
       {showGenericOverlay ? (
         <OverlayPanel

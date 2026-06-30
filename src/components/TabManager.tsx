@@ -51,6 +51,8 @@ interface TabManagerProviderProps {
   children: ReactNode
 }
 
+const APP_SHELL_HEADER_HEIGHT_PX = 48
+
 export function TabManagerProvider({ children }: TabManagerProviderProps) {
   const [tabs, setTabs] = useState<TabEntry[]>([])
   const [showNotice, setShowNotice] = useState(false)
@@ -144,10 +146,10 @@ export function TabManagerProvider({ children }: TabManagerProviderProps) {
           style={{
             position: 'fixed',
             right: 0,
-            top: 0,
-            height: '100vh',
+            top: APP_SHELL_HEADER_HEIGHT_PX,
+            height: `calc(100vh - ${APP_SHELL_HEADER_HEIGHT_PX}px)`,
             width: '32px',
-            zIndex: 1000,
+            zIndex: 900,
             pointerEvents: 'none',
             display: 'flex',
             flexDirection: 'column',
@@ -199,7 +201,7 @@ export function TabManagerProvider({ children }: TabManagerProviderProps) {
               position: 'fixed',
               inset: 0,
               backgroundColor: 'rgba(0, 0, 0, 0.3)',
-              zIndex: 1999,
+              zIndex: 898,
             }}
           />
           <div
@@ -209,7 +211,7 @@ export function TabManagerProvider({ children }: TabManagerProviderProps) {
               top: '50%',
               left: '50%',
               transform: 'translate(-50%, -50%)',
-              zIndex: 2000,
+              zIndex: 899,
               backgroundColor: NAVY,
               color: '#ffffff',
               fontSize: '14px',

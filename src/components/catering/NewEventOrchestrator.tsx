@@ -356,7 +356,7 @@ function DuplicateModeNotice({
         top: '16px',
         left: '50%',
         transform: 'translateX(-50%)',
-        zIndex: 2000,
+        zIndex: 900,
         backgroundColor: '#1B3A5C',
         color: '#ffffff',
         fontSize: '13px',
