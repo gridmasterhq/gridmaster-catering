@@ -804,7 +804,7 @@ export default function StaffProfileAISummaryTab({
           display: 'flex',
           gap: '16px',
           padding: '16px',
-          alignItems: 'flex-start',
+          alignItems: 'center',
         }}
       >
         <div style={{ flex: 1 }}>
