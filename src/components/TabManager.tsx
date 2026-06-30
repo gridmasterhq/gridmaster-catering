@@ -193,26 +193,37 @@ export function TabManagerProvider({ children }: TabManagerProviderProps) {
       ) : null}
 
       {showNotice ? (
-        <div
-          role="status"
-          style={{
-            position: 'fixed',
-            top: '16px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 2000,
-            backgroundColor: NAVY,
-            color: '#ffffff',
-            fontSize: '13px',
-            fontWeight: 500,
-            padding: '10px 16px',
-            borderRadius: '6px',
-            whiteSpace: 'nowrap',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-          }}
-        >
-          You have 6 tabs open — please close or restore one first.
-        </div>
+        <>
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.3)',
+              zIndex: 1999,
+            }}
+          />
+          <div
+            role="status"
+            style={{
+              position: 'fixed',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              zIndex: 2000,
+              backgroundColor: NAVY,
+              color: '#ffffff',
+              fontSize: '14px',
+              fontWeight: 500,
+              padding: '16px 24px',
+              borderRadius: '8px',
+              whiteSpace: 'nowrap',
+              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.25)',
+              textAlign: 'center',
+            }}
+          >
+            You have 6 tabs open — please close or restore one first.
+          </div>
+        </>
       ) : null}
     </TabManagerContext.Provider>
   )

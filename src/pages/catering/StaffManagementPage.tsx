@@ -29,6 +29,7 @@ import {
 import { useMinimizablePanel } from '../../hooks/useMinimizablePanel'
 import { useTabManager } from '../../components/TabManager'
 import { useOverlay } from '../../components/shared/AppShell'
+import { useProductConfig } from '../../lib/hooks/useProductConfig'
 import { supabase } from '../../lib/supabase'
 import { registerStaffProfileNavigation } from '../../lib/staffProfileNavigation'
 
@@ -295,6 +296,7 @@ function sortStaffMembers(
 }
 
 function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
+  const { colors } = useProductConfig()
   const { activeOverlay } = useOverlay()
   const { hasTab, restoreTab, canOpenNew, showMaxTabsNotice } = useTabManager()
   const profilePanelActionsRef = useRef(
@@ -1082,7 +1084,10 @@ function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
           </div>
         </div>
 
-        <div className="relative min-h-0 flex-1 overflow-y-auto">
+        <div
+          className="relative min-h-0 flex-1 overflow-y-auto"
+          style={{ backgroundColor: colors.brand_light_blue }}
+        >
           {loading ? (
             <div
               className="flex items-center justify-center py-16"
