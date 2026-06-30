@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
+import { APP_SHELL_HEADER_HEIGHT_PX } from '../../constants/layout'
 import { Z_INDEX } from '../../constants/zIndex'
 import { useMinimizablePanel } from '../../hooks/useMinimizablePanel'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
@@ -191,8 +192,10 @@ export default function OverlayPanel({
       ) : null}
 
       <div
-        className="fixed top-0 right-0 bottom-0 flex w-full flex-col bg-white shadow-xl"
+        className="fixed right-0 flex w-full flex-col bg-white shadow-xl"
         style={{
+          top: APP_SHELL_HEADER_HEIGHT_PX,
+          height: `calc(100vh - ${APP_SHELL_HEADER_HEIGHT_PX}px)`,
           maxWidth: `${panelMaxWidthPx}px`,
           paddingRight: `${OVERLAY_PANEL_TAB_STACK_CLEARANCE_PX}px`,
           boxSizing: 'border-box',
