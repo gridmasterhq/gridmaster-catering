@@ -46,6 +46,7 @@ import { isStaffProfileTabId } from '../../lib/staffProfileTabs'
 import MyTemplatesOverlay from '../overlays/MyTemplatesOverlay'
 import GridMasterTemplatesOverlay from '../overlays/GridMasterTemplatesOverlay'
 import AITemplateBuilderOverlay from '../overlays/AITemplateBuilderOverlay'
+import AIAssistant from './AIAssistant'
 import type { EventTemplate } from '../../lib/types/eventTemplate'
 
 type ActiveScreen = 'cc' | 'calendar'
@@ -1040,6 +1041,7 @@ function AppShell({ children }: AppShellProps) {
       ) : null}
 
       <div className="flex min-h-screen flex-col pt-12">
+        <AIAssistant onOpenStaffOverlay={() => openOverlay('staff')} />
         <main className="flex-1">{children}</main>
 
         <footer
