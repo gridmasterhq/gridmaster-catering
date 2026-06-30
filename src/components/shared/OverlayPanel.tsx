@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useMemo, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
 import { APP_SHELL_HEADER_HEIGHT_PX } from '../../constants/layout'
 import { Z_INDEX } from '../../constants/zIndex'
 import { useMinimizablePanel } from '../../hooks/useMinimizablePanel'
@@ -53,6 +53,8 @@ interface OverlayPanelProps {
   tabColor?: string
   headerLeading?: ReactNode
   contentMaxWidthPx?: number
+  confirmCloseOpen?: boolean
+  onConfirmCloseChange?: (open: boolean) => void
 }
 
 export default function OverlayPanel({
@@ -68,10 +70,26 @@ export default function OverlayPanel({
   tabColor = '#1B3A5C',
   headerLeading,
   contentMaxWidthPx,
+  confirmCloseOpen,
+  onConfirmCloseChange,
 }: OverlayPanelProps) {
   const { labels, colors } = useProductConfig()
   const [slideIn, setSlideIn] = useState(false)
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+  const [internalConfirmCloseOpen, setInternalConfirmCloseOpen] = useState(false)
+  const isConfirmCloseControlled = confirmCloseOpen !== undefined
+  const showConfirmDialog = isConfirmCloseControlled
+    ? confirmCloseOpen
+    : internalConfirmCloseOpen
+  const setShowConfirmDialog = useCallback(
+    (open: boolean) => {
+      if (isConfirmCloseControlled) {
+        onConfirmCloseChange?.(open)
+        return
+      }
+      setInternalConfirmCloseOpen(open)
+    },
+    [isConfirmCloseControlled, onConfirmCloseChange],
+  )
   const isFormPanel = tabId != null
   const panelMaxWidthPx =
     (contentMaxWidthPx ?? OVERLAY_PANEL_CONTENT_MAX_WIDTH_PX) +

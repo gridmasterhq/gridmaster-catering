@@ -16,17 +16,13 @@ import StaffProfilePanel, {
   type ProfileTab,
   type StaffProfileSessionState,
 } from '../../components/catering/StaffProfilePanel'
-import OverlayPanel, {
-  OVERLAY_PANEL_TAB_STACK_CLEARANCE_PX,
-} from '../../components/shared/OverlayPanel'
-import PanelHeaderActions from '../../components/shared/PanelHeaderActions'
+import OverlayPanel from '../../components/shared/OverlayPanel'
 import StaffRatingBadge from '../../components/shared/StaffRatingBadge'
 import { formatCoordinatorStaffName } from '../../lib/staffDisplayName'
 import {
   formatStaffProfileTabLabel,
   getStaffProfileTabId,
 } from '../../lib/staffProfileTabs'
-import { useMinimizablePanel } from '../../hooks/useMinimizablePanel'
 import { useTabManager } from '../../components/TabManager'
 import { useOverlay } from '../../components/shared/AppShell'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
@@ -34,10 +30,6 @@ import { supabase } from '../../lib/supabase'
 import { registerStaffProfileNavigation } from '../../lib/staffProfileNavigation'
 
 const NAVY = '#1B3A5C'
-const STAFF_PANEL_CONTENT_MAX_WIDTH_PX = 680
-const ADD_STAFF_FORM_CONTENT_MAX_WIDTH_PX = 600
-const ADD_STAFF_FORM_MAX_WIDTH_PX =
-  ADD_STAFF_FORM_CONTENT_MAX_WIDTH_PX + OVERLAY_PANEL_TAB_STACK_CLEARANCE_PX
 const GOLD = '#C9A84C'
 
 const ROLE_OPTIONS = [
@@ -298,7 +290,8 @@ function sortStaffMembers(
 function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
   const { colors } = useProductConfig()
   const { activeOverlay } = useOverlay()
-  const { hasTab, restoreTab, canOpenNew, showMaxTabsNotice } = useTabManager()
+  const { hasTab, restoreTab, canOpenNew, showMaxTabsNotice, unregisterTab } =
+    useTabManager()
   const profilePanelActionsRef = useRef(
     new Map<string, { minimize: () => void; dismiss: () => void }>(),
   )
@@ -319,21 +312,17 @@ function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
     string | null
   >(null)
   const [showAddForm, setShowAddForm] = useState(false)
-  const [addFormSlideIn, setAddFormSlideIn] = useState(false)
   const [showAddFormConfirmClose, setShowAddFormConfirmClose] = useState(false)
   const [successToast, setSuccessToast] = useState<string | null>(null)
 
-  const addFormPanel = useMinimizablePanel({
-    id: 'new-staff',
-    label: 'New Staff',
-    color: NAVY,
-    onRestore: onFocus,
-  })
-
   const handleStaffClose = useCallback(() => {
-    addFormPanel.dismiss()
+    if (hasTab('new-staff')) {
+      unregisterTab('new-staff')
+    }
+    setShowAddForm(false)
+    setShowAddFormConfirmClose(false)
     onClose()
-  }, [addFormPanel, onClose])
+  }, [hasTab, onClose, unregisterTab])
 
   const isProfileInProgress = useCallback(
     (phone: string) => {
@@ -703,22 +692,6 @@ function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
     }
   }, [successToast])
 
-  useEffect(() => {
-    if (!showAddForm) {
-      setAddFormSlideIn(false)
-      setShowAddFormConfirmClose(false)
-      return
-    }
-
-    const frame = requestAnimationFrame(() => {
-      setAddFormSlideIn(true)
-    })
-
-    return () => {
-      cancelAnimationFrame(frame)
-    }
-  }, [showAddForm])
-
   const filteredStaff = useMemo(() => {
     const term = searchTerm.trim().toLowerCase()
 
@@ -775,12 +748,15 @@ function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
   }
 
   const handleOpenAddForm = () => {
-    if (showAddForm && addFormPanel.isMinimized) {
-      addFormPanel.restore()
+    if (showAddForm && hasTab('new-staff')) {
+      restoreTab('new-staff')
+      setShowAddForm(true)
+      onFocus?.()
       return
     }
 
-    if (!addFormPanel.canOpen()) {
+    if (!canOpenNew()) {
+      showMaxTabsNotice()
       return
     }
 
@@ -790,27 +766,9 @@ function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
 
   const handleCloseAddForm = () => {
     setShowAddFormConfirmClose(false)
-    addFormPanel.dismiss()
     setShowAddForm(false)
     resetAddForm()
   }
-
-  useEffect(() => {
-    if (!showAddForm || addFormPanel.isMinimized) {
-      return
-    }
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        setShowAddFormConfirmClose(true)
-      }
-    }
-
-    document.addEventListener('keydown', handleKeyDown)
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [showAddForm, addFormPanel.isMinimized])
 
   const handleToggleSecondaryRole = (role: string) => {
     setSecondaryRoles((previous) =>
@@ -924,7 +882,6 @@ function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
       }
 
       await loadStaff(organizationId)
-      addFormPanel.dismiss()
       setShowAddForm(false)
       setShowAddFormConfirmClose(false)
       resetAddForm()
@@ -965,7 +922,7 @@ function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
     return formatStaffProfileTabLabel(staff.display_name, staff.legal_name)
   }, [duplicateNoticePhone, profileSessions, staffMembers])
 
-  const staffHiddenByAddForm = showAddForm && !addFormPanel.isMinimized
+  const staffHiddenByAddForm = showAddForm && !hasTab('new-staff')
   const isStaffPanelOpen = activeOverlay === 'staff' || hasTab('staff-mgmt')
 
   return (
@@ -980,7 +937,6 @@ function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
         onClose={handleStaffClose}
         onPanelRestore={() => onFocus?.()}
         visible={!staffHiddenByAddForm && foregroundProfileSessionId === null}
-        contentMaxWidthPx={STAFF_PANEL_CONTENT_MAX_WIDTH_PX}
         headerLeading={
           <button
             type="button"
@@ -1255,99 +1211,27 @@ function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
         />
       ) : null}
 
-      {showAddForm ? (
-        <>
-          {!addFormPanel.isMinimized ? (
-            <button
-              type="button"
-              aria-label="Minimize add staff form"
-              onClick={() => addFormPanel.minimize()}
-              className="fixed inset-0 border-none"
-              style={{
-                backgroundColor: 'rgba(0, 0, 0, 0.3)',
-                zIndex: 304,
-                cursor: 'default',
-              }}
-            />
-          ) : null}
-
-          <div
-            className="fixed top-0 right-0 bottom-0 flex flex-col bg-white shadow-xl"
-            style={{
-              width: '100vw',
-              maxWidth: `${ADD_STAFF_FORM_MAX_WIDTH_PX}px`,
-              paddingRight: `${OVERLAY_PANEL_TAB_STACK_CLEARANCE_PX}px`,
-              boxSizing: 'border-box',
-              height: '100vh',
-              zIndex: 305,
-              transform:
-                addFormSlideIn && !addFormPanel.isMinimized
-                  ? 'translateX(0)'
-                  : 'translateX(100%)',
-              transition: 'transform 0.2s ease',
-              pointerEvents: addFormPanel.isMinimized ? 'none' : 'auto',
-            }}
+      {showAddForm || hasTab('new-staff') ? (
+        <OverlayPanel
+          isOpen={showAddForm}
+          title="Add New Staff"
+          dismissable={false}
+          tabId="new-staff"
+          tabLabel="New Staff"
+          tabColor="#1B3A5C"
+          confirmCloseOpen={showAddFormConfirmClose}
+          onConfirmCloseChange={setShowAddFormConfirmClose}
+          onClose={handleCloseAddForm}
+          onPanelRestore={() => {
+            setShowAddForm(true)
+            onFocus?.()
+          }}
+        >
+          <form
+            onSubmit={(event) => void handleAddStaff(event)}
+            className="min-h-0 flex-1 overflow-y-auto"
+            style={{ padding: '16px' }}
           >
-            <header
-              className="flex shrink-0 items-center justify-between"
-              style={{
-                backgroundColor: NAVY,
-                padding: '12px 16px',
-              }}
-            >
-              <h2
-                style={{
-                  fontSize: '16px',
-                  fontWeight: 600,
-                  color: '#ffffff',
-                }}
-              >
-                Add New Staff
-              </h2>
-              <PanelHeaderActions
-                variant="dark"
-                onMinimize={() => addFormPanel.minimize()}
-                onClose={() => setShowAddFormConfirmClose(true)}
-                replaceActions={
-                  showAddFormConfirmClose ? (
-                    <div className="flex items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={handleCloseAddForm}
-                        className="border-none bg-transparent p-0"
-                        style={{
-                          fontSize: '12px',
-                          fontWeight: 500,
-                          color: '#EF4444',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        Discard
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setShowAddFormConfirmClose(false)}
-                        className="border-none bg-transparent p-0"
-                        style={{
-                          fontSize: '12px',
-                          fontWeight: 500,
-                          color: '#9CA3AF',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        Keep editing
-                      </button>
-                    </div>
-                  ) : undefined
-                }
-              />
-            </header>
-
-            <form
-              onSubmit={(event) => void handleAddStaff(event)}
-              className="min-h-0 flex-1 overflow-y-auto"
-              style={{ padding: '16px' }}
-            >
               <div style={{ marginBottom: '16px' }}>
                 <label htmlFor="staff-legal-name" style={fieldLabelStyle}>
                   Legal Name (required)
@@ -1517,8 +1401,7 @@ function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
                 Cancel
               </button>
             </form>
-          </div>
-        </>
+        </OverlayPanel>
       ) : null}
     </>
   )
