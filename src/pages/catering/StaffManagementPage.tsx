@@ -16,8 +16,10 @@ import StaffProfilePanel, {
   type ProfileTab,
   type StaffProfileSessionState,
 } from '../../components/catering/StaffProfilePanel'
+import OverlayPanel, {
+  OVERLAY_PANEL_TAB_STACK_CLEARANCE_PX,
+} from '../../components/shared/OverlayPanel'
 import PanelHeaderActions from '../../components/shared/PanelHeaderActions'
-import { OVERLAY_PANEL_TAB_STACK_CLEARANCE_PX } from '../../components/shared/OverlayPanel'
 import StaffRatingBadge from '../../components/shared/StaffRatingBadge'
 import { formatCoordinatorStaffName } from '../../lib/staffDisplayName'
 import {
@@ -32,8 +34,6 @@ import { registerStaffProfileNavigation } from '../../lib/staffProfileNavigation
 
 const NAVY = '#1B3A5C'
 const STAFF_PANEL_CONTENT_MAX_WIDTH_PX = 680
-const STAFF_PANEL_MAX_WIDTH_PX =
-  STAFF_PANEL_CONTENT_MAX_WIDTH_PX + OVERLAY_PANEL_TAB_STACK_CLEARANCE_PX
 const ADD_STAFF_FORM_CONTENT_MAX_WIDTH_PX = 600
 const ADD_STAFF_FORM_MAX_WIDTH_PX =
   ADD_STAFF_FORM_CONTENT_MAX_WIDTH_PX + OVERLAY_PANEL_TAB_STACK_CLEARANCE_PX
@@ -319,15 +319,8 @@ function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
   const [showAddForm, setShowAddForm] = useState(false)
   const [addFormSlideIn, setAddFormSlideIn] = useState(false)
   const [showAddFormConfirmClose, setShowAddFormConfirmClose] = useState(false)
-  const [staffPanelSlideIn, setStaffPanelSlideIn] = useState(false)
   const [successToast, setSuccessToast] = useState<string | null>(null)
 
-  const staffPanel = useMinimizablePanel({
-    id: 'staff-mgmt',
-    label: 'Staff Mgmt',
-    color: NAVY,
-    onRestore: onFocus,
-  })
   const addFormPanel = useMinimizablePanel({
     id: 'new-staff',
     label: 'New Staff',
@@ -336,10 +329,9 @@ function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
   })
 
   const handleStaffClose = useCallback(() => {
-    staffPanel.dismiss()
     addFormPanel.dismiss()
     onClose()
-  }, [addFormPanel, onClose, staffPanel])
+  }, [addFormPanel, onClose])
 
   const isProfileInProgress = useCallback(
     (phone: string) => {
@@ -682,16 +674,6 @@ function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
   }, [loadStaff])
 
   useEffect(() => {
-    const frame = requestAnimationFrame(() => {
-      setStaffPanelSlideIn(true)
-    })
-
-    return () => {
-      cancelAnimationFrame(frame)
-    }
-  }, [])
-
-  useEffect(() => {
     if (!duplicateNoticePhone) {
       return
     }
@@ -704,38 +686,6 @@ function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
       window.clearTimeout(timer)
     }
   }, [duplicateNoticePhone])
-
-  useEffect(() => {
-    if (staffPanel.isMinimized) {
-      return
-    }
-
-    const staffHiddenByAddForm = showAddForm && !addFormPanel.isMinimized
-    if (
-      staffHiddenByAddForm ||
-      staffPanel.isMinimized ||
-      foregroundProfileSessionId !== null
-    ) {
-      return
-    }
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        handleStaffClose()
-      }
-    }
-
-    document.addEventListener('keydown', handleKeyDown)
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [
-    staffPanel.isMinimized,
-    showAddForm,
-    addFormPanel.isMinimized,
-    foregroundProfileSessionId,
-    handleStaffClose,
-  ])
 
   useEffect(() => {
     if (!successToast) {
@@ -1014,108 +964,52 @@ function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
   }, [duplicateNoticePhone, profileSessions, staffMembers])
 
   const staffHiddenByAddForm = showAddForm && !addFormPanel.isMinimized
-  const showStaffListPanel =
-    activeOverlay === 'staff' ||
-    staffPanel.isMinimized ||
-    hasTab('staff-mgmt')
-  const showStaffBackdrop =
-    showStaffListPanel &&
-    staffPanelSlideIn &&
-    !staffPanel.isMinimized &&
-    !staffHiddenByAddForm &&
-    foregroundProfileSessionId === null
-  const staffPanelTransform =
-    !showStaffListPanel ||
-    staffPanel.isMinimized ||
-    staffHiddenByAddForm
-      ? 'translateX(100%)'
-      : staffPanelSlideIn
-        ? 'translateX(0)'
-        : 'translateX(100%)'
+  const isStaffPanelOpen = activeOverlay === 'staff' || hasTab('staff-mgmt')
 
   return (
     <>
-      {showStaffBackdrop ? (
-        <button
-          type="button"
-          aria-label="Close staff management"
-          onClick={handleStaffClose}
-          className="fixed inset-0 border-none"
-          style={{
-            backgroundColor: 'rgba(0, 0, 0, 0.3)',
-            zIndex: 300,
-            cursor: 'default',
-          }}
-        />
-      ) : null}
-
-      <div
-        className="fixed top-0 right-0 bottom-0 flex flex-col bg-white shadow-xl"
-        style={{
-          width: '100vw',
-          maxWidth: `${STAFF_PANEL_MAX_WIDTH_PX}px`,
-          paddingRight: `${OVERLAY_PANEL_TAB_STACK_CLEARANCE_PX}px`,
-          boxSizing: 'border-box',
-          height: '100vh',
-          zIndex: 301,
-          transform: staffPanelTransform,
-          transition: 'transform 0.2s ease',
-          pointerEvents:
-            !showStaffListPanel ||
-            staffPanel.isMinimized ||
-            staffHiddenByAddForm
-              ? 'none'
-              : 'auto',
-        }}
-      >
-        <header
-          className="flex shrink-0 items-center justify-between gap-3"
-          style={{
-            backgroundColor: NAVY,
-            padding: '12px 16px',
-          }}
-        >
-          <h2
+      <OverlayPanel
+        isOpen={isStaffPanelOpen}
+        title="Staff Management"
+        dismissable
+        tabId="staff-mgmt"
+        tabLabel="Staff"
+        tabColor="#1B3A5C"
+        onClose={handleStaffClose}
+        onPanelRestore={() => onFocus?.()}
+        visible={!staffHiddenByAddForm && foregroundProfileSessionId === null}
+        contentMaxWidthPx={STAFF_PANEL_CONTENT_MAX_WIDTH_PX}
+        headerLeading={
+          <button
+            type="button"
+            onClick={handleOpenAddForm}
             style={{
-              fontSize: '16px',
-              fontWeight: 600,
-              color: '#ffffff',
+              backgroundColor: '#ffffff',
+              color: NAVY,
+              fontSize: '12px',
+              fontWeight: 500,
+              borderRadius: '6px',
+              padding: '6px 14px',
+              border: 'none',
+              cursor: 'pointer',
             }}
           >
-            Staff Management
-          </h2>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleOpenAddForm}
-              style={{
-                backgroundColor: '#ffffff',
-                color: NAVY,
-                fontSize: '12px',
-                fontWeight: 500,
-                borderRadius: '6px',
-                padding: '6px 14px',
-                border: 'none',
-                cursor: 'pointer',
-              }}
-            >
-              Add New Staff
-            </button>
-            <PanelHeaderActions
-              variant="dark"
-              onMinimize={() => staffPanel.minimize()}
-              onClose={handleStaffClose}
-            />
-          </div>
-        </header>
-
+            Add New Staff
+          </button>
+        }
+      >
         <div
-          style={{
-            backgroundColor: '#ffffff',
-            borderBottom: '1px solid #E5E7EB',
-            padding: '12px 16px',
-          }}
+          className="flex flex-col"
+          style={{ minHeight: 'calc(100vh - 53px)' }}
         >
+          <div
+            className="shrink-0"
+            style={{
+              backgroundColor: '#ffffff',
+              borderBottom: '1px solid #E5E7EB',
+              padding: '12px 16px',
+            }}
+          >
           <div className="relative">
             <IconSearch
               size={16}
@@ -1323,7 +1217,8 @@ function StaffManagementPage({ onClose, onFocus }: StaffManagementPageProps) {
             {successToast}
           </div>
         ) : null}
-      </div>
+        </div>
+      </OverlayPanel>
 
       {profileSessions.map((session) => (
         <StaffProfilePanel

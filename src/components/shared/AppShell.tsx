@@ -552,6 +552,7 @@ function AppShell({ children }: AppShellProps) {
   const [accountMenuOpen, setAccountMenuOpen] = useState(false)
   const [userDisplayName, setUserDisplayName] = useState('')
   const accountMenuRef = useRef<HTMLDivElement>(null)
+  const lastGenericOverlayRef = useRef<string | null>(null)
 
   const hqIndex = brand_name.lastIndexOf(' ')
   const gridMasterWordmark =
@@ -657,6 +658,9 @@ function AppShell({ children }: AppShellProps) {
       setNewEventInitialMode(null)
       setNewEventInitialTemplate(null)
     }
+    if (id !== 'staff' && id !== 'new-event') {
+      lastGenericOverlayRef.current = id
+    }
     setActiveOverlay(id)
   }, [canOpenNew, showMaxTabsNotice])
 
@@ -698,6 +702,24 @@ function AppShell({ children }: AppShellProps) {
     'gridmaster-templates': true,
     'ai-template-builder': true,
     'new-event': false,
+  }
+
+  const overlayTabIds: Record<string, string> = {
+    uniforms: 'uniforms',
+    roles: 'roles',
+    'note-templates': 'note-templates',
+    'my-templates': 'my-templates',
+    'gridmaster-templates': 'gridmaster-templates',
+    'ai-template-builder': 'ai-template-builder',
+  }
+
+  const overlayTabLabels: Record<string, string> = {
+    uniforms: 'Uniforms',
+    roles: 'Roles',
+    'note-templates': 'Note Templates',
+    'my-templates': 'My Templates',
+    'gridmaster-templates': 'GM Templates',
+    'ai-template-builder': 'AI Builder',
   }
 
   const focusStaffOverlay = useCallback(() => {
@@ -1025,7 +1047,15 @@ function AppShell({ children }: AppShellProps) {
           isOpen
           title={overlayTitles[activeOverlay!] ?? ''}
           dismissable={overlayDismissable[activeOverlay!] ?? true}
+          tabId={activeOverlay ? overlayTabIds[activeOverlay] : undefined}
+          tabLabel={activeOverlay ? overlayTabLabels[activeOverlay] : undefined}
+          tabColor="#1B3A5C"
           onClose={closeOverlay}
+          onPanelRestore={() => {
+            if (lastGenericOverlayRef.current) {
+              setActiveOverlay(lastGenericOverlayRef.current)
+            }
+          }}
         >
           {activeOverlay === 'uniforms' ? <UniformsPage /> : null}
           {activeOverlay === 'roles' ? <RolesPage /> : null}

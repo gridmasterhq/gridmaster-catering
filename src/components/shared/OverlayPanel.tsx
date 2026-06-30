@@ -49,6 +49,8 @@ interface OverlayPanelProps {
   tabId?: string
   tabLabel?: string
   tabColor?: string
+  headerLeading?: ReactNode
+  contentMaxWidthPx?: number
 }
 
 export default function OverlayPanel({
@@ -62,11 +64,16 @@ export default function OverlayPanel({
   tabId,
   tabLabel,
   tabColor = '#1B3A5C',
+  headerLeading,
+  contentMaxWidthPx,
 }: OverlayPanelProps) {
   const { labels, colors } = useProductConfig()
   const [slideIn, setSlideIn] = useState(false)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
-  const isFormPanel = !dismissable && tabId != null
+  const isFormPanel = tabId != null
+  const panelMaxWidthPx =
+    (contentMaxWidthPx ?? OVERLAY_PANEL_CONTENT_MAX_WIDTH_PX) +
+    OVERLAY_PANEL_TAB_STACK_CLEARANCE_PX
 
   const { isMinimized, minimize, dismiss } = useMinimizablePanel({
     id: tabId ?? title,
@@ -102,6 +109,10 @@ export default function OverlayPanel({
       return
     }
 
+    if (!visible) {
+      return
+    }
+
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key !== 'Escape') {
         return
@@ -122,10 +133,13 @@ export default function OverlayPanel({
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [dismissable, isOpen, isMinimized, onClose])
+  }, [dismissable, isOpen, isMinimized, onClose, visible])
 
   const handleRequestClose = () => {
     if (dismissable) {
+      if (tabId != null) {
+        dismiss()
+      }
       onClose()
       return
     }
@@ -152,7 +166,7 @@ export default function OverlayPanel({
           <button
             type="button"
             aria-label="Close overlay"
-            onClick={onClose}
+            onClick={handleRequestClose}
             className="fixed inset-0 border-none"
             style={{
               backgroundColor: 'rgba(0, 0, 0, 0.3)',
@@ -178,7 +192,7 @@ export default function OverlayPanel({
       <div
         className="fixed top-0 right-0 bottom-0 flex w-full flex-col bg-white shadow-xl"
         style={{
-          maxWidth: `${OVERLAY_PANEL_MAX_WIDTH_PX}px`,
+          maxWidth: `${panelMaxWidthPx}px`,
           paddingRight: `${OVERLAY_PANEL_TAB_STACK_CLEARANCE_PX}px`,
           boxSizing: 'border-box',
           zIndex: 301,
@@ -208,6 +222,7 @@ export default function OverlayPanel({
             onClose={handleRequestClose}
             onMinimize={isFormPanel ? minimize : undefined}
             iconColor="#ffffff"
+            leading={headerLeading}
             replaceActions={
               isFormPanel && showConfirmDialog ? (
                 <div className="flex items-center gap-3">
