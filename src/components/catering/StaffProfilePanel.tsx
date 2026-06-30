@@ -14,6 +14,7 @@ import { OVERLAY_PANEL_TAB_STACK_CLEARANCE_PX } from '../shared/OverlayPanel'
 import StaffProfileHistoryTab from './StaffProfileHistoryTab'
 import StaffProfileCertificationsTab from './StaffProfileCertificationsTab'
 import StaffProfileAvailabilityTab from './StaffProfileAvailabilityTab'
+import StaffProfileAISummaryTab from './StaffProfileAISummaryTab'
 import StaffRatingBadge from '../shared/StaffRatingBadge'
 import { formatCoordinatorStaffName } from '../../lib/staffDisplayName'
 import {
@@ -257,6 +258,14 @@ function getPrimaryRole(staff: StaffProfileStaffMember): string {
   const roles = normalizeStaffRoles(staff.staff_roles)
   const primary = roles.find((role) => role.is_primary)
   return primary?.role ?? roles[0]?.role ?? 'Staff'
+}
+
+function getStaffFirstName(staff: StaffProfileStaffMember): string {
+  const fromDisplay = staff.display_name?.trim().split(/\s+/)[0]
+  if (fromDisplay) {
+    return fromDisplay
+  }
+  return staff.legal_name.trim().split(/\s+/)[0] || 'Staff member'
 }
 
 function getStaffDisplayName(staff: StaffProfileStaffMember): string {
@@ -1185,6 +1194,19 @@ export default function StaffProfilePanel({
             organizationId={organizationId}
             onBasicAvailabilityChange={handleBasicAvailabilityChange}
           />
+        ) : profileTab === 'ai_summary' ? (
+          organizationId ? (
+            <StaffProfileAISummaryTab
+              staffPhone={staff.phone}
+              organizationId={organizationId}
+              staffName={displayName}
+              staffFirstName={getStaffFirstName(staff)}
+            />
+          ) : (
+            <div className="flex min-h-0 flex-1 items-center justify-center py-16">
+              <p style={{ fontSize: '13px', color: '#6B7280' }}>Loading…</p>
+            </div>
+          )
         ) : (
           <div className="flex min-h-0 flex-1 flex-col items-center justify-center py-16">
             <IconClock size={32} color="#D1D5DB" stroke={1.5} />
