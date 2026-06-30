@@ -75,10 +75,12 @@ function createMessageId(): string {
 }
 
 function formatGeneratedDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, {
+  return new Date(iso).toLocaleString(undefined, {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
   })
 }
 
@@ -478,7 +480,6 @@ function IntroBox() {
         border: '1px solid #E5E7EB',
         borderRadius: '8px',
         padding: '12px 14px',
-        marginBottom: '16px',
         fontSize: '13px',
         lineHeight: 1.6,
         color: '#4B5563',
