@@ -92,6 +92,34 @@ function formatRatingDate(iso: string): string {
   })
 }
 
+function formatBlackoutContextDate(iso: string): string {
+  return new Date(`${iso.slice(0, 10)}T12:00:00`).toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
+function formatBlackoutContextEntry(
+  vacationStart: unknown,
+  vacationEnd: unknown,
+): string {
+  const startLabel =
+    typeof vacationStart === 'string' && vacationStart.trim()
+      ? formatBlackoutContextDate(vacationStart)
+      : 'Unknown date'
+  const hasEnd =
+    vacationEnd != null &&
+    typeof vacationEnd === 'string' &&
+    vacationEnd.trim().length > 0
+
+  if (!hasEnd) {
+    return `${startLabel} (single day)`
+  }
+
+  return `${startLabel} – ${formatBlackoutContextDate(vacationEnd)}`
+}
+
 function formatRoleLabel(role: string): string {
   return role
     .split('_')
@@ -507,15 +535,9 @@ async function fetchStaffSummaryContext(
     return `${dayName}: ${status.replace(/_/g, ' ')}`
   })
 
-  const upcomingBlackouts = (blackoutsResult?.data ?? []).map((row) => {
-    const start =
-      typeof row.vacation_start === 'string' ? row.vacation_start : ''
-    const end = row.vacation_end
-    if (end == null || (typeof end === 'string' && !end.trim())) {
-      return `${start} (single day)`
-    }
-    return `${start} – ${end}`
-  })
+  const upcomingBlackouts = (blackoutsResult?.data ?? []).map((row) =>
+    formatBlackoutContextEntry(row.vacation_start, row.vacation_end),
+  )
 
   const incompleteCourses = (incompleteCoursesResult?.data ?? []).map((row) => {
     const templates = row.course_templates as
