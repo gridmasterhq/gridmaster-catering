@@ -22,6 +22,11 @@ export interface StaffDirectoryEntry {
   primaryRole: string | null
 }
 
+export interface ConversationTurn {
+  role: 'user' | 'assistant'
+  content: string
+}
+
 export interface AssistantAnswer {
   source: 'db' | 'ai'
   text: string
@@ -480,6 +485,7 @@ export async function buildAssistantContext(
 async function callAnthropicApi(
   question: string,
   context: AssistantContext,
+  priorTurns: ConversationTurn[] = [],
 ): Promise<string> {
   const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
   if (!apiKey) {
@@ -496,6 +502,11 @@ async function callAnthropicApi(
     2,
   )}`
 
+  const maxHistoryMessages = 20
+  const historyMessages = priorTurns
+    .slice(-maxHistoryMessages)
+    .map((turn) => ({ role: turn.role, content: turn.content }))
+
   const response = await fetch(ANTHROPIC_API_URL, {
     method: 'POST',
     headers: {
@@ -508,7 +519,10 @@ async function callAnthropicApi(
       model: ANTHROPIC_MODEL,
       max_tokens: 800,
       system: AI_ASSISTANT_SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: userPrompt }],
+      messages: [
+        ...historyMessages,
+        { role: 'user', content: userPrompt },
+      ],
     }),
   })
 
@@ -542,6 +556,7 @@ export function isDbOnlyQuestion(question: string): boolean {
 
 export async function answerAssistantQuestion(
   question: string,
+  priorTurns: ConversationTurn[] = [],
 ): Promise<{ answer: AssistantAnswer; context: AssistantContext }> {
   const orgId = await getOrganizationId()
   if (!orgId) {
@@ -577,7 +592,7 @@ export async function answerAssistantQuestion(
   }
 
   const context = await buildAssistantContext(orgId)
-  const text = await callAnthropicApi(question, context)
+  const text = await callAnthropicApi(question, context, priorTurns)
   return {
     answer: { source: 'ai', text },
     context,

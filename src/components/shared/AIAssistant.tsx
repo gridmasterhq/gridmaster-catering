@@ -11,18 +11,19 @@ import {
   IconChevronLeft,
   IconChevronRight,
   IconRobot,
-  IconX,
+  IconSend,
 } from '@tabler/icons-react'
 import {
   answerAssistantQuestion,
   isDbOnlyQuestion,
   matchStaffNamesInAnswer,
-  type AssistantAnswer,
   type AssistantContext,
+  type ConversationTurn,
   type StaffDirectoryEntry,
 } from '../../lib/aiAssistant'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
 import { openStaffProfileNavigation } from '../../lib/staffProfileNavigation'
+import PanelHeaderActions from './PanelHeaderActions'
 import {
   OVERLAY_PANEL_MAX_WIDTH_PX,
   OVERLAY_PANEL_TAB_STACK_CLEARANCE_PX,
@@ -40,44 +41,111 @@ const EXAMPLE_QUESTIONS = [
   'Who should I call first if my captain cancels tonight?',
 ] as const
 
-interface QASession {
-  question: string
-  answer: AssistantAnswer | null
+interface ThreadMessage {
+  id: string
+  role: 'user' | 'assistant'
+  text: string
+  timestamp: number
+  status: 'done' | 'loading' | 'error'
+  source?: 'db' | 'ai'
+}
+
+interface Conversation {
+  id: string
+  messages: ThreadMessage[]
   context: AssistantContext | null
-  status: 'loading' | 'done' | 'error'
+}
+
+function createMessageId(): string {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+}
+
+function formatMessageTime(timestamp: number): string {
+  return new Date(timestamp).toLocaleTimeString([], {
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+}
+
+function buildCompletedTurns(messages: ThreadMessage[]): ConversationTurn[] {
+  return messages
+    .filter((message) => message.status === 'done')
+    .map((message) => ({
+      role: message.role,
+      content: message.text,
+    }))
+}
+
+function PanelChevronButton({
+  direction,
+  disabled,
+  onClick,
+  iconColor,
+  ariaLabel,
+}: {
+  direction: 'left' | 'right'
+  disabled?: boolean
+  onClick?: () => void
+  iconColor: string
+  ariaLabel: string
+}) {
+  const Icon = direction === 'left' ? IconChevronLeft : IconChevronRight
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={ariaLabel}
+      className={`rounded p-1 ${
+        disabled
+          ? 'cursor-not-allowed opacity-30'
+          : 'cursor-pointer hover:bg-gray-100'
+      }`}
+      style={{ color: iconColor, border: 'none', background: 'none' }}
+    >
+      <Icon size={20} stroke={2} />
+    </button>
+  )
+}
+
+function ThinkingDots() {
+  return (
+    <div className="flex items-center gap-1">
+      <span className="inline-block size-1.5 animate-bounce rounded-full bg-gray-400 [animation-delay:0ms]" />
+      <span className="inline-block size-1.5 animate-bounce rounded-full bg-gray-400 [animation-delay:150ms]" />
+      <span className="inline-block size-1.5 animate-bounce rounded-full bg-gray-400 [animation-delay:300ms]" />
+    </div>
+  )
 }
 
 function AnswerBody({
-  answer,
+  text,
+  source,
   staffDirectory,
   navyColor,
   onStaffClick,
 }: {
-  answer: AssistantAnswer
+  text: string
+  source?: 'db' | 'ai'
   staffDirectory: StaffDirectoryEntry[]
   navyColor: string
   onStaffClick: (phone: string) => void
 }) {
-  if (answer.source !== 'ai' || staffDirectory.length === 0) {
+  if (source !== 'ai' || staffDirectory.length === 0) {
     return (
-      <p
-        className="whitespace-pre-wrap"
-        style={{ fontSize: '14px', color: '#374151', lineHeight: 1.5 }}
-      >
-        {answer.text}
-      </p>
+      <span className="whitespace-pre-wrap" style={{ fontSize: '13px', lineHeight: 1.5 }}>
+        {text}
+      </span>
     )
   }
 
-  const matches = matchStaffNamesInAnswer(answer.text, staffDirectory)
+  const matches = matchStaffNamesInAnswer(text, staffDirectory)
   if (matches.length === 0) {
     return (
-      <p
-        className="whitespace-pre-wrap"
-        style={{ fontSize: '14px', color: '#374151', lineHeight: 1.5 }}
-      >
-        {answer.text}
-      </p>
+      <span className="whitespace-pre-wrap" style={{ fontSize: '13px', lineHeight: 1.5 }}>
+        {text}
+      </span>
     )
   }
 
@@ -86,7 +154,7 @@ function AnswerBody({
 
   for (const match of matches) {
     if (match.start > cursor) {
-      nodes.push(answer.text.slice(cursor, match.start))
+      nodes.push(text.slice(cursor, match.start))
     }
     nodes.push(
       <button
@@ -108,36 +176,36 @@ function AnswerBody({
     cursor = match.end
   }
 
-  if (cursor < answer.text.length) {
-    nodes.push(answer.text.slice(cursor))
+  if (cursor < text.length) {
+    nodes.push(text.slice(cursor))
   }
 
   return (
-    <p
-      className="whitespace-pre-wrap"
-      style={{ fontSize: '14px', color: '#374151', lineHeight: 1.5 }}
-    >
+    <span className="whitespace-pre-wrap" style={{ fontSize: '13px', lineHeight: 1.5 }}>
       {nodes}
-    </p>
+    </span>
   )
 }
 
 export default function AIAssistant({ onOpenStaffOverlay }: AIAssistantProps) {
   const { colors } = useProductConfig()
   const [question, setQuestion] = useState('')
+  const [followUpQuestion, setFollowUpQuestion] = useState('')
   const [panelOpen, setPanelOpen] = useState(false)
   const [slideIn, setSlideIn] = useState(false)
   const [examplesOpen, setExamplesOpen] = useState(false)
   const [emptyInputMessage, setEmptyInputMessage] = useState(false)
   const [recentQuestions, setRecentQuestions] = useState<string[]>([])
-  const [sessions, setSessions] = useState<QASession[]>([])
-  const [sessionIndex, setSessionIndex] = useState(-1)
+  const [conversations, setConversations] = useState<Conversation[]>([])
+  const [conversationIndex, setConversationIndex] = useState(-1)
   const examplesRef = useRef<HTMLDivElement>(null)
   const emptyMessageTimerRef = useRef<number | null>(null)
-  const sessionIndexRef = useRef(-1)
+  const threadEndRef = useRef<HTMLDivElement>(null)
+  const conversationIndexRef = useRef(-1)
 
-  sessionIndexRef.current = sessionIndex
-  const currentSession = sessionIndex >= 0 ? sessions[sessionIndex] : null
+  conversationIndexRef.current = conversationIndex
+  const currentConversation =
+    conversationIndex >= 0 ? conversations[conversationIndex] : null
 
   useEffect(() => {
     if (!panelOpen) {
@@ -153,6 +221,10 @@ export default function AIAssistant({ onOpenStaffOverlay }: AIAssistantProps) {
       cancelAnimationFrame(frame)
     }
   }, [panelOpen])
+
+  useEffect(() => {
+    threadEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [currentConversation?.messages])
 
   useEffect(() => {
     if (!examplesOpen) {
@@ -209,14 +281,29 @@ export default function AIAssistant({ onOpenStaffOverlay }: AIAssistantProps) {
     [onOpenStaffOverlay],
   )
 
-  const runQuestion = useCallback(
-    async (nextQuestion: string, options?: { retry?: boolean }) => {
-      const trimmed = nextQuestion.trim()
-      if (!trimmed) {
+  const submitQuestion = useCallback(
+    async (
+      nextQuestion: string,
+      options: {
+        freshConversation?: boolean
+        followUp?: boolean
+        retryAssistantMessageId?: string
+      } = {},
+    ) => {
+      let trimmed = nextQuestion.trim()
+      if (!trimmed && !options.retryAssistantMessageId) {
         return
       }
 
-      if (!options?.retry) {
+      const assistantMessageId =
+        options.retryAssistantMessageId ?? createMessageId()
+      const userMessageId = createMessageId()
+      const now = Date.now()
+      const isDbQuery = isDbOnlyQuestion(trimmed)
+      let priorTurns: ConversationTurn[] = []
+      let targetConversationIndex = conversationIndexRef.current
+
+      if (!options.retryAssistantMessageId) {
         setRecentQuestions((previous) => {
           const withoutDuplicate = previous.filter(
             (item) => item.toLowerCase() !== trimmed.toLowerCase(),
@@ -225,74 +312,179 @@ export default function AIAssistant({ onOpenStaffOverlay }: AIAssistantProps) {
         })
       }
 
-      const newSession: QASession = {
-        question: trimmed,
-        answer: null,
-        context: null,
-        status: 'loading',
-      }
+      setConversations((previous) => {
+        let next = [...previous]
 
-      if (options?.retry) {
-        setSessions((previous) => {
-          const activeIndex = sessionIndexRef.current
-          if (activeIndex < 0 || activeIndex >= previous.length) {
+        if (options.freshConversation) {
+          const newConversation: Conversation = {
+            id: createMessageId(),
+            messages: [],
+            context: null,
+          }
+          next =
+            targetConversationIndex >= 0
+              ? [...next.slice(0, targetConversationIndex + 1), newConversation]
+              : [newConversation]
+          targetConversationIndex = next.length - 1
+          setConversationIndex(targetConversationIndex)
+          conversationIndexRef.current = targetConversationIndex
+        } else if (targetConversationIndex < 0 || targetConversationIndex >= next.length) {
+          const newConversation: Conversation = {
+            id: createMessageId(),
+            messages: [],
+            context: null,
+          }
+          next = [newConversation]
+          targetConversationIndex = 0
+          setConversationIndex(0)
+          conversationIndexRef.current = 0
+        }
+
+        const conversation = next[targetConversationIndex]
+        let messages = [...conversation.messages]
+
+        if (options.retryAssistantMessageId) {
+          const errorIndex = messages.findIndex(
+            (message) => message.id === options.retryAssistantMessageId,
+          )
+          const userMessage =
+            errorIndex > 0 ? messages[errorIndex - 1] : null
+          if (!userMessage || userMessage.role !== 'user') {
             return previous
           }
-          const next = [...previous]
-          next[activeIndex] = newSession
-          return next
-        })
-      } else {
-        setSessions((previous) => {
-          const activeIndex = sessionIndexRef.current
-          const truncated =
-            activeIndex >= 0 ? previous.slice(0, activeIndex + 1) : previous
-          const nextSessions = [...truncated, newSession]
-          setSessionIndex(nextSessions.length - 1)
-          return nextSessions
-        })
+          trimmed = userMessage.text
+          priorTurns = buildCompletedTurns(messages.slice(0, errorIndex - 1))
+          messages = messages.map((message) =>
+            message.id === options.retryAssistantMessageId
+              ? {
+                  ...message,
+                  text: '',
+                  status: 'loading' as const,
+                  source: undefined,
+                }
+              : message,
+          )
+        } else {
+          priorTurns = buildCompletedTurns(conversation.messages)
+          messages.push({
+            id: userMessageId,
+            role: 'user',
+            text: trimmed,
+            timestamp: now,
+            status: 'done',
+          })
+          if (!isDbQuery) {
+            messages.push({
+              id: assistantMessageId,
+              role: 'assistant',
+              text: '',
+              timestamp: now,
+              status: 'loading',
+            })
+          }
+        }
+
+        next[targetConversationIndex] = {
+          ...conversation,
+          messages,
+        }
+        return next
+      })
+
+      if (options.retryAssistantMessageId && !trimmed) {
+        return
       }
 
       try {
-        const { answer, context } = await answerAssistantQuestion(trimmed)
-        setSessions((previous) => {
+        const { answer, context } = await answerAssistantQuestion(
+          trimmed,
+          priorTurns,
+        )
+        setConversations((previous) => {
           const next = [...previous]
-          const index = options?.retry
-            ? sessionIndexRef.current
-            : next.length - 1
+          const index = conversationIndexRef.current
           if (index < 0 || index >= next.length) {
             return previous
           }
-          if (next[index].question !== trimmed) {
-            return previous
+          const conversation = next[index]
+          let messages = [...conversation.messages]
+
+          if (options.retryAssistantMessageId) {
+            messages = messages.map((message) =>
+              message.id === options.retryAssistantMessageId
+                ? {
+                    ...message,
+                    text: answer.text,
+                    status: 'done' as const,
+                    source: answer.source,
+                    timestamp: Date.now(),
+                  }
+                : message,
+            )
+          } else if (isDbQuery) {
+            messages.push({
+              id: assistantMessageId,
+              role: 'assistant',
+              text: answer.text,
+              timestamp: Date.now(),
+              status: 'done',
+              source: answer.source,
+            })
+          } else {
+            messages = messages.map((message) =>
+              message.id === assistantMessageId
+                ? {
+                    ...message,
+                    text: answer.text,
+                    status: 'done' as const,
+                    source: answer.source,
+                    timestamp: Date.now(),
+                  }
+                : message,
+            )
           }
+
           next[index] = {
-            question: trimmed,
-            answer,
+            ...conversation,
+            messages,
             context,
-            status: 'done',
           }
           return next
         })
       } catch (error) {
         console.error('[AIAssistant] answer failed', error)
-        setSessions((previous) => {
+        setConversations((previous) => {
           const next = [...previous]
-          const index = options?.retry
-            ? sessionIndexRef.current
-            : next.findIndex(
-                (session) =>
-                  session.question === trimmed && session.status === 'loading',
-              )
+          const index = conversationIndexRef.current
           if (index < 0 || index >= next.length) {
             return previous
           }
-          next[index] = {
-            question: trimmed,
-            answer: null,
-            context: null,
-            status: 'error',
+          const conversation = next[index]
+          let messages = [...conversation.messages]
+
+          if (options.retryAssistantMessageId) {
+            messages = messages.map((message) =>
+              message.id === options.retryAssistantMessageId
+                ? { ...message, status: 'error' as const, text: '' }
+                : message,
+            )
+          } else if (isDbQuery) {
+            messages.push({
+              id: assistantMessageId,
+              role: 'assistant',
+              text: '',
+              timestamp: Date.now(),
+              status: 'error',
+            })
+          } else {
+            messages = messages.map((message) =>
+              message.id === assistantMessageId
+                ? { ...message, status: 'error' as const, text: '' }
+                : message,
+            )
           }
+
+          next[index] = { ...conversation, messages }
           return next
         })
       }
@@ -317,9 +509,24 @@ export default function AIAssistant({ onOpenStaffOverlay }: AIAssistantProps) {
       }
 
       setPanelOpen(true)
-      void runQuestion(trimmed)
+      void submitQuestion(trimmed, {
+        freshConversation: panelOpen,
+      })
     },
-    [question, runQuestion],
+    [panelOpen, question, submitQuestion],
+  )
+
+  const handleFollowUpSubmit = useCallback(
+    (event?: FormEvent) => {
+      event?.preventDefault()
+      const trimmed = followUpQuestion.trim()
+      if (!trimmed) {
+        return
+      }
+      setFollowUpQuestion('')
+      void submitQuestion(trimmed, { followUp: true })
+    },
+    [followUpQuestion, submitQuestion],
   )
 
   const handleInputKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
@@ -329,23 +536,23 @@ export default function AIAssistant({ onOpenStaffOverlay }: AIAssistantProps) {
     }
   }
 
-  const handleRetry = () => {
-    if (!currentSession) {
-      return
+  const handleFollowUpKeyDown = (
+    event: ReactKeyboardEvent<HTMLInputElement>,
+  ) => {
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      handleFollowUpSubmit()
     }
-    void runQuestion(currentSession.question, { retry: true })
   }
 
   const handleBack = () => {
-    if (sessionIndex > 0) {
-      setSessionIndex(sessionIndex - 1)
+    if (conversationIndex > 0) {
+      setConversationIndex(conversationIndex - 1)
     }
   }
 
-  const canGoBack = sessionIndex > 0
-  const panelRecentQuestions = recentQuestions.filter(
-    (item) => item !== currentSession?.question,
-  )
+  const canGoBack = conversationIndex > 0
+  const staffDirectory = currentConversation?.context?.staffDirectory ?? []
 
   return (
     <>
@@ -387,7 +594,7 @@ export default function AIAssistant({ onOpenStaffOverlay }: AIAssistantProps) {
               fontSize: '13px',
               padding: '0 10px',
               borderRadius: '6px',
-              backgroundColor: 'rgba(255, 255, 255, 0.2)',
+              backgroundColor: 'rgba(255, 255, 255, 0.5)',
               border: '1px solid rgba(255, 255, 255, 0.4)',
               color: '#ffffff',
             }}
@@ -499,23 +706,16 @@ export default function AIAssistant({ onOpenStaffOverlay }: AIAssistantProps) {
             }}
           >
             <header className="flex shrink-0 items-center justify-between border-b border-gray-200 px-4 py-3">
-              <div className="flex min-w-0 flex-1 items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleBack}
+              <div className="flex min-w-0 flex-1 items-center gap-1">
+                <PanelChevronButton
+                  direction="left"
                   disabled={!canGoBack}
-                  aria-label="Previous answer"
-                  className="rounded p-1 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-30"
-                  style={{
-                    color: colors.brand_navy,
-                    border: 'none',
-                    background: 'none',
-                  }}
-                >
-                  <IconChevronLeft size={20} stroke={2} />
-                </button>
+                  onClick={handleBack}
+                  iconColor={colors.brand_navy}
+                  ariaLabel="Previous conversation"
+                />
                 <h2
-                  className="flex min-w-0 items-center gap-2 truncate"
+                  className="flex min-w-0 items-center gap-2 truncate px-1"
                   style={{
                     fontSize: '16px',
                     fontWeight: 600,
@@ -525,141 +725,275 @@ export default function AIAssistant({ onOpenStaffOverlay }: AIAssistantProps) {
                   <IconRobot size={18} stroke={2} aria-hidden="true" />
                   AI Assistant
                 </h2>
-                <button
-                  type="button"
+                <PanelChevronButton
+                  direction="right"
                   disabled
-                  aria-label="Next answer"
-                  className="rounded p-1 opacity-30"
-                  style={{
-                    color: colors.brand_navy,
-                    border: 'none',
-                    background: 'none',
-                    cursor: 'not-allowed',
-                  }}
-                >
-                  <IconChevronRight size={20} stroke={2} />
-                </button>
+                  iconColor={colors.brand_navy}
+                  ariaLabel="Next conversation"
+                />
               </div>
-              <button
-                type="button"
-                onClick={() => setPanelOpen(false)}
-                aria-label="Close"
-                className="rounded p-1 hover:bg-gray-100"
-                style={{ color: colors.brand_navy, border: 'none', background: 'none' }}
-              >
-                <IconX size={20} stroke={2} />
-              </button>
+              <PanelHeaderActions
+                onClose={() => setPanelOpen(false)}
+                iconColor={colors.brand_navy}
+              />
             </header>
 
-            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-              {panelRecentQuestions.length > 0 ? (
-                <section className="mb-6">
-                  <p
-                    style={{
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      color: '#9CA3AF',
-                      marginBottom: '8px',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.04em',
-                    }}
-                  >
-                    Recent
-                  </p>
-                  <ul className="m-0 list-none space-y-2 p-0">
-                    {panelRecentQuestions.map((item) => (
-                      <li key={item}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setQuestion(item)
-                            setPanelOpen(true)
-                            void runQuestion(item)
-                          }}
-                          className="border-none bg-transparent p-0 text-left hover:underline"
-                          style={{
-                            fontSize: '13px',
-                            color: '#6B7280',
-                            cursor: 'pointer',
-                          }}
+            <div className="flex min-h-0 flex-1 flex-col">
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+                {currentConversation?.messages.length ? (
+                  <div className="flex flex-col gap-4">
+                    {currentConversation.messages.map((message) => {
+                      if (message.role === 'user') {
+                        return (
+                          <div
+                            key={message.id}
+                            className="flex flex-col items-end"
+                          >
+                            <div
+                              style={{
+                                maxWidth: '80%',
+                                padding: '8px 12px',
+                                borderRadius: '12px 12px 2px 12px',
+                                backgroundColor: colors.brand_navy,
+                                color: '#ffffff',
+                                fontSize: '13px',
+                                lineHeight: 1.5,
+                              }}
+                            >
+                              {message.text}
+                            </div>
+                            <span
+                              style={{
+                                fontSize: '10px',
+                                color: '#9CA3AF',
+                                marginTop: '4px',
+                              }}
+                            >
+                              {formatMessageTime(message.timestamp)}
+                            </span>
+                          </div>
+                        )
+                      }
+
+                      if (message.status === 'loading') {
+                        return (
+                          <div
+                            key={message.id}
+                            className="flex flex-col items-start"
+                          >
+                            <div
+                              style={{
+                                maxWidth: '80%',
+                                padding: '8px 12px',
+                                borderRadius: '12px 12px 12px 2px',
+                                backgroundColor: '#F3F4F6',
+                                color: '#1F2937',
+                                fontSize: '13px',
+                              }}
+                            >
+                              <ThinkingDots />
+                            </div>
+                            <span
+                              style={{
+                                fontSize: '10px',
+                                color: '#9CA3AF',
+                                marginTop: '4px',
+                              }}
+                            >
+                              {formatMessageTime(message.timestamp)}
+                            </span>
+                          </div>
+                        )
+                      }
+
+                      if (message.status === 'error') {
+                        return (
+                          <div
+                            key={message.id}
+                            className="flex flex-col items-start"
+                          >
+                            <div
+                              style={{
+                                maxWidth: '80%',
+                                padding: '8px 12px',
+                                borderRadius: '12px 12px 12px 2px',
+                                backgroundColor: '#F3F4F6',
+                                color: '#1F2937',
+                                fontSize: '13px',
+                                lineHeight: 1.5,
+                              }}
+                            >
+                              Something went wrong — please try again.{' '}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  void submitQuestion('', {
+                                    retryAssistantMessageId: message.id,
+                                  })
+                                }}
+                                className="border-none bg-transparent p-0 underline"
+                                style={{
+                                  color: colors.brand_navy,
+                                  cursor: 'pointer',
+                                  fontSize: 'inherit',
+                                }}
+                              >
+                                Retry
+                              </button>
+                            </div>
+                            <span
+                              style={{
+                                fontSize: '10px',
+                                color: '#9CA3AF',
+                                marginTop: '4px',
+                              }}
+                            >
+                              {formatMessageTime(message.timestamp)}
+                            </span>
+                          </div>
+                        )
+                      }
+
+                      return (
+                        <div
+                          key={message.id}
+                          className="flex flex-col items-start"
                         >
-                          {item}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              ) : null}
-
-              {currentSession ? (
-                <section>
-                  <p
-                    style={{
-                      fontSize: '12px',
-                      fontWeight: 600,
-                      color: '#6B7280',
-                      marginBottom: '8px',
-                    }}
-                  >
-                    {currentSession.question}
-                  </p>
-
-                  {currentSession.status === 'loading' &&
-                  !isDbOnlyQuestion(currentSession.question) ? (
-                    <p
-                      className="animate-pulse"
-                      style={{ fontSize: '14px', color: '#6B7280' }}
-                    >
-                      Thinking…
-                    </p>
-                  ) : null}
-
-                  {currentSession.status === 'error' ? (
-                    <div style={{ fontSize: '14px', color: '#374151' }}>
-                      Something went wrong — please try again.{' '}
-                      <button
-                        type="button"
-                        onClick={handleRetry}
-                        className="border-none bg-transparent p-0 underline"
-                        style={{
-                          color: colors.brand_navy,
-                          cursor: 'pointer',
-                          fontSize: 'inherit',
-                        }}
-                      >
-                        Retry
-                      </button>
-                    </div>
-                  ) : null}
-
-                  {currentSession.status === 'done' && currentSession.answer ? (
-                    <>
-                      <AnswerBody
-                        answer={currentSession.answer}
-                        staffDirectory={
-                          currentSession.context?.staffDirectory ?? []
-                        }
-                        navyColor={colors.brand_navy}
-                        onStaffClick={handleStaffClick}
-                      />
-                      {currentSession.answer.source === 'ai' ? (
+                          <div
+                            style={{
+                              maxWidth: '80%',
+                              padding: '8px 12px',
+                              borderRadius: '12px 12px 12px 2px',
+                              backgroundColor: '#F3F4F6',
+                              color: '#1F2937',
+                            }}
+                          >
+                            <AnswerBody
+                              text={message.text}
+                              source={message.source}
+                              staffDirectory={staffDirectory}
+                              navyColor={colors.brand_navy}
+                              onStaffClick={handleStaffClick}
+                            />
+                          </div>
+                          {message.source === 'ai' ? (
+                            <span
+                              style={{
+                                fontSize: '11px',
+                                color: '#9CA3AF',
+                                marginTop: '4px',
+                              }}
+                            >
+                              Powered by Claude
+                            </span>
+                          ) : null}
+                          <span
+                            style={{
+                              fontSize: '10px',
+                              color: '#9CA3AF',
+                              marginTop: '4px',
+                            }}
+                          >
+                            {formatMessageTime(message.timestamp)}
+                          </span>
+                        </div>
+                      )
+                    })}
+                    <div ref={threadEndRef} />
+                  </div>
+                ) : (
+                  <div>
+                    {recentQuestions.length > 0 ? (
+                      <section>
                         <p
                           style={{
                             fontSize: '11px',
+                            fontWeight: 600,
                             color: '#9CA3AF',
-                            marginTop: '16px',
+                            marginBottom: '8px',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.04em',
                           }}
                         >
-                          Powered by Claude
+                          Recent
                         </p>
-                      ) : null}
-                    </>
-                  ) : null}
-                </section>
-              ) : panelRecentQuestions.length === 0 && !currentSession ? (
-                <p style={{ fontSize: '13px', color: '#9CA3AF' }}>
-                  Ask a question using the bar above to get started.
-                </p>
+                        <ul className="m-0 list-none space-y-2 p-0">
+                          {recentQuestions.map((item) => (
+                            <li key={item}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setQuestion(item)
+                                  setPanelOpen(true)
+                                  void submitQuestion(item, {
+                                    freshConversation: true,
+                                  })
+                                }}
+                                className="border-none bg-transparent p-0 text-left hover:underline"
+                                style={{
+                                  fontSize: '13px',
+                                  color: '#6B7280',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                {item}
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      </section>
+                    ) : (
+                      <p style={{ fontSize: '13px', color: '#9CA3AF' }}>
+                        Ask a question using the bar above to get started.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {currentConversation?.messages.length ? (
+                <div
+                  className="shrink-0 border-t border-gray-200 px-4 py-3"
+                  style={{ backgroundColor: '#ffffff' }}
+                >
+                  <form
+                    onSubmit={handleFollowUpSubmit}
+                    className="relative"
+                  >
+                    <input
+                      type="text"
+                      value={followUpQuestion}
+                      onChange={(event) =>
+                        setFollowUpQuestion(event.target.value)
+                      }
+                      onKeyDown={handleFollowUpKeyDown}
+                      placeholder="Ask a follow-up question..."
+                      className="w-full outline-none"
+                      style={{
+                        height: '36px',
+                        fontSize: '13px',
+                        padding: '0 40px 0 12px',
+                        borderRadius: '8px',
+                        border: '1px solid #E5E7EB',
+                        backgroundColor: '#ffffff',
+                        color: '#1F2937',
+                      }}
+                    />
+                    <button
+                      type="submit"
+                      aria-label="Send follow-up"
+                      className="absolute top-1/2 right-2 -translate-y-1/2 rounded p-1 hover:bg-gray-100"
+                      style={{
+                        color: colors.brand_navy,
+                        border: 'none',
+                        background: 'none',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <IconSend size={18} stroke={2} />
+                    </button>
+                  </form>
+                </div>
               ) : null}
             </div>
           </div>
