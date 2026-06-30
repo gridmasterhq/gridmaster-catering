@@ -168,27 +168,6 @@ async function callAnthropicApi(
   return textBlock.text.trim()
 }
 
-async function requireSupabaseResult<
-  T extends { error: unknown },
->(resultPromise: PromiseLike<T>): Promise<T> {
-  const result = await resultPromise
-  if (result.error) {
-    throw result.error
-  }
-  return result
-}
-
-function getSettledValue<T>(
-  results: PromiseSettledResult<T>[],
-  index: number,
-): T {
-  const result = results[index]
-  if (result.status !== 'fulfilled') {
-    throw new Error('Failed to load staff data')
-  }
-  return result.value
-}
-
 async function fetchStaffSummaryContext(
   staffPhone: string,
   organizationId: string,
@@ -196,56 +175,85 @@ async function fetchStaffSummaryContext(
   const todayIso = new Date().toISOString().slice(0, 10)
   const yearStart = `${new Date().getFullYear()}-01-01`
 
-  const queryNames = [
-    'staffRecord',
-    'roles',
-    'allTimeEventCount',
-    'ytdEventCount',
-    'futureAssignments',
-    'timesSummary',
-    'ratings',
-    'certifications',
-    'incompleteCourses',
-    'weeklyAvailability',
-    'blackouts',
-    'actionItems',
-  ] as const
-
-  const results = await Promise.allSettled([
-    requireSupabaseResult(
-      supabase
+  const safeStaffRecord = async () => {
+    try {
+      const result = await supabase
         .from('staff')
         .select(
           'legal_name, display_name, basic_availability, coordinator_notes, average_rating, rating_count, experience_rating',
         )
         .eq('phone', staffPhone)
         .eq('organization_id', organizationId)
-        .maybeSingle(),
-    ),
-    requireSupabaseResult(
-      supabase
+        .maybeSingle()
+      if (result.error) throw result.error
+      return result
+    } catch (err) {
+      console.error('[StaffProfileAISummary] query failed: staffRecord', err)
+      return null
+    }
+  }
+
+  const safeRoles = async () => {
+    try {
+      const result = await supabase
         .from('staff_roles')
         .select('role_name, is_primary')
         .eq('staff_phone', staffPhone)
-        .eq('organization_id', organizationId),
-    ),
-    requireSupabaseResult(
-      supabase
+        .eq('organization_id', organizationId)
+      if (result.error) throw result.error
+      return result
+    } catch (err) {
+      console.error('[StaffProfileAISummary] query failed: roles', err)
+      return null
+    }
+  }
+
+  const safeEventCounts = async () => {
+    try {
+      const allTimeCountResult = await supabase
         .from('event_staff_assignments')
         .select('id', { count: 'exact', head: true })
         .eq('organization_id', organizationId)
         .eq('staff_phone', staffPhone)
-        .eq('status', 'confirmed'),
-    ),
-    supabase
-      .from('event_staff_assignments')
-      .select('id', { count: 'exact', head: true })
-      .eq('organization_id', organizationId)
-      .eq('staff_phone', staffPhone)
-      .eq('status', 'confirmed')
-      .gte('confirmed_at', yearStart),
-    requireSupabaseResult(
-      supabase
+        .eq('status', 'confirmed')
+      if (allTimeCountResult.error) throw allTimeCountResult.error
+
+      const ytdCountResult = await supabase
+        .from('event_staff_assignments')
+        .select('id', { count: 'exact', head: true })
+        .eq('organization_id', organizationId)
+        .eq('staff_phone', staffPhone)
+        .eq('status', 'confirmed')
+        .gte('confirmed_at', yearStart)
+
+      let ytdConfirmedCount = 0
+      if (!ytdCountResult.error) {
+        ytdConfirmedCount = ytdCountResult.count ?? 0
+      } else {
+        const ytdFallback = await supabase
+          .from('event_staff_assignments')
+          .select('id, events!inner(event_date)', { count: 'exact', head: true })
+          .eq('organization_id', organizationId)
+          .eq('staff_phone', staffPhone)
+          .eq('status', 'confirmed')
+          .gte('events.event_date', yearStart)
+        if (ytdFallback.error) throw ytdFallback.error
+        ytdConfirmedCount = ytdFallback.count ?? 0
+      }
+
+      return {
+        allTimeCount: allTimeCountResult.count ?? 0,
+        ytdConfirmedCount,
+      }
+    } catch (err) {
+      console.error('[StaffProfileAISummary] query failed: eventCounts', err)
+      return null
+    }
+  }
+
+  const safeFutureAssignments = async () => {
+    try {
+      const result = await supabase
         .from('event_staff_assignments')
         .select('role, events!inner(event_date)')
         .eq('organization_id', organizationId)
@@ -253,17 +261,36 @@ async function fetchStaffSummaryContext(
         .eq('status', 'confirmed')
         .gt('events.event_date', todayIso)
         .order('event_date', { referencedTable: 'events', ascending: true })
-        .limit(10),
-    ),
-    requireSupabaseResult(
-      supabase
+        .limit(10)
+      if (result.error) throw result.error
+      return result
+    } catch (err) {
+      console.error(
+        '[StaffProfileAISummary] query failed: futureAssignments',
+        err,
+      )
+      return null
+    }
+  }
+
+  const safeTimesSummary = async () => {
+    try {
+      const result = await supabase
         .from('staff_times_summary')
         .select('role, total_minutes_alltime, total_minutes_ytd, pct_of_total')
         .eq('staff_phone', staffPhone)
-        .eq('organization_id', organizationId),
-    ),
-    requireSupabaseResult(
-      supabase
+        .eq('organization_id', organizationId)
+      if (result.error) throw result.error
+      return result
+    } catch (err) {
+      console.error('[StaffProfileAISummary] query failed: timesSummary', err)
+      return null
+    }
+  }
+
+  const safeRatings = async () => {
+    try {
+      const result = await supabase
         .from('ratings')
         .select(
           'stars, notes, role_at_event, section_name, rater_role, is_disputed, dispute_reason, created_at',
@@ -271,32 +298,73 @@ async function fetchStaffSummaryContext(
         .eq('staff_phone', staffPhone)
         .eq('organization_id', organizationId)
         .order('created_at', { ascending: false })
-        .limit(20),
-    ),
-    requireSupabaseResult(
-      supabase
+        .limit(20)
+      if (result.error) throw result.error
+      return result
+    } catch (err) {
+      console.error('[StaffProfileAISummary] query failed: ratings', err)
+      return null
+    }
+  }
+
+  const safeCertifications = async () => {
+    try {
+      const result = await supabase
         .from('staff_certifications')
         .select('cert_type, expiry_date, is_verified, is_alcohol_cert')
         .eq('staff_phone', staffPhone)
-        .eq('organization_id', organizationId),
-    ),
-    requireSupabaseResult(
-      supabase
+        .eq('organization_id', organizationId)
+      if (result.error) throw result.error
+      return result
+    } catch (err) {
+      console.error(
+        '[StaffProfileAISummary] query failed: certifications',
+        err,
+      )
+      return null
+    }
+  }
+
+  const safeIncompleteCourses = async () => {
+    try {
+      const result = await supabase
         .from('course_completions')
         .select('course_template_id, completed_at, course_templates(course_name)')
         .eq('staff_phone', staffPhone)
         .eq('organization_id', organizationId)
-        .is('completed_at', null),
-    ),
-    requireSupabaseResult(
-      supabase
+        .is('completed_at', null)
+      if (result.error) throw result.error
+      return result
+    } catch (err) {
+      console.error(
+        '[StaffProfileAISummary] query failed: incompleteCourses',
+        err,
+      )
+      return null
+    }
+  }
+
+  const safeWeeklyAvailability = async () => {
+    try {
+      const result = await supabase
         .from('staff_weekly_availability')
         .select('day_of_week, status, available_after_time')
         .eq('staff_phone', staffPhone)
-        .eq('organization_id', organizationId),
-    ),
-    requireSupabaseResult(
-      supabase
+        .eq('organization_id', organizationId)
+      if (result.error) throw result.error
+      return result
+    } catch (err) {
+      console.error(
+        '[StaffProfileAISummary] query failed: weeklyAvailability',
+        err,
+      )
+      return null
+    }
+  }
+
+  const safeBlackouts = async () => {
+    try {
+      const result = await supabase
         .from('staff_availability')
         .select('vacation_start, vacation_end')
         .eq('staff_phone', staffPhone)
@@ -304,67 +372,69 @@ async function fetchStaffSummaryContext(
         .eq('record_type', 'vacation_block')
         .gte('vacation_start', todayIso)
         .order('vacation_start', { ascending: true })
-        .limit(10),
-    ),
-    requireSupabaseResult(
-      supabase
+        .limit(10)
+      if (result.error) throw result.error
+      return result
+    } catch (err) {
+      console.error('[StaffProfileAISummary] query failed: blackouts', err)
+      return null
+    }
+  }
+
+  const safeActionItems = async () => {
+    try {
+      const result = await supabase
         .from('action_items')
         .select('category, title, description')
         .eq('entity_id', staffPhone)
         .eq('organization_id', organizationId)
-        .is('resolved_at', null),
-    ),
+        .is('resolved_at', null)
+      if (result.error) throw result.error
+      return result
+    } catch (err) {
+      console.error('[StaffProfileAISummary] query failed: actionItems', err)
+      return null
+    }
+  }
+
+  const [
+    staffRecordResult,
+    rolesResult,
+    eventCountsResult,
+    futureAssignmentsResult,
+    timesSummaryResult,
+    ratingsResult,
+    certificationsResult,
+    incompleteCoursesResult,
+    weeklyAvailabilityResult,
+    blackoutsResult,
+    actionItemsResult,
+  ] = await Promise.all([
+    safeStaffRecord(),
+    safeRoles(),
+    safeEventCounts(),
+    safeFutureAssignments(),
+    safeTimesSummary(),
+    safeRatings(),
+    safeCertifications(),
+    safeIncompleteCourses(),
+    safeWeeklyAvailability(),
+    safeBlackouts(),
+    safeActionItems(),
   ])
 
-  results.forEach((result, index) => {
-    if (result.status === 'rejected') {
-      console.error(
-        `[StaffProfileAISummary] query failed: ${queryNames[index]}`,
-        result.reason,
-      )
-    }
-  })
-
-  const anyFailed = results.some((result) => result.status === 'rejected')
-  if (anyFailed) {
+  if (
+    staffRecordResult === null ||
+    rolesResult === null ||
+    eventCountsResult === null
+  ) {
     throw new Error('Failed to load staff data')
   }
 
-  const staffResult = getSettledValue(results, 0)
-  const rolesResult = getSettledValue(results, 1)
-  const allTimeCountResult = getSettledValue(results, 2)
-  const ytdCountResult = getSettledValue(results, 3)
-  const futureAssignmentsResult = getSettledValue(results, 4)
-  const timesSummaryResult = getSettledValue(results, 5)
-  const ratingsResult = getSettledValue(results, 6)
-  const certificationsResult = getSettledValue(results, 7)
-  const incompleteCoursesResult = getSettledValue(results, 8)
-  const weeklyAvailabilityResult = getSettledValue(results, 9)
-  const blackoutsResult = getSettledValue(results, 10)
-  const actionItemsResult = getSettledValue(results, 11)
+  const staffResult = staffRecordResult
+  const ytdConfirmedCount = eventCountsResult.ytdConfirmedCount
 
-  let ytdConfirmedCount = 0
-  if (!ytdCountResult.error) {
-    ytdConfirmedCount = ytdCountResult.count ?? 0
-  } else {
-    const ytdFallback = await supabase
-      .from('event_staff_assignments')
-      .select('id, events!inner(event_date)', { count: 'exact', head: true })
-      .eq('organization_id', organizationId)
-      .eq('staff_phone', staffPhone)
-      .eq('status', 'confirmed')
-      .gte('events.event_date', yearStart)
-    if (ytdFallback.error) {
-      console.error(
-        '[StaffProfileAISummary] YTD event count failed',
-        ytdFallback.error,
-      )
-      throw new Error('Failed to load staff data')
-    }
-    ytdConfirmedCount = ytdFallback.count ?? 0
-  }
-
-  const timesRows = timesSummaryResult.data ?? []
+  const timesRows = timesSummaryResult?.data ?? []
   const timesSummaryText =
     timesRows.length === 0
       ? 'No check-in/check-out data yet — will populate as events are worked.'
@@ -386,7 +456,7 @@ async function fetchStaffSummaryContext(
           })
           .join('\n')
 
-  const captainNotes = (ratingsResult.data ?? []).map((row) => {
+  const captainNotes = (ratingsResult?.data ?? []).map((row) => {
     const date =
       typeof row.created_at === 'string'
         ? formatRatingDate(row.created_at)
@@ -423,7 +493,7 @@ async function fetchStaffSummaryContext(
     return line
   })
 
-  const futureAssignments = (futureAssignmentsResult.data ?? []).map((row) => {
+  const futureAssignments = (futureAssignmentsResult?.data ?? []).map((row) => {
     const events = row.events as { event_date?: string } | { event_date?: string }[] | null
     const eventDate = Array.isArray(events)
       ? events[0]?.event_date
@@ -432,7 +502,7 @@ async function fetchStaffSummaryContext(
     return `${eventDate ?? 'TBD'} — ${role}`
   })
 
-  const weeklyAvailability = (weeklyAvailabilityResult.data ?? []).map((row) => {
+  const weeklyAvailability = (weeklyAvailabilityResult?.data ?? []).map((row) => {
     const dayIndex =
       typeof row.day_of_week === 'number' ? row.day_of_week : null
     const dayName =
@@ -450,7 +520,7 @@ async function fetchStaffSummaryContext(
     return `${dayName}: ${status.replace(/_/g, ' ')}`
   })
 
-  const upcomingBlackouts = (blackoutsResult.data ?? []).map((row) => {
+  const upcomingBlackouts = (blackoutsResult?.data ?? []).map((row) => {
     const start =
       typeof row.vacation_start === 'string' ? row.vacation_start : ''
     const end =
@@ -458,7 +528,7 @@ async function fetchStaffSummaryContext(
     return `${start} to ${end}`
   })
 
-  const incompleteCourses = (incompleteCoursesResult.data ?? []).map((row) => {
+  const incompleteCourses = (incompleteCoursesResult?.data ?? []).map((row) => {
     const templates = row.course_templates as
       | { course_name?: string }
       | { course_name?: string }[]
@@ -469,7 +539,7 @@ async function fetchStaffSummaryContext(
     return name ?? 'Unnamed course'
   })
 
-  const openActionItems = (actionItemsResult.data ?? []).map((row) => {
+  const openActionItems = (actionItemsResult?.data ?? []).map((row) => {
     const category =
       typeof row.category === 'string' ? row.category : 'general'
     const title = typeof row.title === 'string' ? row.title : ''
@@ -496,13 +566,13 @@ async function fetchStaffSummaryContext(
       is_primary: row.is_primary,
     })),
     event_counts: {
-      confirmed_all_time: allTimeCountResult.count ?? 0,
+      confirmed_all_time: eventCountsResult.allTimeCount,
       confirmed_ytd: ytdConfirmedCount,
     },
     future_assignments: futureAssignments,
     times_summary: timesSummaryText,
     captain_ratings_and_notes: captainNotes,
-    certifications: certificationsResult.data ?? [],
+    certifications: certificationsResult?.data ?? [],
     incomplete_courses: incompleteCourses,
     weekly_availability_summary: weeklyAvailability,
     upcoming_blackouts: upcomingBlackouts,
