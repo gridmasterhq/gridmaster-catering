@@ -514,7 +514,7 @@ export default function StaffProfileCertificationsTab({
         supabase
           .from('course_templates')
           .select(
-            'id, name, is_required_for_all, required_roles, assignment_type',
+            'id, course_name, is_required_for_all, required_roles, assignment_type',
           )
           .eq('organization_id', organizationId),
         supabase
@@ -562,7 +562,7 @@ export default function StaffProfileCertificationsTab({
     const templates: CourseTemplateRow[] = (templatesResult.data ?? []).map(
       (row) => ({
         id: row.id as string,
-        name: typeof row.name === 'string' ? row.name : 'Course',
+        name: typeof row.course_name === 'string' ? row.course_name : 'Course',
         is_required_for_all: Boolean(row.is_required_for_all),
         required_roles: Array.isArray(row.required_roles)
           ? row.required_roles.filter(

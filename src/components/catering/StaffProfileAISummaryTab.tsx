@@ -243,7 +243,7 @@ async function fetchStaffSummaryContext(
       .eq('organization_id', organizationId),
     supabase
       .from('course_completions')
-      .select('course_template_id, completed_at, course_templates(name)')
+      .select('course_template_id, completed_at, course_templates(course_name)')
       .eq('staff_phone', staffPhone)
       .eq('organization_id', organizationId)
       .is('completed_at', null),
@@ -404,10 +404,13 @@ async function fetchStaffSummaryContext(
   })
 
   const incompleteCourses = (incompleteCoursesResult.data ?? []).map((row) => {
-    const templates = row.course_templates as { name?: string } | { name?: string }[] | null
+    const templates = row.course_templates as
+      | { course_name?: string }
+      | { course_name?: string }[]
+      | null
     const name = Array.isArray(templates)
-      ? templates[0]?.name
-      : templates?.name
+      ? templates[0]?.course_name
+      : templates?.course_name
     return name ?? 'Unnamed course'
   })
 
