@@ -27,6 +27,8 @@ import {
   IconX,
 } from '@tabler/icons-react'
 import type { Icon } from '@tabler/icons-react'
+import { APP_SHELL_HEADER_HEIGHT_PX } from '../../constants/layout'
+import { Z_INDEX } from '../../constants/zIndex'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
 import { supabase } from '../../lib/supabase'
 import type { NavItem } from '../../lib/productConfig'
@@ -164,14 +166,14 @@ async function resolveUserDisplayName(user: {
 
 const sidebarStyle: CSSProperties = {
   position: 'fixed',
-  top: 0,
+  top: APP_SHELL_HEADER_HEIGHT_PX,
   left: 0,
   width: '220px',
-  height: '100%',
+  height: `calc(100vh - ${APP_SHELL_HEADER_HEIGHT_PX}px)`,
   backgroundColor: '#ffffff',
   borderRight: '0.5px solid #e5e7eb',
   overflowY: 'auto',
-  zIndex: 899,
+  zIndex: Z_INDEX.NAV_DRAWER,
   transition: 'transform 0.2s ease',
 }
 
@@ -799,7 +801,7 @@ function AppShell({ children }: AppShellProps) {
     <div className="min-h-screen flex flex-col" style={themeVars}>
       <header
         className="fixed top-0 left-0 right-0 flex h-12 w-full"
-        style={{ zIndex: 1000 }}
+        style={{ zIndex: Z_INDEX.TOP_NAV_BAR }}
       >
         <section className="flex flex-1 items-center gap-10 bg-[var(--shell-brand-red)] px-16">
           <button
@@ -980,7 +982,7 @@ function AppShell({ children }: AppShellProps) {
             position: 'fixed',
             inset: 0,
             backgroundColor: 'rgba(0, 0, 0, 0.3)',
-            zIndex: 898,
+            zIndex: Z_INDEX.NAV_DRAWER,
             border: 'none',
             cursor: 'default',
           }}

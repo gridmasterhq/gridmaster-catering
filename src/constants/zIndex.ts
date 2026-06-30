@@ -1,0 +1,9 @@
+export const Z_INDEX = {
+  BASE: 0,
+  CALENDAR_PILLS: 10,
+  TAB_STACK: 200,
+  NAV_DRAWER: 300,
+  OVERLAY_PANEL: 300,
+  MODAL: 400,
+  TOP_NAV_BAR: 500,
+} as const

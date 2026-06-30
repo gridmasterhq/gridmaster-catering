@@ -9,6 +9,8 @@ import {
   type ReactNode,
 } from 'react'
 import { IconChevronLeft } from '@tabler/icons-react'
+import { APP_SHELL_HEADER_HEIGHT_PX } from '../constants/layout'
+import { Z_INDEX } from '../constants/zIndex'
 
 const MAX_TABS = 6
 const NAVY = '#1B3A5C'
@@ -50,8 +52,6 @@ export function useTabManager(): TabManagerContextValue {
 interface TabManagerProviderProps {
   children: ReactNode
 }
-
-const APP_SHELL_HEADER_HEIGHT_PX = 48
 
 export function TabManagerProvider({ children }: TabManagerProviderProps) {
   const [tabs, setTabs] = useState<TabEntry[]>([])
@@ -149,7 +149,7 @@ export function TabManagerProvider({ children }: TabManagerProviderProps) {
             top: APP_SHELL_HEADER_HEIGHT_PX,
             height: `calc(100vh - ${APP_SHELL_HEADER_HEIGHT_PX}px)`,
             width: '32px',
-            zIndex: 900,
+            zIndex: Z_INDEX.TAB_STACK,
             pointerEvents: 'none',
             display: 'flex',
             flexDirection: 'column',

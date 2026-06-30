@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
+import { Z_INDEX } from '../../constants/zIndex'
 import { useMinimizablePanel } from '../../hooks/useMinimizablePanel'
 import { useProductConfig } from '../../lib/hooks/useProductConfig'
 import { FormPanelContext } from './FormPanelContext'
@@ -170,7 +171,7 @@ export default function OverlayPanel({
             className="fixed inset-0 border-none"
             style={{
               backgroundColor: 'rgba(0, 0, 0, 0.3)',
-              zIndex: 899,
+              zIndex: Z_INDEX.OVERLAY_PANEL,
               cursor: 'default',
             }}
           />
@@ -182,7 +183,7 @@ export default function OverlayPanel({
             className="fixed inset-0 border-none"
             style={{
               backgroundColor: 'rgba(0, 0, 0, 0.3)',
-              zIndex: 899,
+              zIndex: Z_INDEX.OVERLAY_PANEL,
               cursor: 'default',
             }}
           />
@@ -195,7 +196,7 @@ export default function OverlayPanel({
           maxWidth: `${panelMaxWidthPx}px`,
           paddingRight: `${OVERLAY_PANEL_TAB_STACK_CLEARANCE_PX}px`,
           boxSizing: 'border-box',
-          zIndex: 900,
+          zIndex: Z_INDEX.OVERLAY_PANEL,
           transform: panelVisible ? 'translateX(0)' : 'translateX(100%)',
           transition: 'transform 0.2s ease',
           pointerEvents: isMinimized ? 'none' : 'auto',
