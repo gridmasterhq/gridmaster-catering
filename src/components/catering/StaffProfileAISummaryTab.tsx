@@ -768,15 +768,30 @@ export default function StaffProfileAISummaryTab({
 
   if (loadingSaved) {
     return (
-      <div className="px-4 py-6">
-        <IntroBox />
-        <p style={{ fontSize: '13px', color: '#9CA3AF' }}>Loading…</p>
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div
+          style={{
+            display: 'flex',
+            gap: '16px',
+            padding: '16px',
+            alignItems: 'flex-start',
+          }}
+        >
+          <div style={{ flex: 1 }}>
+            <IntroBox />
+          </div>
+          <div style={{ flexShrink: 0, width: '180px' }} />
+        </div>
+        <div style={{ height: '1px', backgroundColor: '#E5E7EB' }} />
+        <div style={{ padding: '16px' }}>
+          <p style={{ fontSize: '13px', color: '#9CA3AF' }}>Loading…</p>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="px-4 py-4">
+    <div className="flex min-h-0 flex-1 flex-col">
       <style>{`
         @keyframes ai-summary-pulse {
           0%, 100% { opacity: 1; }
@@ -784,321 +799,359 @@ export default function StaffProfileAISummaryTab({
         }
       `}</style>
 
-      <IntroBox />
-
-      {isGenerating ? (
-        <p
-          style={{
-            fontSize: '13px',
-            color: '#6B7280',
-            fontStyle: 'italic',
-            animation: 'ai-summary-pulse 1.5s ease-in-out infinite',
-          }}
-        >
-          Generating summary for {staffFirstName}…
-        </p>
-      ) : null}
-
-      {fetchError
-        ? renderError(
-            'Failed to load staff data — please try again.',
-            () => void generateSummary(),
-          )
-        : null}
-
-      {generateError && !fetchError
-        ? renderError(
-            'Summary generation failed — please try again.',
-            () => void generateSummary(),
-          )
-        : null}
-
-      {parseError
-        ? renderError(
-            'Summary generation failed — please try again.',
-            () => void generateSummary(),
-          )
-        : null}
-
-      {!savedSummary && !isGenerating && !fetchError && !generateError ? (
-        <div className="flex flex-col items-center px-4 py-8 text-center">
-          <IconBrain size={48} color="#D1D5DB" stroke={1.5} />
-          <p
-            style={{
-              fontSize: '15px',
-              fontWeight: 600,
-              color: colors.brand_navy,
-              marginTop: '12px',
-            }}
-          >
-            No summary generated yet
-          </p>
-          <p
-            style={{
-              fontSize: '13px',
-              color: '#6B7280',
-              marginTop: '8px',
-              maxWidth: '320px',
-            }}
-          >
-            Generate a summary to get an AI-powered operational snapshot of{' '}
-            {staffFirstName} — including strengths, scheduling fit, compliance
-            status, and development notes.
-          </p>
-          <button
-            type="button"
-            onClick={() => void generateSummary()}
-            disabled={isGenerating}
-            style={{
-              marginTop: '16px',
-              backgroundColor: colors.brand_navy,
-              color: '#ffffff',
-              borderRadius: '8px',
-              padding: '10px 24px',
-              fontSize: '14px',
-              fontWeight: 500,
-              border: 'none',
-              cursor: isGenerating ? 'not-allowed' : 'pointer',
-            }}
-          >
-            Generate Summary for {staffFirstName}
-          </button>
+      <div
+        style={{
+          display: 'flex',
+          gap: '16px',
+          padding: '16px',
+          alignItems: 'flex-start',
+        }}
+      >
+        <div style={{ flex: 1 }}>
+          <IntroBox />
         </div>
-      ) : null}
-
-      {savedSummary && !isGenerating ? (
-        <>
-          <p style={{ fontSize: '12px', color: '#9CA3AF', marginBottom: '16px' }}>
-            Generated {formatGeneratedDate(savedSummary.generatedAt)} · Based on
-            data available at time of generation{' '}
+        <div style={{ flexShrink: 0, width: '180px' }}>
+          {isGenerating ? (
+            <p
+              style={{
+                fontSize: '13px',
+                color: '#6B7280',
+                fontStyle: 'italic',
+                textAlign: 'center',
+                animation: 'ai-summary-pulse 1.5s ease-in-out infinite',
+              }}
+            >
+              Generating…
+            </p>
+          ) : savedSummary ? (
+            <>
+              <button
+                type="button"
+                onClick={() => void generateSummary()}
+                disabled={isGenerating}
+                className="border-none bg-transparent p-0 underline"
+                style={{
+                  color: colors.brand_navy,
+                  cursor: isGenerating ? 'not-allowed' : 'pointer',
+                  fontSize: '13px',
+                  width: '100%',
+                  textAlign: 'center',
+                }}
+              >
+                Regenerate
+              </button>
+              <p
+                style={{
+                  fontSize: '11px',
+                  color: '#9CA3AF',
+                  marginTop: '6px',
+                  textAlign: 'center',
+                }}
+              >
+                Generated {formatGeneratedDate(savedSummary.generatedAt)}
+              </p>
+            </>
+          ) : (
             <button
               type="button"
               onClick={() => void generateSummary()}
               disabled={isGenerating}
-              className="border-none bg-transparent p-0 underline"
               style={{
-                color: colors.brand_navy,
+                width: '100%',
+                textAlign: 'center',
+                backgroundColor: colors.brand_navy,
+                color: '#ffffff',
+                borderRadius: '8px',
+                padding: '10px 16px',
+                fontSize: '13px',
+                fontWeight: 500,
+                border: 'none',
                 cursor: isGenerating ? 'not-allowed' : 'pointer',
-                fontSize: 'inherit',
               }}
             >
-              Regenerate
+              Generate Summary for {staffFirstName}
             </button>
-          </p>
+          )}
+        </div>
+      </div>
 
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-              gap: '12px',
-            }}
-          >
-            {SUMMARY_CARDS.map(({ key, label }) => (
-              <div
-                key={key}
-                style={{
-                  backgroundColor: '#ffffff',
-                  border: '1px solid #E5E7EB',
-                  borderRadius: '8px',
-                  padding: '14px 16px',
-                }}
-              >
-                <div
-                  className="flex items-center gap-1"
-                  style={{
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    color: colors.brand_navy,
-                    letterSpacing: '0.05em',
-                    textTransform: 'uppercase',
-                    marginBottom: '6px',
-                  }}
-                >
-                  {label}
-                  {key === 'watch_notes' &&
-                  watchNotesIsClear(savedSummary.summary.watch_notes) ? (
-                    <IconCheck size={14} color="#22C55E" stroke={2} />
-                  ) : null}
-                </div>
-                <p
-                  style={{
-                    fontSize: '13px',
-                    lineHeight: 1.6,
-                    color: '#1F2937',
-                    margin: 0,
-                    whiteSpace: 'pre-wrap',
-                  }}
-                >
-                  {savedSummary.summary[key]}
-                </p>
-              </div>
-            ))}
-          </div>
+      <div style={{ height: '1px', backgroundColor: '#E5E7EB' }} />
 
-          <div
-            style={{
-              marginTop: '24px',
-              paddingTop: '20px',
-              borderTop: '1px solid #E5E7EB',
-            }}
-          >
+      <div className="min-h-0 flex-1 overflow-y-auto" style={{ padding: '16px' }}>
+        {fetchError
+          ? renderError(
+              'Failed to load staff data — please try again.',
+              () => void generateSummary(),
+            )
+          : null}
+
+        {generateError && !fetchError
+          ? renderError(
+              'Summary generation failed — please try again.',
+              () => void generateSummary(),
+            )
+          : null}
+
+        {parseError
+          ? renderError(
+              'Summary generation failed — please try again.',
+              () => void generateSummary(),
+            )
+          : null}
+
+        {!savedSummary && !isGenerating && !fetchError && !generateError ? (
+          <div className="text-center">
+            <IconBrain size={40} color="#D1D5DB" stroke={1.5} />
             <p
               style={{
-                fontSize: '13px',
+                fontSize: '14px',
                 fontWeight: 600,
                 color: colors.brand_navy,
-                marginBottom: '10px',
+                marginTop: '12px',
               }}
             >
-              Ask a follow-up about {staffFirstName}
+              No summary generated yet
             </p>
+            <p
+              style={{
+                fontSize: '12px',
+                color: '#6B7280',
+                marginTop: '6px',
+                maxWidth: '280px',
+                marginLeft: 'auto',
+                marginRight: 'auto',
+              }}
+            >
+              Click &apos;Generate Summary&apos; to get an AI-powered snapshot of{' '}
+              {staffFirstName}.
+            </p>
+          </div>
+        ) : null}
 
-            {followUpMessages.length > 0 ? (
-              <div className="mb-3 flex flex-col gap-3">
-                {followUpMessages.map((message) => {
-                  if (message.role === 'user') {
+        {savedSummary && !isGenerating ? (
+          <>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, 1fr)',
+                gap: '10px',
+              }}
+            >
+              {SUMMARY_CARDS.map(({ key, label }) => (
+                <div
+                  key={key}
+                  style={{
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #E5E7EB',
+                    borderRadius: '8px',
+                    padding: '12px 14px',
+                  }}
+                >
+                  <div
+                    className="flex items-center gap-1"
+                    style={{
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      color: colors.brand_navy,
+                      letterSpacing: '0.05em',
+                      textTransform: 'uppercase',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    {label}
+                    {key === 'watch_notes' &&
+                    watchNotesIsClear(savedSummary.summary.watch_notes) ? (
+                      <IconCheck size={14} color="#22C55E" stroke={2} />
+                    ) : null}
+                  </div>
+                  <p
+                    style={{
+                      fontSize: '13px',
+                      lineHeight: 1.6,
+                      color: '#1F2937',
+                      margin: 0,
+                      whiteSpace: 'pre-wrap',
+                    }}
+                  >
+                    {savedSummary.summary[key]}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <div
+              style={{
+                marginTop: '24px',
+                paddingTop: '20px',
+                borderTop: '1px solid #E5E7EB',
+              }}
+            >
+              <p
+                style={{
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  color: colors.brand_navy,
+                  marginBottom: '10px',
+                }}
+              >
+                Ask a follow-up about {staffFirstName}
+              </p>
+
+              {followUpMessages.length > 0 ? (
+                <div className="mb-3 flex flex-col gap-3">
+                  {followUpMessages.map((message) => {
+                    if (message.role === 'user') {
+                      return (
+                        <div
+                          key={message.id}
+                          className="flex justify-end"
+                        >
+                          <div
+                            style={{
+                              maxWidth: '85%',
+                              backgroundColor: colors.brand_navy,
+                              color: '#ffffff',
+                              borderRadius: '12px 12px 2px 12px',
+                              padding: '8px 12px',
+                              fontSize: '13px',
+                            }}
+                          >
+                            {message.text}
+                          </div>
+                        </div>
+                      )
+                    }
+
+                    if (message.status === 'loading') {
+                      return (
+                        <div key={message.id} className="flex justify-start">
+                          <div
+                            style={{
+                              backgroundColor: '#F3F4F6',
+                              borderRadius: '12px 12px 12px 2px',
+                              padding: '10px 14px',
+                            }}
+                          >
+                            <ThinkingDots />
+                          </div>
+                        </div>
+                      )
+                    }
+
+                    if (message.status === 'error') {
+                      const messageIndex = followUpMessages.findIndex(
+                        (entry) => entry.id === message.id,
+                      )
+                      const priorUser =
+                        messageIndex > 0
+                          ? [...followUpMessages]
+                              .slice(0, messageIndex)
+                              .reverse()
+                              .find((entry) => entry.role === 'user')
+                          : null
+
+                      return (
+                        <div key={message.id}>
+                          {renderError(
+                            'Something went wrong — please try again.',
+                            () => {
+                              if (priorUser?.text) {
+                                setFollowUpMessages((previous) =>
+                                  previous.filter(
+                                    (entry) =>
+                                      entry.id !== message.id &&
+                                      entry.id !== priorUser.id,
+                                  ),
+                                )
+                                void handleFollowUpSubmit(
+                                  undefined,
+                                  priorUser.text,
+                                )
+                              }
+                            },
+                          )}
+                        </div>
+                      )
+                    }
+
                     return (
                       <div
                         key={message.id}
-                        className="flex justify-end"
+                        className="flex flex-col items-start"
                       >
                         <div
                           style={{
-                            maxWidth: '85%',
-                            backgroundColor: colors.brand_navy,
-                            color: '#ffffff',
-                            borderRadius: '12px 12px 2px 12px',
-                            padding: '8px 12px',
+                            maxWidth: '90%',
+                            backgroundColor: '#F3F4F6',
+                            borderRadius: '12px 12px 12px 2px',
+                            padding: '10px 14px',
                             fontSize: '13px',
+                            color: '#1F2937',
+                            lineHeight: 1.6,
+                            whiteSpace: 'pre-wrap',
                           }}
                         >
                           {message.text}
                         </div>
-                      </div>
-                    )
-                  }
-
-                  if (message.status === 'loading') {
-                    return (
-                      <div key={message.id} className="flex justify-start">
-                        <div
+                        <span
                           style={{
-                            backgroundColor: '#F3F4F6',
-                            borderRadius: '12px 12px 12px 2px',
-                            padding: '10px 14px',
+                            fontSize: '11px',
+                            color: '#9CA3AF',
+                            marginTop: '4px',
                           }}
                         >
-                          <ThinkingDots />
-                        </div>
+                          Powered by Claude
+                        </span>
                       </div>
                     )
-                  }
+                  })}
+                  <div ref={threadEndRef} />
+                </div>
+              ) : null}
 
-                  if (message.status === 'error') {
-                    const messageIndex = followUpMessages.findIndex(
-                      (entry) => entry.id === message.id,
-                    )
-                    const priorUser =
-                      messageIndex > 0
-                        ? [...followUpMessages]
-                            .slice(0, messageIndex)
-                            .reverse()
-                            .find((entry) => entry.role === 'user')
-                        : null
-
-                    return (
-                      <div key={message.id}>
-                        {renderError(
-                          'Something went wrong — please try again.',
-                          () => {
-                            if (priorUser?.text) {
-                              setFollowUpMessages((previous) =>
-                                previous.filter(
-                                  (entry) =>
-                                    entry.id !== message.id &&
-                                    entry.id !== priorUser.id,
-                                ),
-                              )
-                              void handleFollowUpSubmit(undefined, priorUser.text)
-                            }
-                          },
-                        )}
-                      </div>
-                    )
-                  }
-
-                  return (
-                    <div key={message.id} className="flex flex-col items-start">
-                      <div
-                        style={{
-                          maxWidth: '90%',
-                          backgroundColor: '#F3F4F6',
-                          borderRadius: '12px 12px 12px 2px',
-                          padding: '10px 14px',
-                          fontSize: '13px',
-                          color: '#1F2937',
-                          lineHeight: 1.6,
-                          whiteSpace: 'pre-wrap',
-                        }}
-                      >
-                        {message.text}
-                      </div>
-                      <span
-                        style={{
-                          fontSize: '11px',
-                          color: '#9CA3AF',
-                          marginTop: '4px',
-                        }}
-                      >
-                        Powered by Claude
-                      </span>
-                    </div>
-                  )
-                })}
-                <div ref={threadEndRef} />
-              </div>
-            ) : null}
-
-            <form
-              onSubmit={handleFollowUpSubmit}
-              className="flex items-center gap-2"
-            >
-              <input
-                type="text"
-                value={followUpQuestion}
-                onChange={(event) => setFollowUpQuestion(event.target.value)}
-                onKeyDown={handleFollowUpKeyDown}
-                placeholder="e.g. Is he a good fit for a 300-person gala? Is she ready to captain?"
-                className="min-w-0 flex-1 outline-none"
-                style={{
-                  height: '34px',
-                  fontSize: '13px',
-                  padding: '0 12px',
-                  border: '1px solid #E5E7EB',
-                  borderRadius: '6px',
-                  color: '#1F2937',
-                }}
-              />
-              <button
-                type="submit"
-                style={{
-                  height: '34px',
-                  padding: '0 16px',
-                  borderRadius: '6px',
-                  fontSize: '13px',
-                  fontWeight: 500,
-                  backgroundColor: colors.brand_navy,
-                  color: '#ffffff',
-                  border: 'none',
-                  cursor: 'pointer',
-                }}
+              <form
+                onSubmit={handleFollowUpSubmit}
+                className="flex items-center gap-2"
               >
-                Ask
-              </button>
-            </form>
-          </div>
-        </>
-      ) : null}
+                <input
+                  type="text"
+                  value={followUpQuestion}
+                  onChange={(event) =>
+                    setFollowUpQuestion(event.target.value)
+                  }
+                  onKeyDown={handleFollowUpKeyDown}
+                  placeholder="e.g. Is he a good fit for a 300-person gala? Is she ready to captain?"
+                  className="min-w-0 flex-1 outline-none"
+                  style={{
+                    height: '34px',
+                    fontSize: '13px',
+                    padding: '0 12px',
+                    border: '1px solid #E5E7EB',
+                    borderRadius: '6px',
+                    color: '#1F2937',
+                  }}
+                />
+                <button
+                  type="submit"
+                  style={{
+                    height: '34px',
+                    padding: '0 16px',
+                    borderRadius: '6px',
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    backgroundColor: colors.brand_navy,
+                    color: '#ffffff',
+                    border: 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Ask
+                </button>
+              </form>
+            </div>
+          </>
+        ) : null}
+      </div>
     </div>
   )
 }
