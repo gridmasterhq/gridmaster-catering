@@ -529,6 +529,52 @@ const cateringConfig: ProductConfig = {
   rating_floors: [1, 2, 3, 4],
   default_buffer_pct: 10,
   default_alcohol_cutoff: false,
+  staffProfileTabs: [
+    {
+      id: 'history',
+      label: 'History',
+      componentKey: 'StaffProfileHistoryTab',
+    },
+    {
+      id: 'certifications',
+      label: 'Certifications',
+      componentKey: 'StaffProfileCertificationsTab',
+    },
+    {
+      id: 'availability',
+      label: 'Availability',
+      componentKey: 'StaffProfileAvailabilityTab',
+    },
+    {
+      id: 'ai_summary',
+      label: 'AI Summary',
+      componentKey: 'StaffProfileAISummaryTab',
+    },
+    {
+      id: 'development',
+      label: 'Development',
+      componentKey: 'StaffProfileDevelopmentTab',
+    },
+    {
+      id: 'personal_note',
+      label: 'Personal Note',
+      componentKey: 'StaffProfilePersonalNoteTab',
+    },
+  ],
+  terminology: {
+    staff: 'Staff',
+    staffSingular: 'Staff Member',
+    captain: 'Captain',
+    event: 'Event',
+    shift: 'Shift',
+    role: 'Role',
+    coordinator: 'Coordinator',
+    section: 'Section',
+    zone: 'Zone',
+    roster: 'Roster',
+    broadcast: 'Broadcast',
+    grid: 'Grid',
+  },
 }
 
 export default cateringConfig

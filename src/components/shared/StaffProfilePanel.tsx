@@ -1,12 +1,13 @@
 import {
+  type ComponentType,
   type CSSProperties,
   useCallback,
   useEffect,
+  useMemo,
   useState,
 } from 'react'
 import {
   IconArrowLeft,
-  IconClock,
   IconUser,
 } from '@tabler/icons-react'
 import { APP_SHELL_HEADER_HEIGHT_PX } from '../../constants/layout'
@@ -134,50 +135,6 @@ interface StaffProfilePanelProps {
     actions: { minimize: () => void; dismiss: () => void },
   ) => () => void
 }
-
-const profileTabs: {
-  id: ProfileTab
-  label: string
-  subLabelLine1: string
-  subLabelLine2: string
-}[] = [
-  {
-    id: 'history',
-    label: 'History',
-    subLabelLine1: 'Events · Ratings',
-    subLabelLine2: 'Milestones',
-  },
-  {
-    id: 'certifications',
-    label: 'Certifications',
-    subLabelLine1: 'Certs · Courses',
-    subLabelLine2: 'Grades',
-  },
-  {
-    id: 'availability',
-    label: 'Availability',
-    subLabelLine1: 'Schedule · Blackouts',
-    subLabelLine2: 'Recurring',
-  },
-  {
-    id: 'ai_summary',
-    label: 'AI Summary',
-    subLabelLine1: 'Analysis',
-    subLabelLine2: 'History',
-  },
-  {
-    id: 'development',
-    label: 'Development',
-    subLabelLine1: 'CIT · Training',
-    subLabelLine2: 'Growth',
-  },
-  {
-    id: 'personal_note',
-    label: 'Personnel Notes',
-    subLabelLine1: 'Private notes',
-    subLabelLine2: 'Coordinator only',
-  },
-]
 
 function profileHasEditableFields(_profileTab: ProfileTab): boolean {
   return false
@@ -351,7 +308,18 @@ export default function StaffProfilePanel({
   onProfileTabChange,
   onRegisterActions,
 }: StaffProfilePanelProps) {
-  const { labels, colors } = useProductConfig()
+  const { labels, colors, staffProfileTabs } = useProductConfig()
+
+  const componentRegistry: Record<string, ComponentType<any>> = useMemo(
+    () => ({
+      StaffProfileHistoryTab,
+      StaffProfileCertificationsTab,
+      StaffProfileAvailabilityTab,
+      StaffProfileAISummaryTab,
+    }),
+    [],
+  )
+
   const { hasTab } = useTabManager()
   const [slideIn, setSlideIn] = useState(false)
   const [staff, setStaff] = useState(session.staff)
@@ -476,6 +444,10 @@ export default function StaffProfilePanel({
   const hasEditableFields = profileHasEditableFields(session.profileTab)
   const displayName = getStaffDisplayName(staff)
   const { profileTab } = session
+  const activeTabConfig = useMemo(
+    () => staffProfileTabs.find((tab) => tab.id === profileTab),
+    [profileTab, staffProfileTabs],
+  )
   const hasUnsavedInlineEditsState = hasUnsavedInlineEdits(
     showRoleEditor,
     editorRoles,
@@ -557,6 +529,83 @@ export default function StaffProfilePanel({
       basic_availability: value,
     }))
   }, [])
+
+  const renderTabPlaceholder = useCallback(
+    (tabLabel: string) => (
+      <div
+        className="flex min-h-0 flex-1 items-center justify-center"
+        style={{ backgroundColor: '#E5E7EB' }}
+      >
+        <p style={{ fontSize: '14px', color: colors.brand_navy }}>{tabLabel}</p>
+      </div>
+    ),
+    [colors.brand_navy],
+  )
+
+  const renderActiveTabContent = useCallback(() => {
+    if (!activeTabConfig) {
+      return null
+    }
+
+    const { componentKey, label } = activeTabConfig
+    const TabComponent = componentRegistry[componentKey]
+
+    if (!TabComponent) {
+      return renderTabPlaceholder(label)
+    }
+
+    switch (componentKey) {
+      case 'StaffProfileHistoryTab':
+        return <TabComponent staff={staff} organizationId={organizationId} />
+      case 'StaffProfileCertificationsTab':
+        return (
+          <TabComponent
+            staff={staff}
+            organizationId={organizationId}
+            scrollTarget={certificationsScrollTarget}
+            onScrollTargetHandled={handleCertificationsScrollTargetHandled}
+            onComplianceRefresh={handleComplianceRefresh}
+          />
+        )
+      case 'StaffProfileAvailabilityTab':
+        return (
+          <TabComponent
+            staff={staff}
+            organizationId={organizationId}
+            onBasicAvailabilityChange={handleBasicAvailabilityChange}
+          />
+        )
+      case 'StaffProfileAISummaryTab':
+        if (!organizationId) {
+          return (
+            <div className="flex min-h-0 flex-1 items-center justify-center py-16">
+              <p style={{ fontSize: '13px', color: '#6B7280' }}>Loading…</p>
+            </div>
+          )
+        }
+        return (
+          <TabComponent
+            staffPhone={staff.phone}
+            organizationId={organizationId}
+            staffName={displayName}
+            staffFirstName={getStaffFirstName(staff)}
+          />
+        )
+      default:
+        return renderTabPlaceholder(label)
+    }
+  }, [
+    activeTabConfig,
+    certificationsScrollTarget,
+    componentRegistry,
+    displayName,
+    handleBasicAvailabilityChange,
+    handleCertificationsScrollTargetHandled,
+    handleComplianceRefresh,
+    organizationId,
+    renderTabPlaceholder,
+    staff,
+  ])
 
   const staffRoleSignature = (staff.staff_roles ?? [])
     .map((role) => `${role.role}:${role.is_primary ? '1' : '0'}`)
@@ -1123,13 +1172,13 @@ export default function StaffProfilePanel({
             borderBottom: '1px solid #E5E7EB',
           }}
         >
-          {profileTabs.map((tab) => {
+          {staffProfileTabs.map((tab) => {
             const isActive = profileTab === tab.id
             return (
               <button
                 key={tab.id}
                 type="button"
-                onClick={() => onProfileTabChange(tab.id)}
+                onClick={() => onProfileTabChange(tab.id as ProfileTab)}
                 className="flex min-w-0 flex-1 flex-col items-center"
                 style={{
                   padding: '8px 4px',
@@ -1152,29 +1201,6 @@ export default function StaffProfilePanel({
                 >
                   {tab.label}
                 </span>
-                <span
-                  style={{
-                    fontSize: '10px',
-                    fontStyle: 'italic',
-                    color: colors.text_muted,
-                    textAlign: 'center',
-                    lineHeight: 1.2,
-                    marginTop: '2px',
-                  }}
-                >
-                  {tab.subLabelLine1}
-                </span>
-                <span
-                  style={{
-                    fontSize: '10px',
-                    fontStyle: 'italic',
-                    color: colors.text_muted,
-                    textAlign: 'center',
-                    lineHeight: 1.2,
-                  }}
-                >
-                  {tab.subLabelLine2}
-                </span>
               </button>
             )
           })}
@@ -1184,43 +1210,7 @@ export default function StaffProfilePanel({
           className="min-h-0 flex-1 overflow-y-auto"
           style={{ backgroundColor: colors.brand_light_blue }}
         >
-          {profileTab === 'history' ? (
-            <StaffProfileHistoryTab staff={staff} organizationId={organizationId} />
-          ) : profileTab === 'certifications' ? (
-            <StaffProfileCertificationsTab
-              staff={staff}
-              organizationId={organizationId}
-              scrollTarget={certificationsScrollTarget}
-              onScrollTargetHandled={handleCertificationsScrollTargetHandled}
-              onComplianceRefresh={handleComplianceRefresh}
-            />
-          ) : profileTab === 'availability' ? (
-            <StaffProfileAvailabilityTab
-              staff={staff}
-              organizationId={organizationId}
-              onBasicAvailabilityChange={handleBasicAvailabilityChange}
-            />
-          ) : profileTab === 'ai_summary' ? (
-            organizationId ? (
-              <StaffProfileAISummaryTab
-                staffPhone={staff.phone}
-                organizationId={organizationId}
-                staffName={displayName}
-                staffFirstName={getStaffFirstName(staff)}
-              />
-            ) : (
-              <div className="flex min-h-0 flex-1 items-center justify-center py-16">
-                <p style={{ fontSize: '13px', color: '#6B7280' }}>Loading…</p>
-              </div>
-            )
-          ) : (
-            <div className="flex min-h-0 flex-1 flex-col items-center justify-center py-16">
-              <IconClock size={32} color="#D1D5DB" stroke={1.5} />
-              <p className="mt-3" style={{ fontSize: '13px', color: '#6B7280' }}>
-                Coming soon
-              </p>
-            </div>
-          )}
+          {renderActiveTabContent()}
         </div>
       </div>
     </>

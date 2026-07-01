@@ -339,6 +339,27 @@ export interface BarServiceTypeOption {
   label: string
 }
 
+export interface StaffProfileTabDefinition {
+  id: string
+  label: string
+  componentKey: string
+}
+
+export interface ProductTerminology {
+  staff: string
+  staffSingular: string
+  captain: string
+  event: string
+  shift: string
+  role: string
+  coordinator: string
+  section: string
+  zone: string
+  roster: string
+  broadcast: string
+  grid: string
+}
+
 export interface ProductConfig {
   product_type: ProductType
   product_name: string
@@ -357,6 +378,8 @@ export interface ProductConfig {
   rating_floors: number[]
   default_buffer_pct: number
   default_alcohol_cutoff: boolean
+  staffProfileTabs: StaffProfileTabDefinition[]
+  terminology: ProductTerminology
 }
 
 export { default } from './catering.config'
