@@ -735,7 +735,7 @@ export default function StaffProfileHistoryTab({
   return (
     <div
       className="min-h-0 flex-1 overflow-y-auto"
-      style={{ padding: '16px', backgroundColor: '#ffffff' }}
+      style={{ padding: '16px' }}
     >
       <div className="flex gap-2" style={{ marginBottom: '20px' }}>
         <StatPill

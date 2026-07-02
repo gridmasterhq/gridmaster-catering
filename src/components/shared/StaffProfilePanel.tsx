@@ -531,15 +531,16 @@ export default function StaffProfilePanel({
   }, [])
 
   const renderTabPlaceholder = useCallback(
-    (tabLabel: string) => (
+    () => (
       <div
-        className="flex min-h-0 flex-1 items-center justify-center"
-        style={{ backgroundColor: '#E5E7EB' }}
-      >
-        <p style={{ fontSize: '14px', color: colors.brand_navy }}>{tabLabel}</p>
-      </div>
+        style={{
+          backgroundColor: colors.brand_light_blue,
+          width: '100%',
+          height: '100%',
+        }}
+      />
     ),
-    [colors.brand_navy],
+    [colors.brand_light_blue],
   )
 
   const renderActiveTabContent = useCallback(() => {
@@ -551,7 +552,7 @@ export default function StaffProfilePanel({
     const TabComponent = componentRegistry[componentKey]
 
     if (!TabComponent) {
-      return renderTabPlaceholder(label)
+      return renderTabPlaceholder()
     }
 
     switch (componentKey) {
@@ -592,7 +593,7 @@ export default function StaffProfilePanel({
           />
         )
       default:
-        return renderTabPlaceholder(label)
+        return renderTabPlaceholder()
     }
   }, [
     activeTabConfig,

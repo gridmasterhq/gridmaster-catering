@@ -993,7 +993,7 @@ export default function StaffProfileCertificationsTab({
   return (
     <div
       className="relative min-h-0 flex-1 overflow-y-auto"
-      style={{ padding: '16px', backgroundColor: '#ffffff' }}
+      style={{ padding: '16px' }}
     >
       {showBartenderBanner ? (
         <div className="mb-4">

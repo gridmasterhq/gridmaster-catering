@@ -763,7 +763,7 @@ export default function StaffProfileAvailabilityTab({
   return (
     <div
       className="min-h-0 flex-1 overflow-y-auto"
-      style={{ padding: '16px', backgroundColor: '#ffffff' }}
+      style={{ padding: '16px' }}
     >
       <section style={{ marginBottom: '24px' }}>
         <div
