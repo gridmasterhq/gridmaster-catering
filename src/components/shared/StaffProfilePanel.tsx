@@ -21,7 +21,7 @@ import StaffProfileAISummaryTab from './StaffProfileAISummaryTab'
 import StaffProfileDevelopmentTab from './StaffProfileDevelopmentTab'
 import StaffRatingBadge from './StaffRatingBadge'
 import { formatCoordinatorStaffName } from '../../lib/staffDisplayName'
-import { formatRoleName, isCitRole } from '../../utils/formatRole'
+import { formatRoleName } from '../../utils/formatRole'
 import {
   detectStaffComplianceIssues,
   loadStaffComplianceData,
@@ -451,6 +451,9 @@ export default function StaffProfilePanel({
     () => staffProfileTabs.find((tab) => tab.id === profileTab),
     [profileTab, staffProfileTabs],
   )
+  const hasCit = normalizeStaffRoles(staff.staff_roles).some(
+    (role) => role.role.toLowerCase() === 'cit',
+  )
   const hasUnsavedInlineEditsState = hasUnsavedInlineEdits(
     showRoleEditor,
     editorRoles,
@@ -600,9 +603,7 @@ export default function StaffProfilePanel({
           <TabComponent
             staffPhone={staff.phone}
             organizationId={organizationId}
-            hasCitHistory={
-              staff.staff_roles?.some((role) => isCitRole(role.role)) ?? false
-            }
+            hasCitHistory={hasCit}
           />
         )
       default:
@@ -616,6 +617,7 @@ export default function StaffProfilePanel({
     handleBasicAvailabilityChange,
     handleCertificationsScrollTargetHandled,
     handleComplianceRefresh,
+    hasCit,
     organizationId,
     renderTabPlaceholder,
     staff,
