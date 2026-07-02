@@ -497,6 +497,7 @@ export default function AIAssistant({ onOpenStaffOverlay }: AIAssistantProps) {
           style={{
             height: '40px',
             boxSizing: 'border-box',
+            borderRadius: '8px',
             background:
               'linear-gradient(to right, var(--shell-brand-navy), var(--shell-brand-red))',
           }}
