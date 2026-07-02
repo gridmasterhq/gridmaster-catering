@@ -478,6 +478,7 @@ const cateringConfig: ProductConfig = {
     invoice_reconciliation: true,
     incentives: true,
     transport: true,
+    citProgram: true,
   },
   roles: [
     'server',

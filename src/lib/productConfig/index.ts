@@ -320,6 +320,7 @@ export interface ProductFeatures {
   invoice_reconciliation: boolean
   incentives: boolean
   transport: boolean
+  citProgram: boolean
 }
 
 export interface EventType {
