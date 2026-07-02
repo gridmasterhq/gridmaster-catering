@@ -1374,9 +1374,10 @@ export default function StaffProfileCertificationsTab({
                 key={cert.id}
                 data-compliance-scroll={`cert-${cert.id}`}
                 style={{
-                  border: '1px solid #E5E7EB',
+                  backgroundColor: colors.white,
                   borderRadius: '8px',
-                  padding: '12px',
+                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)',
+                  padding: '16px',
                 }}
               >
                 <div className="flex flex-wrap items-start justify-between gap-2">
