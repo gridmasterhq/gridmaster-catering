@@ -18,6 +18,7 @@ import StaffProfileHistoryTab from './StaffProfileHistoryTab'
 import StaffProfileCertificationsTab from './StaffProfileCertificationsTab'
 import StaffProfileAvailabilityTab from './StaffProfileAvailabilityTab'
 import StaffProfileAISummaryTab from './StaffProfileAISummaryTab'
+import StaffProfileDevelopmentTab from './StaffProfileDevelopmentTab'
 import StaffRatingBadge from './StaffRatingBadge'
 import { formatCoordinatorStaffName } from '../../lib/staffDisplayName'
 import {
@@ -316,6 +317,7 @@ export default function StaffProfilePanel({
       StaffProfileCertificationsTab,
       StaffProfileAvailabilityTab,
       StaffProfileAISummaryTab,
+      StaffProfileDevelopmentTab,
     }),
     [],
   )
@@ -590,6 +592,16 @@ export default function StaffProfilePanel({
             organizationId={organizationId}
             staffName={displayName}
             staffFirstName={getStaffFirstName(staff)}
+          />
+        )
+      case 'StaffProfileDevelopmentTab':
+        return (
+          <TabComponent
+            staffPhone={staff.phone}
+            organizationId={organizationId}
+            hasCitRole={
+              staff.staff_roles?.some((role) => role.role === 'cit') ?? false
+            }
           />
         )
       default:
