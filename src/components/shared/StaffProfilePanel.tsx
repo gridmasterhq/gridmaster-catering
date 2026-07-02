@@ -1201,6 +1201,29 @@ export default function StaffProfilePanel({
                 >
                   {tab.label}
                 </span>
+                <span
+                  style={{
+                    fontSize: '10px',
+                    fontStyle: 'italic',
+                    color: colors.text_muted,
+                    textAlign: 'center',
+                    lineHeight: 1.2,
+                    marginTop: '2px',
+                  }}
+                >
+                  {tab.sublabel1}
+                </span>
+                <span
+                  style={{
+                    fontSize: '10px',
+                    fontStyle: 'italic',
+                    color: colors.text_muted,
+                    textAlign: 'center',
+                    lineHeight: 1.2,
+                  }}
+                >
+                  {tab.sublabel2}
+                </span>
               </button>
             )
           })}

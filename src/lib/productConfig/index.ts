@@ -343,6 +343,8 @@ export interface StaffProfileTabDefinition {
   id: string
   label: string
   componentKey: string
+  sublabel1: string
+  sublabel2: string
 }
 
 export interface ProductTerminology {
