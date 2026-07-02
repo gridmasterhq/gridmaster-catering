@@ -21,6 +21,7 @@ import StaffProfileAISummaryTab from './StaffProfileAISummaryTab'
 import StaffProfileDevelopmentTab from './StaffProfileDevelopmentTab'
 import StaffRatingBadge from './StaffRatingBadge'
 import { formatCoordinatorStaffName } from '../../lib/staffDisplayName'
+import { formatRoleName, isCitRole } from '../../utils/formatRole'
 import {
   detectStaffComplianceIssues,
   loadStaffComplianceData,
@@ -599,8 +600,8 @@ export default function StaffProfilePanel({
           <TabComponent
             staffPhone={staff.phone}
             organizationId={organizationId}
-            hasCitRole={
-              staff.staff_roles?.some((role) => role.role === 'cit') ?? false
+            hasCitHistory={
+              staff.staff_roles?.some((role) => isCitRole(role.role)) ?? false
             }
           />
         )
@@ -1005,7 +1006,7 @@ export default function StaffProfilePanel({
                     color: colors.text_muted,
                   }}
                 >
-                  {getPrimaryRole(staff)}
+                  {formatRoleName(getPrimaryRole(staff))}
                 </span>
                 <span
                   style={{

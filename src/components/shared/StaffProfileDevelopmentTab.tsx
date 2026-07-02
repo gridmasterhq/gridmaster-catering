@@ -38,7 +38,6 @@ export interface StaffProfileDevelopmentTabProps {
   notes?: string
   onNotesChange?: (notes: string) => void
   onAssignCourse?: () => void
-  hasCitRole?: boolean
   hasCitHistory?: boolean
   nominatedDate?: string
   nominatedBy?: string
@@ -170,7 +169,6 @@ export default function StaffProfileDevelopmentTab({
   notes = '',
   onNotesChange = () => {},
   onAssignCourse = () => {},
-  hasCitRole = false,
   hasCitHistory = false,
   nominatedDate = '',
   nominatedBy = '',
@@ -249,7 +247,7 @@ export default function StaffProfileDevelopmentTab({
   const activeStageIndex = stageCompletions.findIndex((complete) => !complete)
 
   const showCitProgram =
-    features.citProgram === true && (hasCitRole || hasCitHistory)
+    features.citProgram === true && hasCitHistory
 
   const getStageCircleState = (
     stageIndex: number,
