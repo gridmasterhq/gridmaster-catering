@@ -483,14 +483,24 @@ export default function AIAssistant({ onOpenStaffOverlay }: AIAssistantProps) {
   return (
     <>
       <div
-        className="relative shrink-0"
+        className="shrink-0"
         style={{
-          height: '40px',
-          boxSizing: 'border-box',
-          background:
-            'linear-gradient(to right, var(--shell-brand-navy), var(--shell-brand-red))',
+          backgroundColor: colors.brand_light_blue,
+          paddingTop: '8px',
+          paddingBottom: '8px',
+          paddingLeft: '16px',
+          paddingRight: '16px',
         }}
       >
+        <div
+          className="relative shrink-0"
+          style={{
+            height: '40px',
+            boxSizing: 'border-box',
+            background:
+              'linear-gradient(to right, var(--shell-brand-navy), var(--shell-brand-red))',
+          }}
+        >
         <form
           onSubmit={handleSubmit}
           className="flex h-full items-center gap-2"
@@ -604,6 +614,7 @@ export default function AIAssistant({ onOpenStaffOverlay }: AIAssistantProps) {
             Please type a question first
           </p>
         ) : null}
+        </div>
       </div>
 
       <OverlayPanel
