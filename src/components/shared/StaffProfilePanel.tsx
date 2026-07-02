@@ -548,7 +548,7 @@ export default function StaffProfilePanel({
       return null
     }
 
-    const { componentKey, label } = activeTabConfig
+    const { componentKey } = activeTabConfig
     const TabComponent = componentRegistry[componentKey]
 
     if (!TabComponent) {
